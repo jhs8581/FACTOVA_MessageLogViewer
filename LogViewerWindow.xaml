@@ -1,0 +1,266 @@
+﻿<Window x:Class="FACTOVA_MessageLogViewer.LogViewerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:FACTOVA_MessageLogViewer.Converters"
+        Title="FACTOVA 통신 로그 뷰어" 
+        Height="800" 
+        Width="1600"
+        WindowStartupLocation="CenterScreen"
+        Background="#F5F5F5">
+
+    <Window.Resources>
+        <local:ReturnCodeColorConverter x:Key="ReturnCodeColorConverter"/>
+        <local:ErrorColorConverter x:Key="ErrorColorConverter"/>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="60"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+
+        <!-- 헤더 -->
+        <Border Grid.Row="0" Background="#2196F3">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
+                    <TextBlock Text="📡 FACTOVA 통신 로그 뷰어" 
+                               Foreground="White" 
+                               FontSize="20" 
+                               FontWeight="Bold"
+                               VerticalAlignment="Center"/>
+                    <TextBlock x:Name="txtLogFolder"
+                               Foreground="#E3F2FD" 
+                               FontSize="12"
+                               VerticalAlignment="Center"
+                               Margin="15,0,0,0"/>
+                </StackPanel>
+
+
+                <StackPanel Orientation="Horizontal" 
+                            HorizontalAlignment="Right" 
+                            Margin="15,0">
+
+                    <TextBlock Text="Font:" 
+                               Foreground="White" 
+                               VerticalAlignment="Center" 
+                               Margin="0,0,5,0"
+                               FontSize="11"/>
+                    <TextBox x:Name="txtFontSize" 
+                             Width="35" Height="24"
+                             Text="11"
+                             VerticalContentAlignment="Center"
+                             HorizontalContentAlignment="Center"
+                             FontSize="11"/>
+                    <Button Content="-" Width="24" Height="24" Margin="3,0,0,0" Click="BtnFontMinus_Click" FontWeight="Bold"/>
+                    <Button Content="+" Width="24" Height="24" Margin="3,0,15,0" Click="BtnFontPlus_Click" FontWeight="Bold"/>
+
+                    <Button x:Name="btnPause" 
+                            Content="⏸ 일시정지" 
+                            Width="100" Height="32" 
+                            Margin="0,0,10,0"
+                            Click="BtnPause_Click"
+                            Background="#40FFFFFF"
+                            Foreground="White"
+                            BorderBrush="White"
+                            BorderThickness="1"
+                            FontWeight="Bold"
+                            Cursor="Hand"/>
+
+                    <Button Content="Clear" 
+                            Width="80" Height="32" 
+                            Margin="0,0,10,0"
+                            Click="BtnClear_Click"
+                            Background="#40FFFFFF"
+                            Foreground="White"
+                            BorderBrush="White"
+                            BorderThickness="1"
+                            FontWeight="Bold"
+                            Cursor="Hand"/>
+
+                    <TextBlock Text="검색:" 
+                               Foreground="White" 
+                               VerticalAlignment="Center" 
+                               Margin="10,0,5,0"
+                               FontSize="13"/>
+
+                    <TextBox x:Name="txtSearch" 
+                             Width="280" Height="30"
+                             VerticalAlignment="Center"
+                             VerticalContentAlignment="Center"
+                             Padding="5"
+                             TextChanged="TxtSearch_TextChanged">
+                        <TextBox.ToolTip>
+                            <ToolTip MaxWidth="450">
+                                <StackPanel>
+                                    <TextBlock Text="🔍 복합 검색" FontWeight="Bold" FontSize="13" Margin="0,0,0,8"/>
+
+                                    <Border Background="#F0F0F0" Padding="8" CornerRadius="3" Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <TextBlock FontWeight="Bold" Margin="0,0,0,3">
+                                                <Run Text="구분자:"/>
+                                            </TextBlock>
+                                            <TextBlock Margin="5,0,0,2">
+                                                <Run Text="쉼표(,)" FontFamily="Consolas" FontWeight="Bold"/>
+                                                <Run Text=" → OR 검색 (또는)"/>
+                                            </TextBlock>
+                                            <TextBlock Margin="5,0,0,0">
+                                                <Run Text="플러스(+)" FontFamily="Consolas" FontWeight="Bold"/>
+                                                <Run Text=" → AND 검색 (그리고)"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <TextBlock Text="📝 예시:" FontWeight="Bold" Margin="0,0,0,5"/>
+
+                                    <TextBlock Margin="5,0,0,3">
+                                        <Run Text="OK+1234" FontFamily="Consolas" FontWeight="Bold" Foreground="#1976D2"/>
+                                        <Run Text=" → OK 그리고 1234 포함" Foreground="#666" FontSize="11"/>
+                                    </TextBlock>
+
+                                    <TextBlock Margin="5,0,0,3">
+                                        <Run Text="OK,NG" FontFamily="Consolas" FontWeight="Bold" Foreground="#1976D2"/>
+                                        <Run Text=" → OK 또는 NG 포함" Foreground="#666" FontSize="11"/>
+                                    </TextBlock>
+
+                                    <TextBlock Margin="5,0,0,0">
+                                        <Run Text="송신+NG,수신+OK" FontFamily="Consolas" FontWeight="Bold" Foreground="#1976D2"/>
+                                        <Run Text=" → (송신 AND NG) OR (수신 AND OK)" Foreground="#666" FontSize="11"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </ToolTip>
+                        </TextBox.ToolTip>
+                    </TextBox>
+
+                    <TextBlock Text="ⓘ" 
+                               Foreground="White" 
+                               VerticalAlignment="Center" 
+                               Margin="5,0,10,0"
+                               FontSize="16"
+                               FontWeight="Bold"
+                               Cursor="Help"
+                               ToolTip="쉼표(,)=OR, 플러스(+)=AND&#x0a;예: OK+1234,NG"/>
+
+                    <CheckBox x:Name="chkSendOnly" 
+                              Content="송신만" 
+                              Foreground="White"
+                              VerticalAlignment="Center" 
+                              Margin="5,0,10,0"
+                              Checked="Filter_Changed" 
+                              Unchecked="Filter_Changed"/>
+
+                    <CheckBox x:Name="chkRecvOnly" 
+                              Content="수신만" 
+                              Foreground="White"
+                              VerticalAlignment="Center"
+                              Margin="0,0,10,0"
+                              Checked="Filter_Changed" 
+                              Unchecked="Filter_Changed"/>
+
+                    <Button Content="닫기" 
+                            Width="70" Height="32"
+                            Background="#F44336"
+                            Foreground="White"
+                            BorderThickness="0"
+                            FontWeight="Bold"
+                            Click="BtnClose_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ListView -->
+        <ListView Grid.Row="1" 
+                  x:Name="listViewLog" 
+                  FontSize="11"
+                  Margin="10"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling"
+                  VirtualizingPanel.CacheLength="20"
+                  ScrollViewer.IsDeferredScrollingEnabled="True">
+
+            <ListView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+            </ListView.ItemsPanel>
+
+            <ListView.View>
+                <GridView x:Name="gridView">
+                    <!-- 시간 -->
+                    <GridViewColumn Header="시간" Width="100">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding TimeString}" 
+                                           FontFamily="Consolas"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+
+                    <!-- 구분 -->
+                    <GridViewColumn Header="구분" Width="50">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DirectionText}" 
+                                           FontWeight="Bold" 
+                                           HorizontalAlignment="Center"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+
+                    <!-- MsgId -->
+                    <GridViewColumn Header="MsgId" Width="60">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding MessageId}" 
+                                           FontFamily="Consolas" 
+                                           HorizontalAlignment="Center"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+
+                    <!-- 동적 컬럼들은 코드에서 추가됨 -->
+
+                    <!-- 주요내용 (항상 마지막) -->
+                    <GridViewColumn x:Name="colSummary" Header="주요내용" Width="500">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Summary}" 
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Summary}"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                </GridView>
+            </ListView.View>
+
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Background" Value="{Binding BackgroundBrush}"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="Padding" Value="6,7"/>
+                    <Setter Property="Margin" Value="0,1"/>
+                </Style>
+            </ListView.ItemContainerStyle>
+        </ListView>
+
+        <!-- 하단 상태바 -->
+        <Border Grid.Row="2" Background="#EEEEEE" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0">
+            <Grid>
+                <TextBlock x:Name="txtStatus" 
+                           Text="로그 개수: 0" 
+                           VerticalAlignment="Center" 
+                           Margin="15,0"
+                           FontSize="12"
+                           Foreground="#333"/>
+
+                <TextBlock x:Name="txtMode" 
+                           Text="" 
+                           VerticalAlignment="Center" 
+                           HorizontalAlignment="Right"
+                           Margin="15,0"
+                           FontSize="11"
+                           Foreground="#666"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
