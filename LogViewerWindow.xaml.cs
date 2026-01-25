@@ -16,14 +16,14 @@ namespace FACTOVA_MessageLogViewer
 {
     public partial class LogViewerWindow : Window
     {
-        private LogViewerManager logManager;
-        private ObservableCollection<LogEntry> logEntries;
-        private ObservableCollection<LogEntry> displayEntries;
-        private ICollectionView logView;
+        private LogViewerManager logManager = null!;
+        private ObservableCollection<LogEntry> logEntries = null!;
+        private ObservableCollection<LogEntry> displayEntries = null!;
+        private ICollectionView logView = null!;
 
-        private FileSystemWatcher fileWatcher;
-        private string logDirectory;
-        private string currentLogFile;
+        private FileSystemWatcher? fileWatcher;
+        private string logDirectory = "";
+        private string currentLogFile = "";
         private long lastPosition = 0;
 
         private bool isPaused = false;

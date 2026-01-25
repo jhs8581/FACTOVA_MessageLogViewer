@@ -19,9 +19,7 @@
     <Description>FACTOVA 통신 로그 뷰어</Description>
     <Copyright>Copyright © FACTOVA 2025</Copyright>
     
-    <!-- 빌드 설정 -->
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <SelfContained>true</SelfContained>
+    <!-- 빌드 설정 (Publish 시 적용) -->
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
