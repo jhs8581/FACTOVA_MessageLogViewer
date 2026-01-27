@@ -1,9 +1,11 @@
 using FACTOVA_MessageLogViewer.Models;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace FACTOVA_MessageLogViewer
 {
@@ -11,22 +13,38 @@ namespace FACTOVA_MessageLogViewer
     {
         private string logFilePath;
         private ObservableCollection<FieldSettingItem> fieldItems = new();
+        
+        // 탭 설정 관련
+        private ObservableCollection<TabConfig> tabs = new();
+        private TabConfig? selectedTab;
+        private bool isUpdating = false;
+        private string? initialPresetName;
 
         public bool SettingsApplied { get; private set; } = false;
 
-        public ColumnSettingsWindow(string logFilePath)
+        /// <summary>
+        /// 발견된 필드 목록 (콤보박스 바인딩용)
+        /// </summary>
+        public List<string> FieldList => LogFieldAnalyzer.DiscoveredFields;
+
+        public ColumnSettingsWindow(string logFilePath, string? selectedPresetName = null)
         {
             InitializeComponent();
             this.logFilePath = logFilePath;
+            this.initialPresetName = selectedPresetName;
             
             dgFields.ItemsSource = fieldItems;
             
             LoadPresetList();
             AnalyzeAndLoadFields();
+            LoadTabSettings();
         }
+
+        #region 프리셋 관리
 
         private void LoadPresetList()
         {
+            isLoadingPreset = true;
             cboPresets.Items.Clear();
             cboPresets.Items.Add("Default");
             
@@ -35,8 +53,25 @@ namespace FACTOVA_MessageLogViewer
                 cboPresets.Items.Add(preset);
             }
 
-            cboPresets.SelectedIndex = 0;
+            // 전달받은 프리셋 이름으로 선택, 없으면 현재 설정 이름으로 선택
+            var targetPreset = initialPresetName ?? ColumnSettingsManager.CurrentSettings.Name;
+            int matchIndex = 0;
+            for (int i = 0; i < cboPresets.Items.Count; i++)
+            {
+                if (cboPresets.Items[i]?.ToString() == targetPreset)
+                {
+                    matchIndex = i;
+                    break;
+                }
+            }
+            
+            cboPresets.SelectedIndex = matchIndex;
+            isLoadingPreset = false;
         }
+
+        #endregion
+
+        #region 컬럼 설정
 
         private void AnalyzeAndLoadFields()
         {
@@ -80,10 +115,10 @@ namespace FACTOVA_MessageLogViewer
                 }
             }
 
-            UpdateOrders();
+            UpdateFieldOrders();
         }
 
-        private void UpdateOrders()
+        private void UpdateFieldOrders()
         {
             int order = 1;
             foreach (var item in fieldItems)
@@ -93,8 +128,12 @@ namespace FACTOVA_MessageLogViewer
             dgFields.Items.Refresh();
         }
 
-        private void BtnLoadPreset_Click(object sender, RoutedEventArgs e)
+        private bool isLoadingPreset = false;
+
+        private void CboPresets_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (isLoadingPreset) return;
+
             var selected = cboPresets.SelectedItem?.ToString();
             if (string.IsNullOrEmpty(selected))
                 return;
@@ -112,6 +151,7 @@ namespace FACTOVA_MessageLogViewer
             if (settings != null)
             {
                 ApplySettingsToGrid(settings);
+                ApplyTabSettingsFromSettings(settings);
             }
         }
 
@@ -132,9 +172,21 @@ namespace FACTOVA_MessageLogViewer
 
         private void BtnSavePreset_Click(object sender, RoutedEventArgs e)
         {
-            var settings = CreateSettingsFromGrid();
-            ColumnSettingsManager.SaveCurrentSettings(settings);
-            MessageBox.Show("Settings saved.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+            var selected = cboPresets.SelectedItem?.ToString();
+            var settings = CreateSettingsFromAll();
+            
+            if (string.IsNullOrEmpty(selected) || selected == "Default")
+            {
+                // Default 선택 시 현재 설정에 저장
+                ColumnSettingsManager.SaveCurrentSettings(settings);
+                MessageBox.Show("현재 설정에 저장되었습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            else
+            {
+                // 선택한 프리셋에 저장
+                ColumnSettingsManager.SaveSettingsAsPreset(settings, selected);
+                MessageBox.Show($"'{selected}' 프리셋에 저장되었습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
 
         private void BtnSaveAsPreset_Click(object sender, RoutedEventArgs e)
@@ -142,22 +194,28 @@ namespace FACTOVA_MessageLogViewer
             var name = txtPresetName.Text.Trim();
             if (string.IsNullOrEmpty(name))
             {
-                MessageBox.Show("Please enter preset name.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("프리셋 이름을 입력하세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            var settings = CreateSettingsFromGrid();
+            var settings = CreateSettingsFromAll();
             ColumnSettingsManager.SaveSettingsAsPreset(settings, name);
             
             LoadPresetList();
-            MessageBox.Show($"Saved as '{name}'.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show($"'{name}'으로 저장되었습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
-        private ColumnSettings CreateSettingsFromGrid()
+        private ColumnSettings CreateSettingsFromAll()
         {
+            // 탭 순서 업데이트
+            UpdateTabOrders();
+
+            // 현재 선택된 프리셋 이름 사용
+            var presetName = cboPresets.SelectedItem?.ToString() ?? "Default";
+
             var settings = new ColumnSettings
             {
-                Name = "User Settings",
+                Name = presetName,
                 Fields = fieldItems.Select((item, index) => new FieldConfig
                 {
                     FieldName = item.FieldName,
@@ -165,7 +223,13 @@ namespace FACTOVA_MessageLogViewer
                     DisplayType = item.DisplayType,
                     ColumnWidth = item.ColumnWidth,
                     Order = index
-                }).ToList()
+                }).ToList(),
+                TabSettings = new TabSettings
+                {
+                    Tabs = tabs.ToList(),
+                    LastSelectedTabIndex = 0
+                },
+                FontSize = ColumnSettingsManager.CurrentSettings.FontSize
             };
             return settings;
         }
@@ -176,7 +240,7 @@ namespace FACTOVA_MessageLogViewer
             {
                 item.DisplayType = FieldDisplayType.Summary;
             }
-            UpdateOrders();
+            UpdateFieldOrders();
         }
 
         private void BtnAllHidden_Click(object sender, RoutedEventArgs e)
@@ -185,33 +249,7 @@ namespace FACTOVA_MessageLogViewer
             {
                 item.DisplayType = FieldDisplayType.Hidden;
             }
-            UpdateOrders();
-        }
-
-        private void BtnAddField_Click(object sender, RoutedEventArgs e)
-        {
-            var newItem = new FieldSettingItem
-            {
-                Order = fieldItems.Count + 1,
-                FieldName = "NEW_FIELD",
-                DisplayName = "New Field",
-                DisplayType = FieldDisplayType.Column,
-                ColumnWidth = 100
-            };
-            fieldItems.Add(newItem);
-            UpdateOrders();
-            dgFields.SelectedItem = newItem;
-            dgFields.ScrollIntoView(newItem);
-        }
-
-        private void BtnRemoveField_Click(object sender, RoutedEventArgs e)
-        {
-            var selected = dgFields.SelectedItem as FieldSettingItem;
-            if (selected != null)
-            {
-                fieldItems.Remove(selected);
-                UpdateOrders();
-            }
+            UpdateFieldOrders();
         }
 
         private void BtnMoveUp_Click(object sender, RoutedEventArgs e)
@@ -223,7 +261,7 @@ namespace FACTOVA_MessageLogViewer
             if (index > 0)
             {
                 fieldItems.Move(index, index - 1);
-                UpdateOrders();
+                UpdateFieldOrders();
                 dgFields.SelectedItem = selected;
             }
         }
@@ -237,7 +275,7 @@ namespace FACTOVA_MessageLogViewer
             if (index < fieldItems.Count - 1)
             {
                 fieldItems.Move(index, index + 1);
-                UpdateOrders();
+                UpdateFieldOrders();
                 dgFields.SelectedItem = selected;
             }
         }
@@ -247,13 +285,305 @@ namespace FACTOVA_MessageLogViewer
             AnalyzeAndLoadFields();
         }
 
+        #endregion
+
+        #region 탭 설정
+
+        private void LoadTabSettings()
+        {
+            var settings = ColumnSettingsManager.CurrentSettings;
+            ApplyTabSettingsFromSettings(settings);
+        }
+
+        private void ApplyTabSettingsFromSettings(ColumnSettings settings)
+        {
+            System.Diagnostics.Debug.WriteLine($"?? ApplyTabSettingsFromSettings 호출");
+            System.Diagnostics.Debug.WriteLine($"   - TabSettings null?: {settings.TabSettings == null}");
+            System.Diagnostics.Debug.WriteLine($"   - Tabs null?: {settings.TabSettings?.Tabs == null}");
+            System.Diagnostics.Debug.WriteLine($"   - Tabs count: {settings.TabSettings?.Tabs?.Count ?? 0}");
+            
+            tabs.Clear();
+            if (settings.TabSettings?.Tabs != null)
+            {
+                foreach (var tab in settings.TabSettings.Tabs)
+                {
+                    System.Diagnostics.Debug.WriteLine($"   - Tab: {tab.Name}, IsEnabled: {tab.IsEnabled}, IsIntegrated: {tab.IsIntegrated}");
+                    
+                    var copy = new TabConfig
+                    {
+                        Name = tab.Name,
+                        Order = tab.Order,
+                        IsEnabled = tab.IsEnabled,
+                        IsIntegrated = tab.IsIntegrated,
+                        Conditions = tab.Conditions?.Select(c => new TabFilterCondition
+                        {
+                            FieldName = c.FieldName,
+                            Value = c.Value,
+                            ExactMatch = c.ExactMatch
+                        }).ToList() ?? new List<TabFilterCondition>(),
+                        ConditionGroups = tab.ConditionGroups?.Select(g => new ConditionGroup
+                        {
+                            Name = g.Name,
+                            Conditions = g.Conditions?.Select(c => new TabFilterCondition
+                            {
+                                FieldName = c.FieldName,
+                                Value = c.Value,
+                                ExactMatch = c.ExactMatch
+                            }).ToList() ?? new List<TabFilterCondition>()
+                        }).ToList() ?? new List<ConditionGroup>()
+                    };
+
+                    // 이전 호환: Conditions가 있고 ConditionGroups가 없으면 변환
+                    if (copy.ConditionGroups.Count == 0 && copy.Conditions.Count > 0)
+                    {
+                        copy.ConditionGroups.Add(new ConditionGroup
+                        {
+                            Name = "Group 1",
+                            Conditions = copy.Conditions.ToList()
+                        });
+                        copy.Conditions.Clear();
+                    }
+
+                    tabs.Add(copy);
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine($"   - 최종 tabs count: {tabs.Count}");
+
+            // 탭이 없으면 기본 통합 탭 추가
+            if (tabs.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"   ?? 탭이 없어서 기본 탭 추가");
+                tabs.Add(new TabConfig
+                {
+                    Name = "전체 로그",
+                    Order = 0,
+                    IsIntegrated = true,
+                    IsEnabled = true
+                });
+            }
+
+            listBoxTabs.ItemsSource = null;
+            listBoxTabs.ItemsSource = tabs;
+            
+            if (tabs.Count > 0)
+            {
+                listBoxTabs.SelectedIndex = 0;
+            }
+        }
+
+        private void ListBoxTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            selectedTab = listBoxTabs.SelectedItem as TabConfig;
+            UpdateTabDetailPanel();
+        }
+
+        private void UpdateTabDetailPanel()
+        {
+            if (selectedTab == null)
+            {
+                panelTabDetails.IsEnabled = false;
+                return;
+            }
+
+            isUpdating = true;
+            panelTabDetails.IsEnabled = true;
+
+            txtTabName.Text = selectedTab.Name;
+            chkIsIntegrated.IsChecked = selectedTab.IsIntegrated;
+            
+            itemsConditionGroups.ItemsSource = null;
+            itemsConditionGroups.ItemsSource = selectedTab.ConditionGroups;
+            
+            itemsConditionGroups.IsEnabled = !selectedTab.IsIntegrated;
+
+            isUpdating = false;
+        }
+
+        private void TxtTabName_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (isUpdating || selectedTab == null) return;
+            
+            selectedTab.Name = txtTabName.Text;
+            RefreshTabList();
+        }
+
+        private void ChkIsIntegrated_Changed(object sender, RoutedEventArgs e)
+        {
+            if (isUpdating || selectedTab == null) return;
+            
+            selectedTab.IsIntegrated = chkIsIntegrated.IsChecked == true;
+            itemsConditionGroups.IsEnabled = !selectedTab.IsIntegrated;
+            RefreshTabList();
+        }
+
+        private void TabEnabled_Changed(object sender, RoutedEventArgs e)
+        {
+            // 체크박스 변경 시 자동 반영됨
+        }
+
+        private void RefreshTabList()
+        {
+            var selectedIndex = listBoxTabs.SelectedIndex;
+            listBoxTabs.ItemsSource = null;
+            listBoxTabs.ItemsSource = tabs;
+            listBoxTabs.SelectedIndex = selectedIndex;
+        }
+
+        private void BtnAddTab_Click(object sender, RoutedEventArgs e)
+        {
+            var newTab = new TabConfig
+            {
+                Name = $"새 탭 {tabs.Count + 1}",
+                Order = tabs.Count,
+                IsEnabled = true,
+                IsIntegrated = false,
+                ConditionGroups = new List<ConditionGroup>()
+            };
+
+            tabs.Add(newTab);
+            RefreshTabList();
+            listBoxTabs.SelectedItem = newTab;
+        }
+
+        private void BtnRemoveTab_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedTab == null) return;
+
+            if (tabs.Count <= 1)
+            {
+                MessageBox.Show("최소 1개의 탭이 필요합니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var result = MessageBox.Show(
+                $"'{selectedTab.Name}' 탭을 삭제하시겠습니까?",
+                "확인",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question
+            );
+
+            if (result == MessageBoxResult.Yes)
+            {
+                var index = tabs.IndexOf(selectedTab);
+                tabs.Remove(selectedTab);
+                
+                RefreshTabList();
+                
+                if (tabs.Count > 0)
+                {
+                    listBoxTabs.SelectedIndex = Math.Min(index, tabs.Count - 1);
+                }
+            }
+        }
+
+        private void BtnTabMoveUp_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedTab == null) return;
+
+            var index = tabs.IndexOf(selectedTab);
+            if (index > 0)
+            {
+                tabs.Move(index, index - 1);
+                UpdateTabOrders();
+                RefreshTabList();
+            }
+        }
+
+        private void BtnTabMoveDown_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedTab == null) return;
+
+            var index = tabs.IndexOf(selectedTab);
+            if (index < tabs.Count - 1)
+            {
+                tabs.Move(index, index + 1);
+                UpdateTabOrders();
+                RefreshTabList();
+            }
+        }
+
+        private void UpdateTabOrders()
+        {
+            for (int i = 0; i < tabs.Count; i++)
+            {
+                tabs[i].Order = i;
+            }
+        }
+
+        private void BtnAddGroup_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedTab == null) return;
+
+            selectedTab.ConditionGroups ??= new List<ConditionGroup>();
+            selectedTab.ConditionGroups.Add(new ConditionGroup
+            {
+                Name = $"그룹 {selectedTab.ConditionGroups.Count + 1}",
+                Conditions = new List<TabFilterCondition>
+                {
+                    new TabFilterCondition { FieldName = "MSGID", Value = "", ExactMatch = true }
+                }
+            });
+
+            UpdateTabDetailPanel();
+        }
+
+        private void BtnRemoveGroup_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedTab == null) return;
+
+            if (sender is Button button && button.Tag is ConditionGroup group)
+            {
+                selectedTab.ConditionGroups?.Remove(group);
+                UpdateTabDetailPanel();
+            }
+        }
+
+        private void BtnAddConditionToGroup_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is ConditionGroup group)
+            {
+                group.Conditions ??= new List<TabFilterCondition>();
+                group.Conditions.Add(new TabFilterCondition
+                {
+                    FieldName = "MSGID",
+                    Value = "",
+                    ExactMatch = true
+                });
+
+                UpdateTabDetailPanel();
+            }
+        }
+
+        private void BtnRemoveConditionInGroup_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedTab == null) return;
+
+            if (sender is Button button && button.Tag is TabFilterCondition condition)
+            {
+                foreach (var group in selectedTab.ConditionGroups ?? Enumerable.Empty<ConditionGroup>())
+                {
+                    if (group.Conditions?.Remove(condition) == true)
+                    {
+                        break;
+                    }
+                }
+                UpdateTabDetailPanel();
+            }
+        }
+
+        #endregion
+
+        #region 공통 버튼
+
         private void BtnReset_Click(object sender, RoutedEventArgs e)
         {
-            var result = MessageBox.Show("Reset to default?", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            var result = MessageBox.Show("기본값으로 초기화하시겠습니까?", "확인", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (result == MessageBoxResult.Yes)
             {
                 var defaultSettings = ColumnSettingsManager.CreateDefaultSettings();
                 ApplySettingsToGrid(defaultSettings);
+                ApplyTabSettingsFromSettings(defaultSettings);
             }
         }
 
@@ -265,13 +595,15 @@ namespace FACTOVA_MessageLogViewer
 
         private void BtnApply_Click(object sender, RoutedEventArgs e)
         {
-            var settings = CreateSettingsFromGrid();
+            var settings = CreateSettingsFromAll();
             ColumnSettingsManager.CurrentSettings = settings;
             
             SettingsApplied = true;
             DialogResult = true;
             Close();
         }
+
+        #endregion
     }
 
     /// <summary>

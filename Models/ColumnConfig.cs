@@ -28,7 +28,7 @@ namespace FACTOVA_MessageLogViewer.Models
     }
 
     /// <summary>
-    /// 전체 컬럼 설정 (공정별로 저장)
+    /// 전체 컬럼 설정 (프리셋으로 저장)
     /// </summary>
     public class ColumnSettings
     {
@@ -37,6 +37,16 @@ namespace FACTOVA_MessageLogViewer.Models
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime ModifiedAt { get; set; } = DateTime.Now;
         public List<FieldConfig> Fields { get; set; } = new();
+
+        /// <summary>
+        /// 로그 뷰어 폰트 크기
+        /// </summary>
+        public int FontSize { get; set; } = 11;
+
+        /// <summary>
+        /// 탭 설정 (업무별 탭 필터링)
+        /// </summary>
+        public TabSettings TabSettings { get; set; } = TabSettings.CreateDefault();
 
         /// <summary>
         /// 컬럼으로 표시할 필드들
@@ -54,34 +64,22 @@ namespace FACTOVA_MessageLogViewer.Models
     }
 
 
+
+
     /// <summary>
-    /// 컬럼 설정 관리자
+    /// 컬럼 설정 관리자 (AppSettingsManager 래퍼)
     /// </summary>
     public static class ColumnSettingsManager
     {
-        // 실행파일과 동일한 경로에 저장
-        private static readonly string AppFolder = AppDomain.CurrentDomain.BaseDirectory;
-        private static readonly string SettingsFolder = Path.Combine(AppFolder, "ColumnSettings");
-        private static readonly string CurrentSettingFile = Path.Combine(AppFolder, "column_settings.json");
-
-        private static ColumnSettings? _currentSettings;
-
         public static ColumnSettings CurrentSettings
         {
-            get => _currentSettings ?? LoadCurrentSettings() ?? CreateDefaultSettings();
+            get => AppSettingsManager.Settings.ColumnSettings ?? AppSettingsManager.CreateDefaultColumnSettings();
             set
             {
-                _currentSettings = value;
-                SaveCurrentSettings(value);
+                AppSettingsManager.Settings.ColumnSettings = value;
+                AppSettingsManager.Settings.CurrentPresetName = value.Name;
+                AppSettingsManager.SaveCurrent();
             }
-        }
-
-
-        static ColumnSettingsManager()
-        {
-            // 폴더 생성
-            Directory.CreateDirectory(SettingsFolder);
-            Directory.CreateDirectory(Path.GetDirectoryName(CurrentSettingFile)!);
         }
 
         /// <summary>
@@ -89,39 +87,7 @@ namespace FACTOVA_MessageLogViewer.Models
         /// </summary>
         public static ColumnSettings CreateDefaultSettings()
         {
-            return new ColumnSettings
-            {
-                Name = "기본 설정",
-                Fields = new List<FieldConfig>
-                {
-                    new() { FieldName = "RETURN_CODE", DisplayName = "결과", DisplayType = FieldDisplayType.Column, ColumnWidth = 60, Order = 1 },
-                    new() { FieldName = "WORK_TYPE", DisplayName = "작업", DisplayType = FieldDisplayType.Column, ColumnWidth = 50, Order = 2 },
-                    new() { FieldName = "ERROR_CODE", DisplayName = "에러", DisplayType = FieldDisplayType.Column, ColumnWidth = 80, Order = 3 },
-                    new() { FieldName = "LOTID", DisplayName = "LOT", DisplayType = FieldDisplayType.Summary, Order = 10 },
-                    new() { FieldName = "PALLET_ID", DisplayName = "팔레트", DisplayType = FieldDisplayType.Summary, Order = 11 },
-                    new() { FieldName = "PROCID", DisplayName = "공정ID", DisplayType = FieldDisplayType.Hidden, Order = 100 }
-                }
-            };
-        }
-
-        /// <summary>
-        /// 현재 설정 로드
-        /// </summary>
-        public static ColumnSettings? LoadCurrentSettings()
-        {
-            try
-            {
-                if (File.Exists(CurrentSettingFile))
-                {
-                    var json = File.ReadAllText(CurrentSettingFile);
-                    return JsonSerializer.Deserialize<ColumnSettings>(json);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"설정 로드 실패: {ex.Message}");
-            }
-            return null;
+            return AppSettingsManager.CreateDefaultColumnSettings();
         }
 
         /// <summary>
@@ -129,17 +95,8 @@ namespace FACTOVA_MessageLogViewer.Models
         /// </summary>
         public static void SaveCurrentSettings(ColumnSettings settings)
         {
-            try
-            {
-                settings.ModifiedAt = DateTime.Now;
-                var options = new JsonSerializerOptions { WriteIndented = true };
-                var json = JsonSerializer.Serialize(settings, options);
-                File.WriteAllText(CurrentSettingFile, json);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"설정 저장 실패: {ex.Message}");
-            }
+            AppSettingsManager.Settings.ColumnSettings = settings;
+            AppSettingsManager.SaveCurrent();
         }
 
         /// <summary>
@@ -147,22 +104,7 @@ namespace FACTOVA_MessageLogViewer.Models
         /// </summary>
         public static void SaveSettingsAsPreset(ColumnSettings settings, string name)
         {
-            try
-            {
-                settings.Name = name;
-                settings.ModifiedAt = DateTime.Now;
-                
-                var fileName = SanitizeFileName(name) + ".json";
-                var filePath = Path.Combine(SettingsFolder, fileName);
-                
-                var options = new JsonSerializerOptions { WriteIndented = true };
-                var json = JsonSerializer.Serialize(settings, options);
-                File.WriteAllText(filePath, json);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"프리셋 저장 실패: {ex.Message}");
-            }
+            AppSettingsManager.SavePreset(name, settings);
         }
 
         /// <summary>
@@ -170,19 +112,7 @@ namespace FACTOVA_MessageLogViewer.Models
         /// </summary>
         public static List<string> GetPresetNames()
         {
-            var presets = new List<string>();
-            try
-            {
-                if (Directory.Exists(SettingsFolder))
-                {
-                    foreach (var file in Directory.GetFiles(SettingsFolder, "*.json"))
-                    {
-                        presets.Add(Path.GetFileNameWithoutExtension(file));
-                    }
-                }
-            }
-            catch { }
-            return presets;
+            return AppSettingsManager.GetPresetNames();
         }
 
         /// <summary>
@@ -190,22 +120,7 @@ namespace FACTOVA_MessageLogViewer.Models
         /// </summary>
         public static ColumnSettings? LoadPreset(string name)
         {
-            try
-            {
-                var fileName = SanitizeFileName(name) + ".json";
-                var filePath = Path.Combine(SettingsFolder, fileName);
-                
-                if (File.Exists(filePath))
-                {
-                    var json = File.ReadAllText(filePath);
-                    return JsonSerializer.Deserialize<ColumnSettings>(json);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"프리셋 로드 실패: {ex.Message}");
-            }
-            return null;
+            return AppSettingsManager.LoadPreset(name);
         }
 
         /// <summary>
@@ -224,15 +139,6 @@ namespace FACTOVA_MessageLogViewer.Models
                 DisplayName = fieldName,
                 DisplayType = FieldDisplayType.Summary
             };
-        }
-
-        private static string SanitizeFileName(string name)
-        {
-            foreach (var c in Path.GetInvalidFileNameChars())
-            {
-                name = name.Replace(c, '_');
-            }
-            return name;
         }
     }
 }

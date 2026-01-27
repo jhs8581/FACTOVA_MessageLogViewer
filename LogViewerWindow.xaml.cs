@@ -34,6 +34,12 @@ namespace FACTOVA_MessageLogViewer
         private int recentCount;
         private DateTime selectedDate;
 
+        // 탭별 ListView 및 View 관리
+        private Dictionary<TabConfig, ListView> tabListViews = new();
+        private Dictionary<TabConfig, ICollectionView> tabViews = new();
+        private Dictionary<TabConfig, ObservableCollection<LogEntry>> tabDisplayEntries = new();
+        private ListView? currentListView;
+        private TabConfig? currentTabConfig;
 
 
         // 멀티라인 파싱용 버퍼
@@ -62,12 +68,288 @@ namespace FACTOVA_MessageLogViewer
 
             txtLogFolder.Text = $"({Path.GetFileName(logFilePath)})";
 
+            LoadPresetList();             // 프리셋 목록 로드
             InitializeLogManager();
-            InitializeDynamicColumns();  // 동적 컬럼 생성
+            InitializeTabs();             // 탭 초기화 (동적 컬럼 포함)
+            LoadSavedFontSize();          // 저장된 폰트 크기 로드
             StartFileWatcher();
             LoadLogs();
 
             UpdateModeText();
+        }
+
+
+        /// <summary>
+        /// 프리셋 목록 로드
+        /// </summary>
+        private void LoadPresetList()
+        {
+            isLoadingPreset = true;
+            cboPresets.Items.Clear();
+            cboPresets.Items.Add("Default");
+            
+            foreach (var preset in ColumnSettingsManager.GetPresetNames())
+            {
+                cboPresets.Items.Add(preset);
+            }
+
+            // 현재 설정의 이름과 일치하는 프리셋 선택
+            var currentName = ColumnSettingsManager.CurrentSettings.Name;
+            var matchIndex = -1;
+            for (int i = 0; i < cboPresets.Items.Count; i++)
+            {
+                if (cboPresets.Items[i]?.ToString() == currentName)
+                {
+                    matchIndex = i;
+                    break;
+                }
+            }
+            
+            cboPresets.SelectedIndex = matchIndex >= 0 ? matchIndex : 0;
+            isLoadingPreset = false;
+        }
+
+        private bool isLoadingPreset = false;
+
+        /// <summary>
+        /// 프리셋 선택 변경
+        /// </summary>
+        private void CboPresets_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingPreset) return;
+
+            var selectedPreset = cboPresets.SelectedItem?.ToString();
+            if (string.IsNullOrEmpty(selectedPreset)) return;
+
+            ColumnSettings? settings;
+            if (selectedPreset == "Default")
+            {
+                settings = ColumnSettingsManager.CreateDefaultSettings();
+            }
+            else
+            {
+                settings = ColumnSettingsManager.LoadPreset(selectedPreset);
+            }
+            
+            if (settings != null)
+            {
+                System.Diagnostics.Debug.WriteLine($"🔄 프리셋 '{selectedPreset}' 로드");
+                System.Diagnostics.Debug.WriteLine($"   - TabSettings: {settings.TabSettings != null}");
+                System.Diagnostics.Debug.WriteLine($"   - Tabs count: {settings.TabSettings?.Tabs?.Count ?? 0}");
+                System.Diagnostics.Debug.WriteLine($"   - EnabledTabs count: {settings.TabSettings?.EnabledTabs?.Count() ?? 0}");
+                
+                // 현재 설정으로 적용 (이름도 저장됨)
+                ColumnSettingsManager.CurrentSettings = settings;
+
+                // 탭 재초기화
+                InitializeTabs();
+                ReloadExistingLogs();
+                
+                // 폰트 크기 적용
+                LoadSavedFontSize();
+            }
+            // 콤보박스는 선택한 프리셋 유지
+        }
+
+        /// <summary>
+        /// 탭 초기화 (동적 생성)
+        /// </summary>
+        private void InitializeTabs()
+        {
+            tabControlLogs.Items.Clear();
+            tabListViews.Clear();
+            tabViews.Clear();
+            tabDisplayEntries.Clear();
+
+            var settings = ColumnSettingsManager.CurrentSettings;
+            
+            System.Diagnostics.Debug.WriteLine($"📋 InitializeTabs 호출");
+            System.Diagnostics.Debug.WriteLine($"   - TabSettings: {settings.TabSettings != null}");
+            System.Diagnostics.Debug.WriteLine($"   - Tabs count: {settings.TabSettings?.Tabs?.Count ?? 0}");
+            System.Diagnostics.Debug.WriteLine($"   - EnabledTabs count: {settings.TabSettings?.EnabledTabs?.Count() ?? 0}");
+            
+            var tabs = settings.TabSettings?.EnabledTabs?.ToList() ?? new List<TabConfig>();
+
+            // 탭이 없으면 기본 통합 탭 생성
+            if (tabs.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"   ⚠️ 탭이 없어서 기본 탭 생성");
+                tabs.Add(new TabConfig
+                {
+                    Name = "📊 통합 로그",
+                    IsIntegrated = true,
+                    IsEnabled = true
+                });
+            }
+
+            foreach (var tabConfig in tabs)
+            {
+                var tabItem = CreateTabItem(tabConfig);
+                tabControlLogs.Items.Add(tabItem);
+            }
+
+            // 첫 번째 탭 선택
+            if (tabControlLogs.Items.Count > 0)
+            {
+                tabControlLogs.SelectedIndex = Math.Min(
+                    settings.TabSettings?.LastSelectedTabIndex ?? 0,
+                    tabControlLogs.Items.Count - 1
+                );
+            }
+        }
+
+        /// <summary>
+        /// 개별 탭 아이템 생성
+        /// </summary>
+        private TabItem CreateTabItem(TabConfig tabConfig)
+        {
+            // 탭별 데이터 컬렉션 생성
+            var entries = new ObservableCollection<LogEntry>();
+            tabDisplayEntries[tabConfig] = entries;
+
+            // ListView 생성
+            var listView = CreateListView(tabConfig, entries);
+            tabListViews[tabConfig] = listView;
+
+            // View 생성 및 필터 설정
+            var view = CollectionViewSource.GetDefaultView(entries);
+            view.Filter = item => FilterLogEntry(item, tabConfig);
+            tabViews[tabConfig] = view;
+
+            listView.ItemsSource = view;
+
+            // 탭 헤더 (카운트 표시 포함)
+            var headerPanel = new StackPanel { Orientation = Orientation.Horizontal };
+            var headerText = new TextBlock { Text = tabConfig.Name };
+            var countText = new TextBlock 
+            { 
+                Text = " (0)", 
+                Foreground = new SolidColorBrush(Colors.Gray),
+                FontSize = 10,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            headerPanel.Children.Add(headerText);
+            headerPanel.Children.Add(countText);
+
+            // 툴팁에 조건 표시
+            var tooltip = string.IsNullOrEmpty(tabConfig.ConditionSummary) 
+                ? tabConfig.Name 
+                : $"{tabConfig.Name}\n조건: {tabConfig.ConditionSummary}";
+
+            var tabItem = new TabItem
+            {
+                Header = headerPanel,
+                Content = listView,
+                Tag = tabConfig,
+                ToolTip = tooltip
+            };
+
+            return tabItem;
+        }
+
+        /// <summary>
+        /// ListView 생성
+        /// </summary>
+        private ListView CreateListView(TabConfig tabConfig, ObservableCollection<LogEntry> entries)
+        {
+            var listView = new ListView
+            {
+                FontSize = 11,
+                Margin = new Thickness(0)
+            };
+
+            // 가상화 설정
+            VirtualizingPanel.SetIsVirtualizing(listView, true);
+            VirtualizingPanel.SetVirtualizationMode(listView, VirtualizationMode.Recycling);
+            VirtualizingPanel.SetCacheLength(listView, new VirtualizationCacheLength(20));
+            ScrollViewer.SetIsDeferredScrollingEnabled(listView, true);
+
+            // GridView 생성
+            var gridView = new GridView();
+
+            // 기본 컬럼들
+            gridView.Columns.Add(CreateColumn("시간", "TimeString", 100, fontFamily: "Consolas"));
+            gridView.Columns.Add(CreateColumn("구분", "DirectionText", 50, fontWeight: FontWeights.Bold, hAlign: HorizontalAlignment.Center));
+            gridView.Columns.Add(CreateColumn("MsgId", "MessageId", 60, fontFamily: "Consolas", hAlign: HorizontalAlignment.Center));
+
+            // 통합 로그 탭에만 "분류" 컬럼 추가
+            if (tabConfig.IsIntegrated)
+            {
+                gridView.Columns.Add(CreateColumn("분류", "MatchedTabName", 100, foregroundColor: "#1565C0"));
+            }
+
+            // 동적 컬럼 추가
+            var settings = ColumnSettingsManager.CurrentSettings;
+            foreach (var fieldConfig in settings.ColumnFields)
+            {
+                var column = CreateDynamicColumn(fieldConfig, listView);
+                gridView.Columns.Add(column);
+            }
+
+            // Summary 컬럼 (항상 마지막)
+            gridView.Columns.Add(CreateColumn("주요내용", "Summary", 500, trimming: true));
+
+            listView.View = gridView;
+
+            // ItemContainerStyle
+            var style = new Style(typeof(ListViewItem));
+            style.Setters.Add(new Setter(ListViewItem.BackgroundProperty, new Binding("BackgroundBrush")));
+            style.Setters.Add(new Setter(ListViewItem.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
+            style.Setters.Add(new Setter(ListViewItem.PaddingProperty, new Thickness(6, 7, 6, 7)));
+            style.Setters.Add(new Setter(ListViewItem.MarginProperty, new Thickness(0, 1, 0, 0)));
+            listView.ItemContainerStyle = style;
+
+            // ItemsPanel
+            var panelTemplate = new ItemsPanelTemplate(new FrameworkElementFactory(typeof(VirtualizingStackPanel)));
+            listView.ItemsPanel = panelTemplate;
+
+            return listView;
+        }
+
+        /// <summary>
+        /// 기본 컬럼 생성 헬퍼
+        /// </summary>
+        private GridViewColumn CreateColumn(string header, string bindingPath, double width, 
+            string? fontFamily = null, FontWeight? fontWeight = null, 
+            HorizontalAlignment hAlign = HorizontalAlignment.Left, bool trimming = false,
+            string? foregroundColor = null)
+        {
+            var column = new GridViewColumn
+            {
+                Header = header,
+                Width = width
+            };
+
+            var template = new DataTemplate();
+            var factory = new FrameworkElementFactory(typeof(TextBlock));
+            factory.SetBinding(TextBlock.TextProperty, new Binding(bindingPath));
+            
+            if (fontFamily != null)
+                factory.SetValue(TextBlock.FontFamilyProperty, new FontFamily(fontFamily));
+            if (fontWeight != null)
+                factory.SetValue(TextBlock.FontWeightProperty, fontWeight);
+            if (hAlign != HorizontalAlignment.Left)
+                factory.SetValue(TextBlock.HorizontalAlignmentProperty, hAlign);
+            if (trimming)
+            {
+                factory.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
+                factory.SetBinding(FrameworkElement.ToolTipProperty, new Binding(bindingPath));
+            }
+            if (foregroundColor != null)
+            {
+                try
+                {
+                    var color = (Color)ColorConverter.ConvertFromString(foregroundColor);
+                    factory.SetValue(TextBlock.ForegroundProperty, new SolidColorBrush(color));
+                    factory.SetValue(TextBlock.FontWeightProperty, FontWeights.SemiBold);
+                }
+                catch { }
+            }
+
+            template.VisualTree = factory;
+            column.CellTemplate = template;
+
+            return column;
         }
 
         /// <summary>
@@ -75,24 +357,14 @@ namespace FACTOVA_MessageLogViewer
         /// </summary>
         private void InitializeDynamicColumns()
         {
-            var settings = ColumnSettingsManager.CurrentSettings;
-            
-            // Summary 컬럼 위치 (마지막에서 앞으로 삽입)
-            int insertIndex = gridView.Columns.Count - 1;  // Summary 컬럼 앞
-
-            foreach (var fieldConfig in settings.ColumnFields)
-            {
-                var column = CreateDynamicColumn(fieldConfig);
-                gridView.Columns.Insert(insertIndex, column);
-                insertIndex++;
-            }
+            // 이 메서드는 이제 InitializeTabs에서 처리됨
         }
 
 
         /// <summary>
         /// 필드 설정에 따라 GridViewColumn 생성
         /// </summary>
-        private GridViewColumn CreateDynamicColumn(FieldConfig config)
+        private GridViewColumn CreateDynamicColumn(FieldConfig config, ListView? listView = null)
         {
             // 헤더에서 언더바를 두 개로 변경 (WPF AccessKey 문제 해결)
             var headerText = config.DisplayName.Replace("_", "__");
@@ -115,21 +387,29 @@ namespace FACTOVA_MessageLogViewer
             if (config.FieldName == "RETURN_CODE")
             {
                 factory.SetValue(TextBlock.FontWeightProperty, FontWeights.Bold);
-                factory.SetBinding(TextBlock.ForegroundProperty, 
-                    new System.Windows.Data.Binding($"Fields[{config.FieldName}]")
-                    {
-                        Converter = (System.Windows.Data.IValueConverter)FindResource("ReturnCodeColorConverter")
-                    });
+                var converter = TryFindResource("ReturnCodeColorConverter") as System.Windows.Data.IValueConverter;
+                if (converter != null)
+                {
+                    factory.SetBinding(TextBlock.ForegroundProperty, 
+                        new System.Windows.Data.Binding($"Fields[{config.FieldName}]")
+                        {
+                            Converter = converter
+                        });
+                }
             }
             // ERROR_CODE도 특별 처리
             else if (config.FieldName == "ERROR_CODE")
             {
                 factory.SetValue(TextBlock.FontWeightProperty, FontWeights.Bold);
-                factory.SetBinding(TextBlock.ForegroundProperty,
-                    new System.Windows.Data.Binding($"Fields[{config.FieldName}]")
-                    {
-                        Converter = (System.Windows.Data.IValueConverter)FindResource("ErrorColorConverter")
-                    });
+                var converter = TryFindResource("ErrorColorConverter") as System.Windows.Data.IValueConverter;
+                if (converter != null)
+                {
+                    factory.SetBinding(TextBlock.ForegroundProperty,
+                        new System.Windows.Data.Binding($"Fields[{config.FieldName}]")
+                        {
+                            Converter = converter
+                        });
+                }
             }
 
             template.VisualTree = factory;
@@ -144,10 +424,11 @@ namespace FACTOVA_MessageLogViewer
             logEntries = logManager.LogEntries;
             displayEntries = new ObservableCollection<LogEntry>(logEntries);
 
+            // 기존 단일 view는 더 이상 사용하지 않음 (탭별로 관리)
             logView = CollectionViewSource.GetDefaultView(displayEntries);
             logView.Filter = FilterLogEntry;
 
-            listViewLog.ItemsSource = logView;
+            // listViewLog는 이제 탭 안에 있으므로 여기서 설정하지 않음
 
             logEntries.CollectionChanged += LogEntries_CollectionChanged;
         }
@@ -523,6 +804,9 @@ namespace FACTOVA_MessageLogViewer
                     fields[name] = value;
                 }
 
+                // 발견된 필드명을 LogFieldAnalyzer에 등록
+                LogFieldAnalyzer.AddDiscoveredFields(fields.Keys);
+
                 // 방향 표시 변환
                 string displayDirection = direction.ToUpperInvariant() switch
                 {
@@ -577,19 +861,133 @@ namespace FACTOVA_MessageLogViewer
                         foreach (LogEntry item in e.NewItems)
                         {
                             displayEntries.Add(item);
+                            
+                            // 매칭된 첫 번째 탭 이름 찾기 (통합 탭 제외)
+                            string? matchedTabName = null;
+                            
+                            // 각 탭에 로그 추가 (조건 체크는 여기서 한 번만)
+                            foreach (var kvp in tabDisplayEntries)
+                            {
+                                var tabConfig = kvp.Key;
+                                var entries = kvp.Value;
+                                
+                                // 탭의 조건에 맞는 경우에만 추가
+                                if (tabConfig.IsMatch(item))
+                                {
+                                    entries.Add(item);
+                                    
+                                    // 첫 번째 매칭된 비통합 탭 이름 저장
+                                    if (matchedTabName == null && !tabConfig.IsIntegrated)
+                                    {
+                                        matchedTabName = tabConfig.Name;
+                                    }
+                                }
+                            }
+                            
+                            // 매칭된 탭 이름 설정
+                            item.MatchedTabName = matchedTabName ?? "";
                         }
                     }
                 }
                 else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
                 {
                     displayEntries.Clear();
+                    
+                    // 모든 탭의 데이터도 클리어
+                    foreach (var entries in tabDisplayEntries.Values)
+                    {
+                        entries.Clear();
+                    }
                 }
 
-                logView?.Refresh();
-                UpdateStatus();
+                // View.Refresh()는 검색 필터 변경 시에만 호출 (여기서는 호출 안 함)
+                UpdateTabCountsThrottled();
                 AutoScrollToBottom();
             }
         }
+
+        // 디바운싱용 타이머
+        private System.Threading.Timer? statusUpdateTimer;
+        private readonly object statusLock = new object();
+
+        /// <summary>
+        /// 탭 카운트 업데이트 (디바운싱 적용)
+        /// </summary>
+        private void UpdateTabCountsThrottled()
+        {
+            lock (statusLock)
+            {
+                statusUpdateTimer?.Dispose();
+                statusUpdateTimer = new System.Threading.Timer(_ =>
+                {
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        UpdateTabCounts();
+                        UpdateStatus();
+                    });
+                }, null, 200, System.Threading.Timeout.Infinite);
+            }
+        }
+
+        /// <summary>
+        /// 모든 탭의 View 새로고침
+        /// </summary>
+        private void RefreshAllTabViews()
+        {
+            foreach (var view in tabViews.Values)
+            {
+                view?.Refresh();
+            }
+            UpdateTabCounts();
+        }
+
+        /// <summary>
+        /// 탭 헤더의 카운트 업데이트
+        /// </summary>
+        private void UpdateTabCounts()
+        {
+            foreach (TabItem tabItem in tabControlLogs.Items)
+            {
+                if (tabItem.Tag is TabConfig tabConfig && 
+                    tabItem.Header is StackPanel headerPanel &&
+                    headerPanel.Children.Count > 1 &&
+                    headerPanel.Children[1] is TextBlock countText)
+                {
+                    if (tabDisplayEntries.TryGetValue(tabConfig, out var entries))
+                    {
+                        countText.Text = $" ({entries.Count})";
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 탭 선택 변경 처리
+        /// </summary>
+        private void TabControlLogs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (tabControlLogs.SelectedItem is TabItem tabItem && tabItem.Tag is TabConfig tabConfig)
+            {
+                currentTabConfig = tabConfig;
+                
+                if (tabListViews.TryGetValue(tabConfig, out var listView))
+                {
+                    currentListView = listView;
+                }
+
+                if (tabViews.TryGetValue(tabConfig, out var view))
+                {
+                    logView = view;
+                }
+
+                // 탭 인덱스는 메모리에만 저장 (창 닫을 때 저장)
+                lastSelectedTabIndex = tabControlLogs.SelectedIndex;
+
+                UpdateStatus();
+            }
+        }
+
+        private int lastSelectedTabIndex = 0;
 
         private void BtnPause_Click(object sender, RoutedEventArgs e)
         {
@@ -630,13 +1028,14 @@ namespace FACTOVA_MessageLogViewer
 
         private void AutoScrollToBottom()
         {
-            if (listViewLog.Items.Count > 0)
+            var listView = currentListView;
+            if (listView != null && listView.Items.Count > 0)
             {
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     try
                     {
-                        listViewLog.ScrollIntoView(listViewLog.Items[listViewLog.Items.Count - 1]);
+                        listView.ScrollIntoView(listView.Items[listView.Items.Count - 1]);
                     }
                     catch { }
                 }), System.Windows.Threading.DispatcherPriority.Background);
@@ -645,31 +1044,64 @@ namespace FACTOVA_MessageLogViewer
 
         private void UpdateStatus()
         {
-            int displayCount = displayEntries.Count;
-            int filteredCount = logView?.Cast<object>().Count() ?? displayCount;
+            int displayCount = 0;
+            int filteredCount = 0;
 
-            if (isPaused && pausedBuffer.Count > 0)
+            // 현재 탭의 카운트 표시
+            if (currentTabConfig != null && tabDisplayEntries.TryGetValue(currentTabConfig, out var entries))
             {
-                txtStatus.Text = $"로그 개수: {displayCount} (⏸ 일시정지 중, 대기: {pausedBuffer.Count})";
-            }
-            else if (isPaused)
-            {
-                txtStatus.Text = $"로그 개수: {displayCount} (⏸ 일시정지 중)";
-            }
-            else if (displayCount != filteredCount)
-            {
-                txtStatus.Text = $"로그 개수: {displayCount} (필터: {filteredCount})";
+                displayCount = entries.Count;
+                filteredCount = displayCount;  // 기본값
+                
+                // 필터링된 카운트는 검색 필터가 있을 때만 표시 (계산은 비동기로)
+                if (!string.IsNullOrWhiteSpace(txtSearch?.Text) || 
+                    chkSendOnly?.IsChecked == true || 
+                    chkRecvOnly?.IsChecked == true)
+                {
+                    // 필터가 있을 때는 "(필터 적용중)" 표시
+                    // 실제 카운트는 무거우므로 표시하지 않음
+                    txtStatus.Text = $"[{currentTabConfig?.Name ?? "전체"}] 로그: {displayCount} (필터 적용중)";
+                    return;
+                }
             }
             else
             {
-                txtStatus.Text = $"로그 개수: {displayCount}";
+                displayCount = displayEntries.Count;
+                filteredCount = displayCount;
+            }
+
+            string tabName = currentTabConfig?.Name ?? "전체";
+
+            if (isPaused && pausedBuffer.Count > 0)
+            {
+                txtStatus.Text = $"[{tabName}] 로그: {displayCount} (⏸ 대기: {pausedBuffer.Count})";
+            }
+            else if (isPaused)
+            {
+                txtStatus.Text = $"[{tabName}] 로그: {displayCount} (⏸ 일시정지)";
+            }
+            else if (displayCount != filteredCount)
+            {
+                txtStatus.Text = $"[{tabName}] 로그: {displayCount} (필터: {filteredCount})";
+            }
+            else
+            {
+                txtStatus.Text = $"[{tabName}] 로그: {displayCount}";
             }
         }
 
         private bool FilterLogEntry(object item)
         {
+            return FilterLogEntry(item, null);
+        }
+
+        private bool FilterLogEntry(object item, TabConfig? tabConfig)
+        {
             if (!(item is LogEntry entry))
                 return false;
+
+            // 탭 필터 (탭 자체 조건은 데이터 추가 시 이미 적용됨)
+            // 여기서는 검색 필터만 적용
 
             string searchText = txtSearch?.Text ?? "";
             if (!string.IsNullOrWhiteSpace(searchText))
@@ -762,20 +1194,91 @@ namespace FACTOVA_MessageLogViewer
             {
                 displayEntries.Clear();
                 pausedBuffer.Clear();
-                logView?.Refresh();
+                
+                // 모든 탭의 데이터도 클리어
+                foreach (var entries in tabDisplayEntries.Values)
+                {
+                    entries.Clear();
+                }
+                
+                RefreshAllTabViews();
                 UpdateStatus();
             }
         }
 
-        private void TxtSearch_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        private void BtnColumnSettings_Click(object sender, RoutedEventArgs e)
         {
-            logView?.Refresh();
+            // 현재 선택된 프리셋 이름 전달
+            var currentPreset = cboPresets.SelectedItem?.ToString();
+            var settingsWindow = new ColumnSettingsWindow(currentLogFile, currentPreset);
+            settingsWindow.Owner = this;
+            if (settingsWindow.ShowDialog() == true)
+            {
+                // 프리셋 목록 새로고침
+                LoadPresetList();
+                
+                // 설정이 변경되면 탭 재초기화
+                InitializeTabs();
+                ReloadExistingLogs();
+                
+                // 폰트 크기 적용
+                LoadSavedFontSize();
+            }
+        }
+
+        /// <summary>
+        /// 기존 로그를 재로드하여 탭에 분배
+        /// </summary>
+        private void ReloadExistingLogs()
+        {
+            var existingEntries = logEntries.ToList();
+            displayEntries.Clear();
+            
+            foreach (var entries in tabDisplayEntries.Values)
+            {
+                entries.Clear();
+            }
+
+            foreach (var entry in existingEntries)
+            {
+                displayEntries.Add(entry);
+                
+                foreach (var kvp in tabDisplayEntries)
+                {
+                    var tabConfig = kvp.Key;
+                    var tabEntries = kvp.Value;
+
+                    if (tabConfig.IsMatch(entry))
+                    {
+                        tabEntries.Add(entry);
+                    }
+                }
+            }
+
+            RefreshAllTabViews();
+            UpdateTabCounts();
             UpdateStatus();
         }
 
+        private void TxtSearch_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            // 디바운싱: 300ms 후에 검색 실행
+            searchDebounceTimer?.Dispose();
+            searchDebounceTimer = new System.Threading.Timer(_ =>
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    RefreshAllTabViews();
+                    UpdateStatus();
+                });
+            }, null, 300, System.Threading.Timeout.Infinite);
+        }
+
+        private System.Threading.Timer? searchDebounceTimer;
+
         private void Filter_Changed(object sender, RoutedEventArgs e)
         {
-            logView?.Refresh();
+            RefreshAllTabViews();
             UpdateStatus();
         }
 
@@ -799,18 +1302,88 @@ namespace FACTOVA_MessageLogViewer
 
         private void ApplyFontSize(int size)
         {
-            listViewLog.FontSize = size;
+            // 모든 탭의 ListView에 폰트 사이즈 적용
+            foreach (var listView in tabListViews.Values)
+            {
+                listView.FontSize = size;
+            }
+            
+            // 설정에 저장
+            SaveFontSize(size);
         }
 
-        private void BtnClose_Click(object sender, RoutedEventArgs e)
+        private void LoadSavedFontSize()
         {
-            this.Close();
+            var settings = ColumnSettingsManager.CurrentSettings;
+            int fontSize = settings.FontSize > 0 ? settings.FontSize : 11;
+            txtFontSize.Text = fontSize.ToString();
+            ApplyFontSizeWithoutSave(fontSize);
+        }
+
+        private void ApplyFontSizeWithoutSave(int size)
+        {
+            foreach (var listView in tabListViews.Values)
+            {
+                listView.FontSize = size;
+            }
+        }
+
+        private void SaveFontSize(int size)
+        {
+            var settings = ColumnSettingsManager.CurrentSettings;
+            settings.FontSize = size;
+            ColumnSettingsManager.SaveCurrentSettings(settings);
+        }
+
+        /// <summary>
+        /// 탭 다시 로드
+        /// </summary>
+        private void ReloadTabs()
+        {
+            // 현재 데이터 백업
+            var currentEntries = displayEntries.ToList();
+            
+            // 탭 다시 생성
+            InitializeTabs();
+            
+            // 데이터 다시 분배
+            foreach (var entry in currentEntries)
+            {
+                foreach (var kvp in tabDisplayEntries)
+                {
+                    var tabConfig = kvp.Key;
+                    var entries = kvp.Value;
+                    
+                    if (tabConfig.IsMatch(entry))
+                    {
+                        entries.Add(entry);
+                    }
+                }
+            }
+            
+            RefreshAllTabViews();
+            UpdateStatus();
         }
 
         protected override void OnClosing(CancelEventArgs e)
         {
+            // 마지막 선택한 탭 인덱스 저장
+            var settings = ColumnSettingsManager.CurrentSettings;
+            if (settings.TabSettings != null)
+            {
+                settings.TabSettings.LastSelectedTabIndex = lastSelectedTabIndex;
+            }
+            
+            // 현재 설정 저장
+            ColumnSettingsManager.SaveCurrentSettings(settings);
+            
             fileWatcher?.Dispose();
             base.OnClosing(e);
+        }
+
+        private void Window_Closing(object sender, CancelEventArgs e)
+        {
+            // OnClosing에서 처리됨
         }
     }
 }

@@ -59,6 +59,7 @@ Background="#F5F5F5">
                            Foreground="#666"
                            FontSize="11"
                            Margin="0,5,0,0"/>
+                
                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0" HorizontalAlignment="Right">
                     <Button Content="기본폴더 설정" 
                             Width="120" 
@@ -92,13 +93,6 @@ Background="#F5F5F5">
                             Margin="10,0,0,0"
                             Click="BtnRefreshDates_Click"
                             FontSize="12"/>
-                    <Button Content="컬럼설정" 
-                            Width="90" 
-                            Height="35"
-                            Margin="10,0,0,0"
-                            Click="BtnColumnSettings_Click"
-                            FontSize="12"
-                            ToolTip="표시할 컬럼과 필드를 설정합니다"/>
                 </StackPanel>
                 <TextBlock x:Name="txtDateInfo"
                            Text="폴더에서 로그 파일을 검색합니다."

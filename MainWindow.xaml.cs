@@ -19,13 +19,8 @@ namespace FACTOVA_MessageLogViewer
 
     public partial class MainWindow : Window
     {
-        private string defaultBaseDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-            "FactovaMES", "SFC", "Logs");
         private string currentLogDirectory = "";
         private bool isDefaultFolder = true;  // 기본폴더 모드 여부
-        private const string ConfigFile = "config.txt";
-        private bool autoStart = false;
 
         private ObservableCollection<AvailableDate> availableDates = new();
 
@@ -42,7 +37,7 @@ namespace FACTOVA_MessageLogViewer
             RefreshAvailableDates();
 
             // 자동 시작이 체크되어 있으면 바로 시작
-            if (autoStart && availableDates.Count > 0)
+            if (AppSettingsManager.Settings.AutoStart && availableDates.Count > 0)
             {
                 Loaded += (s, e) => StartLogViewer();
             }
@@ -50,31 +45,30 @@ namespace FACTOVA_MessageLogViewer
 
         private void LoadConfig()
         {
-            if (File.Exists(ConfigFile))
+            var settings = AppSettingsManager.Settings;
+            
+            // 마지막 사용 폴더가 있으면 해당 폴더로 시작
+            if (!string.IsNullOrEmpty(settings.LastUsedFolder) && Directory.Exists(settings.LastUsedFolder))
             {
-                try
-                {
-                    var lines = File.ReadAllLines(ConfigFile, Encoding.UTF8);
-                    if (lines.Length > 0) defaultBaseDirectory = lines[0].Trim();
-                    if (lines.Length > 1) autoStart = bool.TryParse(lines[1].Trim(), out bool result) && result;
-                }
-                catch { }
+                currentLogDirectory = settings.LastUsedFolder;
+                isDefaultFolder = settings.LastUsedFolder.Equals(settings.DefaultLogFolder, StringComparison.OrdinalIgnoreCase);
             }
-
-            currentLogDirectory = defaultBaseDirectory;
-            isDefaultFolder = true;
+            else
+            {
+                currentLogDirectory = settings.DefaultLogFolder;
+                isDefaultFolder = true;
+            }
+            
             txtLogFolder.Text = currentLogDirectory;
-            chkAutoStart.IsChecked = autoStart;
+            chkAutoStart.IsChecked = settings.AutoStart;
         }
 
         private void SaveConfig()
         {
-            try
-            {
-                var lines = new[] { defaultBaseDirectory, autoStart.ToString() };
-                File.WriteAllLines(ConfigFile, lines, Encoding.UTF8);
-            }
-            catch { }
+            var settings = AppSettingsManager.Settings;
+            settings.LastUsedFolder = currentLogDirectory;
+            settings.AutoStart = chkAutoStart.IsChecked == true;
+            AppSettingsManager.SaveCurrent();
         }
 
         /// <summary>
@@ -216,7 +210,7 @@ namespace FACTOVA_MessageLogViewer
 
         private void BtnSetDefaultFolder_Click(object sender, RoutedEventArgs e)
         {
-            currentLogDirectory = defaultBaseDirectory;
+            currentLogDirectory = AppSettingsManager.Settings.DefaultLogFolder;
             isDefaultFolder = true;
             txtLogFolder.Text = currentLogDirectory;
             RefreshAvailableDates();
@@ -233,33 +227,24 @@ namespace FACTOVA_MessageLogViewer
                 currentLogDirectory = dialog.FolderName;
                 isDefaultFolder = false;  // 사용자 지정 폴더
                 txtLogFolder.Text = currentLogDirectory;
+                
+                // 폴더 경로 저장
+                SaveConfig();
+                
                 RefreshAvailableDates();
             }
         }
+
 
         private void BtnRefreshDates_Click(object sender, RoutedEventArgs e)
         {
             RefreshAvailableDates();
         }
 
-        private void BtnColumnSettings_Click(object sender, RoutedEventArgs e)
-        {
-            var selectedItem = cboAvailableDates.SelectedItem as AvailableDate;
-            if (selectedItem == null)
-            {
-                MessageBox.Show("먼저 로그 파일을 선택해주세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            var settingsWindow = new ColumnSettingsWindow(selectedItem.FilePath);
-            settingsWindow.Owner = this;
-            settingsWindow.ShowDialog();
-        }
-
         private void ChkAutoStart_Changed(object sender, RoutedEventArgs e)
         {
-            autoStart = chkAutoStart.IsChecked == true;
-            SaveConfig();
+            AppSettingsManager.Settings.AutoStart = chkAutoStart.IsChecked == true;
+            AppSettingsManager.SaveCurrent();
         }
 
         private void BtnStart_Click(object sender, RoutedEventArgs e)
@@ -325,6 +310,11 @@ namespace FACTOVA_MessageLogViewer
             // 로그 뷰어 창 열기
             try
             {
+                // 로그 파일에서 필드 목록 미리 추출
+                var discoveredFields = LogFieldAnalyzer.ExtractFieldNames(logFilePath);
+                LogFieldAnalyzer.AddDiscoveredFields(discoveredFields);
+                System.Diagnostics.Debug.WriteLine($"🔍 발견된 필드: {discoveredFields.Count}개");
+
                 var logViewerWindow = new LogViewerWindow(logFilePath, selectedDate, loadMode, recentCount);
                 logViewerWindow.Show();
 

@@ -13,6 +13,65 @@ namespace FACTOVA_MessageLogViewer.Models
     public static class LogFieldAnalyzer
     {
         /// <summary>
+        /// 발견된 필드명 목록 (전역 캐시)
+        /// </summary>
+        private static HashSet<string> _discoveredFields = new HashSet<string>();
+        private static readonly object _lock = new object();
+
+        /// <summary>
+        /// 발견된 필드 목록 반환
+        /// </summary>
+        public static List<string> DiscoveredFields
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    // 기본 필드 + 발견된 필드
+                    var allFields = new HashSet<string>(_discoveredFields);
+                    
+                    // 기본 필드 추가
+                    allFields.Add("MSGID");
+                    allFields.Add("WORK_TYPE");
+                    allFields.Add("RETURN_CODE");
+                    allFields.Add("ERROR_CODE");
+                    allFields.Add("DIRECTION");
+                    
+                    return allFields.OrderBy(f => f).ToList();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 필드명 추가
+        /// </summary>
+        public static void AddDiscoveredField(string fieldName)
+        {
+            if (string.IsNullOrWhiteSpace(fieldName)) return;
+            
+            lock (_lock)
+            {
+                _discoveredFields.Add(fieldName);
+            }
+        }
+
+        /// <summary>
+        /// 여러 필드명 추가
+        /// </summary>
+        public static void AddDiscoveredFields(IEnumerable<string> fieldNames)
+        {
+            if (fieldNames == null) return;
+            
+            lock (_lock)
+            {
+                foreach (var name in fieldNames.Where(n => !string.IsNullOrWhiteSpace(n)))
+                {
+                    _discoveredFields.Add(name);
+                }
+            }
+        }
+
+        /// <summary>
         /// 로그 파일에서 모든 필드명 추출 (샘플링)
         /// </summary>
         public static List<string> ExtractFieldNames(string logFilePath, int sampleSize = 100)

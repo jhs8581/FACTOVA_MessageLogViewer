@@ -15,6 +15,11 @@ namespace FACTOVA_MessageLogViewer.Models
         public Dictionary<string, string> Fields { get; set; } = new Dictionary<string, string>();
         public string RawData { get; set; } = "";
 
+        /// <summary>
+        /// 매칭된 탭 이름 (통합 로그 제외, 첫 번째 매칭 탭)
+        /// </summary>
+        public string MatchedTabName { get; set; } = "";
+
         // 직접 설정 가능한 필드들
         private string? _returnCode;
         private string? _workType;
