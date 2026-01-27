@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 
 namespace FACTOVA_MessageLogViewer.Models
@@ -97,7 +98,7 @@ namespace FACTOVA_MessageLogViewer.Models
             {
                 if (File.Exists(SettingsFile))
                 {
-                    var json = File.ReadAllText(SettingsFile);
+                    var json = File.ReadAllText(SettingsFile, Encoding.UTF8);
                     var settings = JsonSerializer.Deserialize<AppSettings>(json);
                     if (settings != null)
                     {
@@ -124,7 +125,7 @@ namespace FACTOVA_MessageLogViewer.Models
             {
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 var json = JsonSerializer.Serialize(settings, options);
-                File.WriteAllText(SettingsFile, json);
+                File.WriteAllText(SettingsFile, json, Encoding.UTF8);
             }
             catch (Exception ex)
             {
@@ -155,7 +156,7 @@ namespace FACTOVA_MessageLogViewer.Models
             {
                 try
                 {
-                    var lines = File.ReadAllLines(LegacyConfigFile);
+                    var lines = File.ReadAllLines(LegacyConfigFile, Encoding.UTF8);
                     if (lines.Length > 0) settings.DefaultLogFolder = lines[0].Trim();
                     if (lines.Length > 1) settings.AutoStart = bool.TryParse(lines[1].Trim(), out bool result) && result;
                     if (lines.Length > 2) settings.LastUsedFolder = lines[2].Trim();
@@ -168,7 +169,7 @@ namespace FACTOVA_MessageLogViewer.Models
             {
                 try
                 {
-                    var json = File.ReadAllText(LegacyColumnSettingsFile);
+                    var json = File.ReadAllText(LegacyColumnSettingsFile, Encoding.UTF8);
                     var columnSettings = JsonSerializer.Deserialize<ColumnSettings>(json);
                     if (columnSettings != null)
                     {
@@ -207,7 +208,7 @@ namespace FACTOVA_MessageLogViewer.Models
                 
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 var json = JsonSerializer.Serialize(columnSettings, options);
-                File.WriteAllText(filePath, json);
+                File.WriteAllText(filePath, json, Encoding.UTF8);
             }
             catch (Exception ex)
             {
@@ -237,7 +238,7 @@ namespace FACTOVA_MessageLogViewer.Models
 
                 if (File.Exists(filePath))
                 {
-                    var json = File.ReadAllText(filePath);
+                    var json = File.ReadAllText(filePath, Encoding.UTF8);
                     var settings = JsonSerializer.Deserialize<ColumnSettings>(json);
                     
                     if (settings != null && settings.TabSettings == null)
