@@ -285,6 +285,9 @@ namespace FACTOVA_MessageLogViewer
             string logFilePath = selectedItem.FilePath;
             DateTime selectedDate = selectedItem.Date;
 
+            System.Diagnostics.Debug.WriteLine($"📅 선택된 날짜: {selectedDate:yyyy-MM-dd}");
+            System.Diagnostics.Debug.WriteLine($"📄 선택된 파일: {logFilePath}");
+
             // 로그 파일 확인
             if (!File.Exists(logFilePath))
             {

@@ -38,10 +38,10 @@ namespace FACTOVA_MessageLogViewer
 
         // 멀티라인 파싱용 버퍼
         private StringBuilder multiLineBuffer = new StringBuilder();
-        // 로그 시작 패턴: [MM-DD-YYYY HH:mm:ss] 또는 [MM-DD-YYYY HH:mm:ss.fff]
-        // SENDDATA, RECV, RECVDATA 또는 LGEKC, System 등
+        // 로그 시작 패턴: [MM-DD-YYYY HH:mm:ss.fff][RECV|SENDDATA|RECVDATA] 형식만 매칭
+        // System : 같은 일반 로그는 무시
         private static readonly Regex LogStartPattern = new Regex(
-            @"^\[(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\](?:\[([A-Z]+)\]|([A-Za-z]+)\s*:)", 
+            @"^\[(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\]\[([A-Z]+)\]", 
             RegexOptions.Compiled | RegexOptions.Multiline);
 
         // 디바운싱용
@@ -267,13 +267,19 @@ namespace FACTOVA_MessageLogViewer
         {
             try
             {
-                fileWatcher = new FileSystemWatcher(logDirectory, "*.log");
-                fileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName;
+                // 절대 경로로 정규화
+                currentLogFile = Path.GetFullPath(currentLogFile);
+                logDirectory = Path.GetDirectoryName(currentLogFile) ?? "";
+                string fileName = Path.GetFileName(currentLogFile);
+
+                fileWatcher = new FileSystemWatcher(logDirectory, fileName);
+                fileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size;
+                fileWatcher.InternalBufferSize = 65536;  // 버퍼 증가로 이벤트 손실 방지
                 fileWatcher.Changed += FileWatcher_Changed;
                 fileWatcher.Created += FileWatcher_Created;
                 fileWatcher.EnableRaisingEvents = true;
 
-                System.Diagnostics.Debug.WriteLine("✅ 파일 감시 시작");
+                System.Diagnostics.Debug.WriteLine($"✅ 파일 감시 시작: {currentLogFile}");
             }
             catch (Exception ex)
             {
@@ -290,13 +296,23 @@ namespace FACTOVA_MessageLogViewer
 
         private void FileWatcher_Changed(object sender, FileSystemEventArgs e)
         {
+            System.Diagnostics.Debug.WriteLine($"🔔 FileWatcher 이벤트: {e.ChangeType} - {e.FullPath}");
+
+            // 현재 로드된 파일만 감시 (정규화된 경로로 비교)
+            string eventPath = Path.GetFullPath(e.FullPath);
+            if (!string.Equals(eventPath, currentLogFile, StringComparison.OrdinalIgnoreCase))
+            {
+                System.Diagnostics.Debug.WriteLine($"⏭️ 다른 파일 무시: {eventPath} != {currentLogFile}");
+                return;
+            }
+
             // 디바운싱: 100ms 내 중복 이벤트 무시
             debounceTimer?.Dispose();
             debounceTimer = new System.Threading.Timer(_ =>
             {
                 Dispatcher.BeginInvoke(() =>
                 {
-                    ReadNewLogs(e.FullPath);
+                    ReadNewLogs(currentLogFile);
                 });
             }, null, 100, System.Threading.Timeout.Infinite);
         }
@@ -407,12 +423,19 @@ namespace FACTOVA_MessageLogViewer
                 int startIndex = matches[i].Index;
                 int endIndex = (i + 1 < matches.Count) ? matches[i + 1].Index : content.Length;
                 
-                // 마지막 엔트리이고 완전하지 않으면 버퍼에 보관
-                if (i == matches.Count - 1)
+                // 마지막 엔트리이고 완전하지 않으면 버퍼에 보관 (실시간 감시용)
+                // 초기 로드 시에는 remainingContent가 무시되므로 상관없음
+                if (i == matches.Count - 1 && remainingContent != null)
                 {
                     string lastEntry = content.Substring(startIndex);
-                    // 엔트리가 완전한지 확인 (마지막 }로 끝나는지)
-                    if (!lastEntry.TrimEnd().EndsWith("}"))
+                    string trimmed = lastEntry.TrimEnd();
+                    
+                    // 완료 조건: } 또는 : 로 끝나면 완료된 것으로 판단
+                    bool isComplete = trimmed.EndsWith("}") || 
+                                      trimmed.EndsWith(":") || 
+                                      trimmed.EndsWith(": ");
+                    
+                    if (!isComplete)
                     {
                         remainingContent = lastEntry;
                         continue;
@@ -453,10 +476,8 @@ namespace FACTOVA_MessageLogViewer
                     return null;
 
                 string timestampStr = headerMatch.Groups[1].Value;
-                // [TYPE] 형식이면 Groups[2], 텍스트: 형식이면 Groups[3]
-                string direction = !string.IsNullOrEmpty(headerMatch.Groups[2].Value) 
-                    ? headerMatch.Groups[2].Value 
-                    : headerMatch.Groups[3].Value;
+                // [TYPE] 형식 - RECV, SENDDATA 등
+                string direction = headerMatch.Groups[2].Value;
 
                 // 타임스탬프 파싱 (밀리초 있는 경우와 없는 경우 모두 처리)
                 DateTime timestamp;
