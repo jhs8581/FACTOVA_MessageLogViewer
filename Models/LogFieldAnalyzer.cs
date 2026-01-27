@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,18 +8,18 @@ using System.Text.RegularExpressions;
 namespace FACTOVA_MessageLogViewer.Models
 {
     /// <summary>
-    /// ·Î±× ÆÄÀÏ ºĞ¼®±â - »ç¿ë °¡´ÉÇÑ ÇÊµå ÃßÃâ
+    /// ë¡œê·¸ íŒŒì¼ ë¶„ì„ê¸° - ì‚¬ìš© ê°€ëŠ¥í•œ í•„ë“œ ì¶”ì¶œ
     /// </summary>
     public static class LogFieldAnalyzer
     {
         /// <summary>
-        /// ¹ß°ßµÈ ÇÊµå¸í ¸ñ·Ï (Àü¿ª Ä³½Ã)
+        /// ë°œê²¬ëœ í•„ë“œëª… ëª©ë¡ (ì „ì—­ ìºì‹œ)
         /// </summary>
         private static HashSet<string> _discoveredFields = new HashSet<string>();
         private static readonly object _lock = new object();
 
         /// <summary>
-        /// ¹ß°ßµÈ ÇÊµå ¸ñ·Ï ¹İÈ¯
+        /// ë°œê²¬ëœ í•„ë“œ ëª©ë¡ ë°˜í™˜
         /// </summary>
         public static List<string> DiscoveredFields
         {
@@ -27,10 +27,10 @@ namespace FACTOVA_MessageLogViewer.Models
             {
                 lock (_lock)
                 {
-                    // ±âº» ÇÊµå + ¹ß°ßµÈ ÇÊµå
+                    // ê¸°ë³¸ í•„ë“œ + ë°œê²¬ëœ í•„ë“œ
                     var allFields = new HashSet<string>(_discoveredFields);
                     
-                    // ±âº» ÇÊµå Ãß°¡
+                    // ê¸°ë³¸ í•„ë“œ ì¶”ê°€
                     allFields.Add("MSGID");
                     allFields.Add("WORK_TYPE");
                     allFields.Add("RETURN_CODE");
@@ -43,7 +43,7 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// ÇÊµå¸í Ãß°¡
+        /// í•„ë“œëª… ì¶”ê°€
         /// </summary>
         public static void AddDiscoveredField(string fieldName)
         {
@@ -56,7 +56,7 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// ¿©·¯ ÇÊµå¸í Ãß°¡
+        /// ì—¬ëŸ¬ í•„ë“œëª… ì¶”ê°€
         /// </summary>
         public static void AddDiscoveredFields(IEnumerable<string> fieldNames)
         {
@@ -72,7 +72,7 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// ·Î±× ÆÄÀÏ¿¡¼­ ¸ğµç ÇÊµå¸í ÃßÃâ (»ùÇÃ¸µ)
+        /// ë¡œê·¸ íŒŒì¼ì—ì„œ ëª¨ë“  í•„ë“œëª… ì¶”ì¶œ (ìƒ˜í”Œë§)
         /// </summary>
         public static List<string> ExtractFieldNames(string logFilePath, int sampleSize = 100)
         {
@@ -83,7 +83,7 @@ namespace FACTOVA_MessageLogViewer.Models
 
             try
             {
-                // ÆÄÀÏ ÀĞ±â (ÃÖ´ë 1MB¸¸)
+                // íŒŒì¼ ì½ê¸° (ìµœëŒ€ 1MBë§Œ)
                 string content;
                 using (var stream = new FileStream(logFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                 using (var reader = new StreamReader(stream, Encoding.UTF8))
@@ -93,7 +93,7 @@ namespace FACTOVA_MessageLogViewer.Models
                     content = new string(buffer, 0, read);
                 }
 
-                // NAME=xxx ÆĞÅÏ ÃßÃâ
+                // NAME=xxx íŒ¨í„´ ì¶”ì¶œ
                 var namePattern = new Regex(@"<NAME=([^>]+)>", RegexOptions.Compiled);
                 var matches = namePattern.Matches(content);
 
@@ -106,7 +106,7 @@ namespace FACTOVA_MessageLogViewer.Models
                     }
                 }
 
-                // Ãß°¡·Î ELEMENT ¼½¼ÇÀÇ ÇÊµåµéµµ ÃßÃâ
+                // ì¶”ê°€ë¡œ ELEMENT ì„¹ì…˜ì˜ í•„ë“œë“¤ë„ ì¶”ì¶œ
                 var elementFields = new[] { "PROCID", "MSGID" };
                 foreach (var field in elementFields)
                 {
@@ -119,14 +119,14 @@ namespace FACTOVA_MessageLogViewer.Models
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"ÇÊµå ºĞ¼® ½ÇÆĞ: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"í•„ë“œ ë¶„ì„ ì‹¤íŒ¨: {ex.Message}");
             }
 
             return fieldNames.OrderBy(f => f).ToList();
         }
 
         /// <summary>
-        /// ÇÊµåº° »ùÇÃ °ª ÃßÃâ
+        /// í•„ë“œë³„ ìƒ˜í”Œ ê°’ ì¶”ì¶œ
         /// </summary>
         public static Dictionary<string, List<string>> ExtractFieldSamples(string logFilePath, int maxSamples = 5)
         {
@@ -146,7 +146,7 @@ namespace FACTOVA_MessageLogViewer.Models
                     content = new string(buffer, 0, read);
                 }
 
-                // NAME/VALUE ½Ö ÃßÃâ
+                // NAME/VALUE ìŒ ì¶”ì¶œ
                 var pattern = new Regex(@"<NAME=([^>]+)>\s*<VALUE=([^>]*)>", RegexOptions.Compiled);
                 var matches = pattern.Matches(content);
 
@@ -161,7 +161,7 @@ namespace FACTOVA_MessageLogViewer.Models
                     if (!samples.ContainsKey(fieldName))
                         samples[fieldName] = new List<string>();
 
-                    // Áßº¹ ¾Æ´Ï°í maxSamples ÀÌÇÏ¸é Ãß°¡
+                    // ì¤‘ë³µ ì•„ë‹ˆê³  maxSamples ì´í•˜ë©´ ì¶”ê°€
                     if (!samples[fieldName].Contains(value) && samples[fieldName].Count < maxSamples)
                     {
                         if (!string.IsNullOrEmpty(value))
@@ -171,14 +171,14 @@ namespace FACTOVA_MessageLogViewer.Models
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"»ùÇÃ ÃßÃâ ½ÇÆĞ: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"ìƒ˜í”Œ ì¶”ì¶œ ì‹¤íŒ¨: {ex.Message}");
             }
 
             return samples;
         }
 
         /// <summary>
-        /// ÇÊµå ºĞ¼® °á°ú
+        /// í•„ë“œ ë¶„ì„ ê²°ê³¼
         /// </summary>
         public static List<FieldAnalysisResult> AnalyzeFields(string logFilePath)
         {
@@ -194,7 +194,7 @@ namespace FACTOVA_MessageLogViewer.Models
                     SampleValues = samples.ContainsKey(fieldName) ? samples[fieldName] : new List<string>()
                 };
 
-                // ±âÁ¸ ¼³Á¤ÀÌ ÀÖÀ¸¸é Àû¿ë
+                // ê¸°ì¡´ ì„¤ì •ì´ ìˆìœ¼ë©´ ì ìš©
                 var existingConfig = ColumnSettingsManager.CurrentSettings.Fields
                     .FirstOrDefault(f => f.FieldName == fieldName);
                 
@@ -213,7 +213,7 @@ namespace FACTOVA_MessageLogViewer.Models
     }
 
     /// <summary>
-    /// ÇÊµå ºĞ¼® °á°ú
+    /// í•„ë“œ ë¶„ì„ ê²°ê³¼
     /// </summary>
     public class FieldAnalysisResult
     {
@@ -225,6 +225,6 @@ namespace FACTOVA_MessageLogViewer.Models
 
         public string SamplePreview => SampleValues.Count > 0 
             ? string.Join(", ", SampleValues.Take(3)) 
-            : "(°ª ¾øÀ½)";
+            : "(ê°’ ì—†ìŒ)";
     }
 }

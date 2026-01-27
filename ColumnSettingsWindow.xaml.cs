@@ -1,4 +1,4 @@
-using FACTOVA_MessageLogViewer.Models;
+ï»¿using FACTOVA_MessageLogViewer.Models;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -14,7 +14,7 @@ namespace FACTOVA_MessageLogViewer
         private string logFilePath;
         private ObservableCollection<FieldSettingItem> fieldItems = new();
         
-        // ÅÇ ¼³Á¤ °ü·Ã
+        // íƒ­ ì„¤ì • ê´€ë ¨
         private ObservableCollection<TabConfig> tabs = new();
         private TabConfig? selectedTab;
         private bool isUpdating = false;
@@ -23,7 +23,7 @@ namespace FACTOVA_MessageLogViewer
         public bool SettingsApplied { get; private set; } = false;
 
         /// <summary>
-        /// ¹ß°ßµÈ ÇÊµå ¸ñ·Ï (ÄŞº¸¹Ú½º ¹ÙÀÎµù¿ë)
+        /// ë°œê²¬ëœ í•„ë“œ ëª©ë¡ (ì½¤ë³´ë°•ìŠ¤ ë°”ì¸ë”©ìš©)
         /// </summary>
         public List<string> FieldList => LogFieldAnalyzer.DiscoveredFields;
 
@@ -40,7 +40,7 @@ namespace FACTOVA_MessageLogViewer
             LoadTabSettings();
         }
 
-        #region ÇÁ¸®¼Â °ü¸®
+        #region í”„ë¦¬ì…‹ ê´€ë¦¬
 
         private void LoadPresetList()
         {
@@ -53,7 +53,7 @@ namespace FACTOVA_MessageLogViewer
                 cboPresets.Items.Add(preset);
             }
 
-            // Àü´Ş¹ŞÀº ÇÁ¸®¼Â ÀÌ¸§À¸·Î ¼±ÅÃ, ¾øÀ¸¸é ÇöÀç ¼³Á¤ ÀÌ¸§À¸·Î ¼±ÅÃ
+            // ì „ë‹¬ë°›ì€ í”„ë¦¬ì…‹ ì´ë¦„ìœ¼ë¡œ ì„ íƒ, ì—†ìœ¼ë©´ í˜„ì¬ ì„¤ì • ì´ë¦„ìœ¼ë¡œ ì„ íƒ
             var targetPreset = initialPresetName ?? ColumnSettingsManager.CurrentSettings.Name;
             int matchIndex = 0;
             for (int i = 0; i < cboPresets.Items.Count; i++)
@@ -71,7 +71,7 @@ namespace FACTOVA_MessageLogViewer
 
         #endregion
 
-        #region ÄÃ·³ ¼³Á¤
+        #region ì»¬ëŸ¼ ì„¤ì •
 
         private void AnalyzeAndLoadFields()
         {
@@ -177,15 +177,15 @@ namespace FACTOVA_MessageLogViewer
             
             if (string.IsNullOrEmpty(selected) || selected == "Default")
             {
-                // Default ¼±ÅÃ ½Ã ÇöÀç ¼³Á¤¿¡ ÀúÀå
+                // Default ì„ íƒ ì‹œ í˜„ì¬ ì„¤ì •ì— ì €ì¥
                 ColumnSettingsManager.SaveCurrentSettings(settings);
-                MessageBox.Show("ÇöÀç ¼³Á¤¿¡ ÀúÀåµÇ¾ú½À´Ï´Ù.", "¾Ë¸²", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("í˜„ì¬ ì„¤ì •ì— ì €ì¥ë˜ì—ˆìŠµë‹ˆë‹¤.", "ì•Œë¦¼", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             else
             {
-                // ¼±ÅÃÇÑ ÇÁ¸®¼Â¿¡ ÀúÀå
+                // ì„ íƒí•œ í”„ë¦¬ì…‹ì— ì €ì¥
                 ColumnSettingsManager.SaveSettingsAsPreset(settings, selected);
-                MessageBox.Show($"'{selected}' ÇÁ¸®¼Â¿¡ ÀúÀåµÇ¾ú½À´Ï´Ù.", "¾Ë¸²", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"'{selected}' í”„ë¦¬ì…‹ì— ì €ì¥ë˜ì—ˆìŠµë‹ˆë‹¤.", "ì•Œë¦¼", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -194,7 +194,7 @@ namespace FACTOVA_MessageLogViewer
             var name = txtPresetName.Text.Trim();
             if (string.IsNullOrEmpty(name))
             {
-                MessageBox.Show("ÇÁ¸®¼Â ÀÌ¸§À» ÀÔ·ÂÇÏ¼¼¿ä.", "¾Ë¸²", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("í”„ë¦¬ì…‹ ì´ë¦„ì„ ì…ë ¥í•˜ì„¸ìš”.", "ì•Œë¦¼", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -202,15 +202,15 @@ namespace FACTOVA_MessageLogViewer
             ColumnSettingsManager.SaveSettingsAsPreset(settings, name);
             
             LoadPresetList();
-            MessageBox.Show($"'{name}'À¸·Î ÀúÀåµÇ¾ú½À´Ï´Ù.", "¾Ë¸²", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show($"'{name}'ìœ¼ë¡œ ì €ì¥ë˜ì—ˆìŠµë‹ˆë‹¤.", "ì•Œë¦¼", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private ColumnSettings CreateSettingsFromAll()
         {
-            // ÅÇ ¼ø¼­ ¾÷µ¥ÀÌÆ®
+            // íƒ­ ìˆœì„œ ì—…ë°ì´íŠ¸
             UpdateTabOrders();
 
-            // ÇöÀç ¼±ÅÃµÈ ÇÁ¸®¼Â ÀÌ¸§ »ç¿ë
+            // í˜„ì¬ ì„ íƒëœ í”„ë¦¬ì…‹ ì´ë¦„ ì‚¬ìš©
             var presetName = cboPresets.SelectedItem?.ToString() ?? "Default";
 
             var settings = new ColumnSettings
@@ -287,7 +287,7 @@ namespace FACTOVA_MessageLogViewer
 
         #endregion
 
-        #region ÅÇ ¼³Á¤
+        #region íƒ­ ì„¤ì •
 
         private void LoadTabSettings()
         {
@@ -297,7 +297,7 @@ namespace FACTOVA_MessageLogViewer
 
         private void ApplyTabSettingsFromSettings(ColumnSettings settings)
         {
-            System.Diagnostics.Debug.WriteLine($"?? ApplyTabSettingsFromSettings È£Ãâ");
+            System.Diagnostics.Debug.WriteLine($"ğŸ“‹ ApplyTabSettingsFromSettings í˜¸ì¶œ");
             System.Diagnostics.Debug.WriteLine($"   - TabSettings null?: {settings.TabSettings == null}");
             System.Diagnostics.Debug.WriteLine($"   - Tabs null?: {settings.TabSettings?.Tabs == null}");
             System.Diagnostics.Debug.WriteLine($"   - Tabs count: {settings.TabSettings?.Tabs?.Count ?? 0}");
@@ -333,7 +333,7 @@ namespace FACTOVA_MessageLogViewer
                         }).ToList() ?? new List<ConditionGroup>()
                     };
 
-                    // ÀÌÀü È£È¯: Conditions°¡ ÀÖ°í ConditionGroups°¡ ¾øÀ¸¸é º¯È¯
+                    // ì´ì „ í˜¸í™˜: Conditionsê°€ ìˆê³  ConditionGroupsê°€ ì—†ìœ¼ë©´ ë³€í™˜
                     if (copy.ConditionGroups.Count == 0 && copy.Conditions.Count > 0)
                     {
                         copy.ConditionGroups.Add(new ConditionGroup
@@ -348,15 +348,17 @@ namespace FACTOVA_MessageLogViewer
                 }
             }
 
-            System.Diagnostics.Debug.WriteLine($"   - ÃÖÁ¾ tabs count: {tabs.Count}");
 
-            // ÅÇÀÌ ¾øÀ¸¸é ±âº» ÅëÇÕ ÅÇ Ãß°¡
+
+            System.Diagnostics.Debug.WriteLine($"   - ìµœì¢… tabs count: {tabs.Count}");
+
+            // íƒ­ì´ ì—†ìœ¼ë©´ ê¸°ë³¸ í†µí•© íƒ­ ì¶”ê°€
             if (tabs.Count == 0)
             {
-                System.Diagnostics.Debug.WriteLine($"   ?? ÅÇÀÌ ¾ø¾î¼­ ±âº» ÅÇ Ãß°¡");
+                System.Diagnostics.Debug.WriteLine($"   âš ï¸ íƒ­ì´ ì—†ì–´ì„œ ê¸°ë³¸ íƒ­ ì¶”ê°€");
                 tabs.Add(new TabConfig
                 {
-                    Name = "ÀüÃ¼ ·Î±×",
+                    Name = "ì „ì²´ ë¡œê·¸",
                     Order = 0,
                     IsIntegrated = true,
                     IsEnabled = true
@@ -419,7 +421,7 @@ namespace FACTOVA_MessageLogViewer
 
         private void TabEnabled_Changed(object sender, RoutedEventArgs e)
         {
-            // Ã¼Å©¹Ú½º º¯°æ ½Ã ÀÚµ¿ ¹İ¿µµÊ
+            // ì²´í¬ë°•ìŠ¤ ë³€ê²½ ì‹œ ìë™ ë°˜ì˜ë¨
         }
 
         private void RefreshTabList()
@@ -434,7 +436,7 @@ namespace FACTOVA_MessageLogViewer
         {
             var newTab = new TabConfig
             {
-                Name = $"»õ ÅÇ {tabs.Count + 1}",
+                Name = $"ìƒˆ íƒ­ {tabs.Count + 1}",
                 Order = tabs.Count,
                 IsEnabled = true,
                 IsIntegrated = false,
@@ -452,13 +454,13 @@ namespace FACTOVA_MessageLogViewer
 
             if (tabs.Count <= 1)
             {
-                MessageBox.Show("ÃÖ¼Ò 1°³ÀÇ ÅÇÀÌ ÇÊ¿äÇÕ´Ï´Ù.", "¾Ë¸²", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("ìµœì†Œ 1ê°œì˜ íƒ­ì´ í•„ìš”í•©ë‹ˆë‹¤.", "ì•Œë¦¼", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
             var result = MessageBox.Show(
-                $"'{selectedTab.Name}' ÅÇÀ» »èÁ¦ÇÏ½Ã°Ú½À´Ï±î?",
-                "È®ÀÎ",
+                $"'{selectedTab.Name}' íƒ­ì„ ì‚­ì œí•˜ì‹œê² ìŠµë‹ˆê¹Œ?",
+                "í™•ì¸",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question
             );
@@ -518,7 +520,7 @@ namespace FACTOVA_MessageLogViewer
             selectedTab.ConditionGroups ??= new List<ConditionGroup>();
             selectedTab.ConditionGroups.Add(new ConditionGroup
             {
-                Name = $"±×·ì {selectedTab.ConditionGroups.Count + 1}",
+                Name = $"ê·¸ë£¹ {selectedTab.ConditionGroups.Count + 1}",
                 Conditions = new List<TabFilterCondition>
                 {
                     new TabFilterCondition { FieldName = "MSGID", Value = "", ExactMatch = true }
@@ -574,11 +576,11 @@ namespace FACTOVA_MessageLogViewer
 
         #endregion
 
-        #region °øÅë ¹öÆ°
+        #region ê³µí†µ ë²„íŠ¼
 
         private void BtnReset_Click(object sender, RoutedEventArgs e)
         {
-            var result = MessageBox.Show("±âº»°ªÀ¸·Î ÃÊ±âÈ­ÇÏ½Ã°Ú½À´Ï±î?", "È®ÀÎ", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            var result = MessageBox.Show("ê¸°ë³¸ê°’ìœ¼ë¡œ ì´ˆê¸°í™”í•˜ì‹œê² ìŠµë‹ˆê¹Œ?", "í™•ì¸", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (result == MessageBoxResult.Yes)
             {
                 var defaultSettings = ColumnSettingsManager.CreateDefaultSettings();

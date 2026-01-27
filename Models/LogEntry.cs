@@ -60,7 +60,7 @@ namespace FACTOVA_MessageLogViewer.Models
                 {
                     var settings = ColumnSettingsManager.CurrentSettings;
                     
-                    // 컬럼으로 표시되거나 숨김인 필드는 제외
+                    // 컨럼으로 표시되거나 숨김인 필드는 제외
                     var excludeFields = new HashSet<string>(
                         settings.Fields
                             .Where(f => f.DisplayType != FieldDisplayType.Summary)

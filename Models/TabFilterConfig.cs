@@ -1,40 +1,40 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace FACTOVA_MessageLogViewer.Models
 {
     /// <summary>
-    /// ÅÇ ÇÊÅÍ¸µÀ» À§ÇÑ °³º° Á¶°Ç
+    /// íƒ­ í•„í„°ë§ì„ ìœ„í•œ ê°œë³„ ì¡°ê±´
     /// </summary>
     public class TabFilterCondition
     {
         /// <summary>
-        /// Á¶°Ç ´ë»ó ÇÊµå¸í (¿¹: MSGID, WORK_TYPE, RETURN_CODE µî)
-        /// "MSGID"´Â Æ¯¼ö Ã³¸® (LogEntry.MessageId ÂüÁ¶)
+        /// ì¡°ê±´ ëŒ€ìƒ í•„ë“œëª… (ì˜ˆ: MSGID, WORK_TYPE, RETURN_CODE ë“±)
+        /// "MSGID"ëŠ” íŠ¹ìˆ˜ ì²˜ë¦¬ (LogEntry.MessageId ì°¸ì¡°)
         /// </summary>
         public string FieldName { get; set; } = "";
 
         /// <summary>
-        /// ÇÊÅÍ °ª (ÇØ´ç ÇÊµå°¡ ÀÌ °ª°ú ÀÏÄ¡ÇØ¾ß ÇÔ)
-        /// ¿©·¯ °ª Çã¿ë ½Ã ½°Ç¥·Î ±¸ºĞ (OR Á¶°Ç)
+        /// í•„í„° ê°’ (í•´ë‹¹ í•„ë“œê°€ ì´ ê°’ê³¼ ì¼ì¹˜í•´ì•¼ í•¨)
+        /// ì—¬ëŸ¬ ê°’ í—ˆìš© ì‹œ ì‰¼í‘œë¡œ êµ¬ë¶„ (OR ì¡°ê±´)
         /// </summary>
         public string Value { get; set; } = "";
 
         /// <summary>
-        /// °ªÀÌ Á¤È®È÷ ÀÏÄ¡ÇØ¾ß ÇÏ´ÂÁö, Æ÷ÇÔµÇ¸é µÇ´ÂÁö
+        /// ê°’ì´ ì •í™•íˆ ì¼ì¹˜í•´ì•¼ í•˜ëŠ”ì§€, í¬í•¨ë˜ë©´ ë˜ëŠ”ì§€
         /// </summary>
         public bool ExactMatch { get; set; } = true;
 
         /// <summary>
-        /// Á¶°Ç °Ë»ç
+        /// ì¡°ê±´ ê²€ì‚¬
         /// </summary>
         public bool IsMatch(LogEntry entry)
         {
             if (entry == null || string.IsNullOrEmpty(FieldName))
                 return true;
 
-            // ¿©·¯ °ªÀÌ ÀÖÀ¸¸é OR Á¶°ÇÀ¸·Î Ã³¸®
+            // ì—¬ëŸ¬ ê°’ì´ ìˆìœ¼ë©´ OR ì¡°ê±´ìœ¼ë¡œ ì²˜ë¦¬
             var values = Value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                               .Select(v => v.Trim())
                               .Where(v => !string.IsNullOrEmpty(v))
@@ -64,7 +64,7 @@ namespace FACTOVA_MessageLogViewer.Models
 
         private string GetFieldValue(LogEntry entry)
         {
-            // Æ¯¼ö ÇÊµå Ã³¸®
+            // íŠ¹ìˆ˜ í•„ë“œ ì²˜ë¦¬
             return FieldName.ToUpperInvariant() switch
             {
                 "MSGID" or "MESSAGEID" => entry.MessageId ?? "",
@@ -78,22 +78,22 @@ namespace FACTOVA_MessageLogViewer.Models
     }
 
     /// <summary>
-    /// Á¶°Ç ±×·ì (±×·ì ³» Á¶°ÇµéÀº AND·Î Àû¿ë)
+    /// ì¡°ê±´ ê·¸ë£¹ (ê·¸ë£¹ ë‚´ ì¡°ê±´ë“¤ì€ ANDë¡œ ì ìš©)
     /// </summary>
     public class ConditionGroup
     {
         /// <summary>
-        /// ±×·ì ÀÌ¸§ (¿¹: "2000¹ø ½ºÄµ", "1100¹ø µµ¾î")
+        /// ê·¸ë£¹ ì´ë¦„ (ì˜ˆ: "2000ë²ˆ ìŠ¤ìº”", "1100ë²ˆ ë„ì–´")
         /// </summary>
         public string Name { get; set; } = "";
 
         /// <summary>
-        /// ±×·ì ³» Á¶°Çµé (AND Á¶°Ç)
+        /// ê·¸ë£¹ ë‚´ ì¡°ê±´ë“¤ (AND ì¡°ê±´)
         /// </summary>
         public List<TabFilterCondition> Conditions { get; set; } = new();
 
         /// <summary>
-        /// ±×·ì Á¶°Ç °Ë»ç (¸ğµç Á¶°Ç AND)
+        /// ê·¸ë£¹ ì¡°ê±´ ê²€ì‚¬ (ëª¨ë“  ì¡°ê±´ AND)
         /// </summary>
         public bool IsMatch(LogEntry entry)
         {
@@ -107,14 +107,14 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// Á¶°Ç ¿ä¾à
+        /// ì¡°ê±´ ìš”ì•½
         /// </summary>
         public string Summary
         {
             get
             {
                 if (Conditions == null || Conditions.Count == 0)
-                    return "(Á¶°Ç ¾øÀ½)";
+                    return "(ì¡°ê±´ ì—†ìŒ)";
 
                 var parts = Conditions
                     .Where(c => !string.IsNullOrEmpty(c.FieldName) && !string.IsNullOrEmpty(c.Value))
@@ -126,60 +126,60 @@ namespace FACTOVA_MessageLogViewer.Models
     }
 
     /// <summary>
-    /// °³º° ÅÇ ¼³Á¤
+    /// ê°œë³„ íƒ­ ì„¤ì •
     /// </summary>
     public class TabConfig
     {
         /// <summary>
-        /// ÅÇ Ç¥½Ã ÀÌ¸§
+        /// íƒ­ í‘œì‹œ ì´ë¦„
         /// </summary>
-        public string Name { get; set; } = "»õ ÅÇ";
+        public string Name { get; set; } = "ìƒˆ íƒ­";
 
         /// <summary>
-        /// ÅÇ ¼ø¼­ (³·À»¼ö·Ï ¾Õ¿¡ Ç¥½Ã)
+        /// íƒ­ ìˆœì„œ (ë‚®ì„ìˆ˜ë¡ ì•ì— í‘œì‹œ)
         /// </summary>
         public int Order { get; set; } = 0;
 
         /// <summary>
-        /// [±¸¹öÀü È£È¯] ´ÜÀÏ Á¶°Ç ¸ñ·Ï (AND Á¶°Ç)
+        /// [êµ¬ë²„ì „ í˜¸í™˜] ë‹¨ì¼ ì¡°ê±´ ëª©ë¡ (AND ì¡°ê±´)
         /// </summary>
         public List<TabFilterCondition> Conditions { get; set; } = new();
 
         /// <summary>
-        /// [½Å±Ô] Á¶°Ç ±×·ì ¸ñ·Ï (±×·ì °£ OR, ±×·ì ³» AND)
+        /// [ì‹ ê·œ] ì¡°ê±´ ê·¸ë£¹ ëª©ë¡ (ê·¸ë£¹ ê°„ OR, ê·¸ë£¹ ë‚´ AND)
         /// </summary>
         public List<ConditionGroup> ConditionGroups { get; set; } = new();
 
         /// <summary>
-        /// ÅÇ È°¼ºÈ­ ¿©ºÎ
+        /// íƒ­ í™œì„±í™” ì—¬ë¶€
         /// </summary>
         public bool IsEnabled { get; set; } = true;
 
         /// <summary>
-        /// ÅëÇÕ ·Î±× ÅÇÀÎÁö ¿©ºÎ (ÅëÇÕ ÅÇÀº ¸ğµç ·Î±× Ç¥½Ã)
+        /// í†µí•© ë¡œê·¸ íƒ­ì¸ì§€ ì—¬ë¶€ (í†µí•© íƒ­ì€ ëª¨ë“  ë¡œê·¸ í‘œì‹œ)
         /// </summary>
         public bool IsIntegrated { get; set; } = false;
 
         /// <summary>
-        /// ·Î±× ¿£Æ®¸®°¡ ÀÌ ÅÇÀÇ Á¶°Ç¿¡ ¸Â´ÂÁö °Ë»ç
+        /// ë¡œê·¸ ì—”íŠ¸ë¦¬ê°€ ì´ íƒ­ì˜ ì¡°ê±´ì— ë§ëŠ”ì§€ ê²€ì‚¬
         /// </summary>
         public bool IsMatch(LogEntry entry)
         {
             if (entry == null)
                 return false;
 
-            // ÅëÇÕ ÅÇÀº ¸ğµç ·Î±× Ç¥½Ã
+            // í†µí•© íƒ­ì€ ëª¨ë“  ë¡œê·¸ í‘œì‹œ
             if (IsIntegrated)
                 return true;
 
-            // Á¶°Ç ±×·ìÀÌ ÀÖÀ¸¸é OR ·ÎÁ÷ »ç¿ë
+            // ì¡°ê±´ ê·¸ë£¹ì´ ìˆìœ¼ë©´ OR ë¡œì§ ì‚¬ìš©
             if (ConditionGroups != null && ConditionGroups.Count > 0)
             {
-                // ±×·ì Áß ÇÏ³ª¶óµµ ¸¸Á·ÇÏ¸é OK (OR)
+                // ê·¸ë£¹ ì¤‘ í•˜ë‚˜ë¼ë„ ë§Œì¡±í•˜ë©´ OK (OR)
                 return ConditionGroups.Any(g => g.IsMatch(entry));
             }
 
-            // ±¸¹öÀü È£È¯: ´ÜÀÏ Á¶°Ç ¸ñ·Ï (AND)
+            // êµ¬ë²„ì „ í˜¸í™˜: ë‹¨ì¼ ì¡°ê±´ ëª©ë¡ (AND)
             if (Conditions == null || Conditions.Count == 0)
                 return true;
 
@@ -187,16 +187,16 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// Á¶°Ç ¿ä¾à ¹®ÀÚ¿­
+        /// ì¡°ê±´ ìš”ì•½ ë¬¸ìì—´
         /// </summary>
         public string ConditionSummary
         {
             get
             {
                 if (IsIntegrated)
-                    return "¸ğµç ·Î±×";
+                    return "ëª¨ë“  ë¡œê·¸";
 
-                // Á¶°Ç ±×·ìÀÌ ÀÖÀ¸¸é ±×·ì ¿ä¾à
+                // ì¡°ê±´ ê·¸ë£¹ì´ ìˆìœ¼ë©´ ê·¸ë£¹ ìš”ì•½
                 if (ConditionGroups != null && ConditionGroups.Count > 0)
                 {
                     var groupSummaries = ConditionGroups
@@ -206,9 +206,9 @@ namespace FACTOVA_MessageLogViewer.Models
                     return string.Join(" OR ", groupSummaries);
                 }
 
-                // ±¸¹öÀü È£È¯
+                // êµ¬ë²„ì „ í˜¸í™˜
                 if (Conditions == null || Conditions.Count == 0)
-                    return "Á¶°Ç ¾øÀ½";
+                    return "ì¡°ê±´ ì—†ìŒ";
 
                 var parts = Conditions
                     .Where(c => !string.IsNullOrEmpty(c.FieldName) && !string.IsNullOrEmpty(c.Value))
@@ -220,22 +220,22 @@ namespace FACTOVA_MessageLogViewer.Models
     }
 
     /// <summary>
-    /// ÅÇ ¼³Á¤ ÀüÃ¼ (ÇÁ¸®¼Â¿¡ Æ÷ÇÔ)
+    /// íƒ­ ì„¤ì • ì „ì²´ (í”„ë¦¬ì…‹ì— í¬í•¨)
     /// </summary>
     public class TabSettings
     {
         /// <summary>
-        /// ÅÇ ¸ñ·Ï
+        /// íƒ­ ëª©ë¡
         /// </summary>
         public List<TabConfig> Tabs { get; set; } = new();
 
         /// <summary>
-        /// ¸¶Áö¸· ¼±ÅÃµÈ ÅÇ ÀÎµ¦½º
+        /// ë§ˆì§€ë§‰ ì„ íƒëœ íƒ­ ì¸ë±ìŠ¤
         /// </summary>
         public int LastSelectedTabIndex { get; set; } = 0;
 
         /// <summary>
-        /// ±âº» ÅÇ ¼³Á¤ »ı¼º
+        /// ê¸°ë³¸ íƒ­ ì„¤ì • ìƒì„±
         /// </summary>
         public static TabSettings CreateDefault()
         {
@@ -245,7 +245,7 @@ namespace FACTOVA_MessageLogViewer.Models
                 {
                     new TabConfig
                     {
-                        Name = "?? ÅëÇÕ ·Î±×",
+                        Name = "?? í†µí•© ë¡œê·¸",
                         Order = 0,
                         IsIntegrated = true,
                         IsEnabled = true
@@ -255,7 +255,7 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// È°¼ºÈ­µÈ ÅÇ¸¸ ¹İÈ¯
+        /// í™œì„±í™”ëœ íƒ­ë§Œ ë°˜í™˜
         /// </summary>
         public IEnumerable<TabConfig> EnabledTabs => Tabs?.Where(t => t.IsEnabled).OrderBy(t => t.Order) ?? Enumerable.Empty<TabConfig>();
     }

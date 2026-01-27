@@ -1,4 +1,4 @@
-using FACTOVA_MessageLogViewer.Models;
+ï»¿using FACTOVA_MessageLogViewer.Models;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -15,7 +15,7 @@ namespace FACTOVA_MessageLogViewer
         private bool isUpdating = false;
 
         /// <summary>
-        /// ¹ß°ßµÈ ÇÊµå ¸ñ·Ï (ÄŞº¸¹Ú½º ¹ÙÀÎµù¿ë)
+        /// ë°œê²¬ëœ í•„ë“œ ëª©ë¡ (ì½¤ë³´ë°•ìŠ¤ ë°”ì¸ë”©ìš©)
         /// </summary>
         public List<string> FieldList => LogFieldAnalyzer.DiscoveredFields;
 
@@ -29,7 +29,7 @@ namespace FACTOVA_MessageLogViewer
         {
             var settings = ColumnSettingsManager.CurrentSettings;
             
-            // ±âÁ¸ ÅÇ ¼³Á¤ º¹»ç
+            // ê¸°ì¡´ íƒ­ ì„¤ì • ë³µì‚¬
             tabs.Clear();
             if (settings.TabSettings?.Tabs != null)
             {
@@ -41,14 +41,14 @@ namespace FACTOVA_MessageLogViewer
                         Order = tab.Order,
                         IsEnabled = tab.IsEnabled,
                         IsIntegrated = tab.IsIntegrated,
-                        // ±¸¹öÀü È£È¯: Conditions°¡ ÀÖÀ¸¸é Ã¹ ¹øÂ° ±×·ìÀ¸·Î º¯È¯
+                        // êµ¬ë²„ì „ í˜¸í™˜: Conditionsê°€ ìˆìœ¼ë©´ ì²« ë²ˆì§¸ ê·¸ë£¹ìœ¼ë¡œ ë³€í™˜
                         Conditions = tab.Conditions?.Select(c => new TabFilterCondition
                         {
                             FieldName = c.FieldName,
                             Value = c.Value,
                             ExactMatch = c.ExactMatch
                         }).ToList() ?? new List<TabFilterCondition>(),
-                        // »õ ¹öÀü: ConditionGroups º¹»ç
+                        // ìƒˆ ë²„ì „: ConditionGroups ë³µì‚¬
                         ConditionGroups = tab.ConditionGroups?.Select(g => new ConditionGroup
                         {
                             Name = g.Name,
@@ -61,7 +61,7 @@ namespace FACTOVA_MessageLogViewer
                         }).ToList() ?? new List<ConditionGroup>()
                     };
 
-                    // ±¸¹öÀü È£È¯: Conditions¸¸ ÀÖ°í ConditionGroups°¡ ¾øÀ¸¸é º¯È¯
+                    // êµ¬ë²„ì „ í˜¸í™˜: Conditionsë§Œ ìˆê³  ConditionGroupsê°€ ì—†ìœ¼ë©´ ë³€í™˜
                     if (copy.ConditionGroups.Count == 0 && copy.Conditions.Count > 0)
                     {
                         copy.ConditionGroups.Add(new ConditionGroup
@@ -76,7 +76,7 @@ namespace FACTOVA_MessageLogViewer
                 }
             }
 
-            // ÅÇÀÌ ¾øÀ¸¸é ±âº» ÅëÇÕ ÅÇ Ãß°¡
+            // íƒ­ì´ ì—†ìœ¼ë©´ ê¸°ë³¸ í†µí•© íƒ­ ì¶”ê°€
             if (tabs.Count == 0)
             {
                 tabs.Add(new TabConfig
@@ -116,11 +116,11 @@ namespace FACTOVA_MessageLogViewer
             txtTabName.Text = selectedTab.Name;
             chkIsIntegrated.IsChecked = selectedTab.IsIntegrated;
             
-            // Á¶°Ç ±×·ì ItemsSource ¼³Á¤
+            // ì¡°ê±´ ê·¸ë£¹ ItemsSource ì„¤ì •
             itemsConditionGroups.ItemsSource = null;
             itemsConditionGroups.ItemsSource = selectedTab.ConditionGroups;
             
-            // ÅëÇÕ ÅÇÀÌ¸é Á¶°Ç ºñÈ°¼ºÈ­
+            // í†µí•© íƒ­ì´ë©´ ì¡°ê±´ ë¹„í™œì„±í™”
             itemsConditionGroups.IsEnabled = !selectedTab.IsIntegrated;
 
             isUpdating = false;
@@ -140,7 +140,7 @@ namespace FACTOVA_MessageLogViewer
             
             selectedTab.IsIntegrated = chkIsIntegrated.IsChecked == true;
             
-            // ÅëÇÕ ÅÇÀÌ¸é Á¶°Ç ºñÈ°¼ºÈ­
+            // í†µí•© íƒ­ì´ë©´ ì¡°ê±´ ë¹„í™œì„±í™”
             itemsConditionGroups.IsEnabled = !selectedTab.IsIntegrated;
             
             RefreshTabList();
@@ -148,24 +148,24 @@ namespace FACTOVA_MessageLogViewer
 
         private void TabEnabled_Changed(object sender, RoutedEventArgs e)
         {
-            // Ã¼Å©¹Ú½º º¯°æ ½Ã ÀÚµ¿ ÀúÀåµÊ (¹ÙÀÎµù)
+            // ì²´í¬ë°•ìŠ¤ ë³€ê²½ ì‹œ ìë™ ì €ì¥ë¨ (ë°”ì¸ë”©)
         }
 
         private void Condition_Changed(object sender, RoutedEventArgs e)
         {
-            // Á¶°Ç º¯°æ ½Ã ÅÇ ¸ñ·ÏÀº »õ·Î°íÄ§ÇÏÁö ¾ÊÀ½ (Æ÷Ä¿½º À¯Áö)
-            // ÀúÀå ½ÃÁ¡¿¡ ¹İ¿µµÊ
+            // ì¡°ê±´ ë³€ê²½ ì‹œ íƒ­ ëª©ë¡ì€ ìƒˆë¡œê³ ì¹¨í•˜ì§€ ì•ŠìŒ (í¬ì»¤ìŠ¤ ìœ ì§€)
+            // ì €ì¥ ì‹œì ì— ë°˜ì˜ë¨
         }
 
         private void Condition_Changed(object sender, TextChangedEventArgs e)
         {
-            // ÅØ½ºÆ® ÀÔ·Â Áß¿¡´Â »õ·Î°íÄ§ÇÏÁö ¾ÊÀ½ (Æ÷Ä¿½º À¯Áö)
-            // ¹ÙÀÎµùÀÌ UpdateSourceTrigger=PropertyChanged·Î ¼³Á¤µÇ¾î ÀÚµ¿ ÀúÀåµÊ
+            // í…ìŠ¤íŠ¸ ì…ë ¥ ì¤‘ì—ëŠ” ìƒˆë¡œê³ ì¹¨í•˜ì§€ ì•ŠìŒ (í¬ì»¤ìŠ¤ ìœ ì§€)
+            // ë°”ì¸ë”©ì´ UpdateSourceTrigger=PropertyChangedë¡œ ì„¤ì •ë˜ì–´ ìë™ ì €ì¥ë¨
         }
 
         private void Condition_Changed(object sender, SelectionChangedEventArgs e)
         {
-            // ComboBox ¼±ÅÃ º¯°æ ½Ã¿¡µµ »õ·Î°íÄ§ÇÏÁö ¾ÊÀ½
+            // ComboBox ì„ íƒ ë³€ê²½ ì‹œì—ë„ ìƒˆë¡œê³ ì¹¨í•˜ì§€ ì•ŠìŒ
         }
 
         private void RefreshTabList()
@@ -196,16 +196,16 @@ namespace FACTOVA_MessageLogViewer
         {
             if (selectedTab == null) return;
 
-            // ÃÖ¼Ò 1°³ ÅÇÀº À¯Áö
+            // ìµœì†Œ 1ê°œ íƒ­ì€ ìœ ì§€
             if (tabs.Count <= 1)
             {
-                MessageBox.Show("ÃÖ¼Ò 1°³ÀÇ ÅÇÀÌ ÇÊ¿äÇÕ´Ï´Ù.", "¾Ë¸²", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("ìµœì†Œ 1ê°œì˜ íƒ­ì´ í•„ìš”í•©ë‹ˆë‹¤.", "ì•Œë¦¼", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
             var result = MessageBox.Show(
-                $"'{selectedTab.Name}' ÅÇÀ» »èÁ¦ÇÏ½Ã°Ú½À´Ï±î?",
-                "È®ÀÎ",
+                $"'{selectedTab.Name}' íƒ­ì„ ì‚­ì œí•˜ì‹œê² ìŠµë‹ˆê¹Œ?",
+                "í™•ì¸",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question
             );
@@ -260,15 +260,15 @@ namespace FACTOVA_MessageLogViewer
 
         private void BtnAddCondition_Click(object sender, RoutedEventArgs e)
         {
-            // ±¸¹öÀü È£È¯¿ë - ÀÌÁ¦ »ç¿ëÇÏÁö ¾ÊÀ½
+            // êµ¬ë²„ì „ í˜¸í™˜ìš© - ì´ì œ ì‚¬ìš©í•˜ì§€ ì•ŠìŒ
         }
 
         private void BtnRemoveCondition_Click(object sender, RoutedEventArgs e)
         {
-            // ±¸¹öÀü È£È¯¿ë - ÀÌÁ¦ »ç¿ëÇÏÁö ¾ÊÀ½
+            // êµ¬ë²„ì „ í˜¸í™˜ìš© - ì´ì œ ì‚¬ìš©í•˜ì§€ ì•ŠìŒ
         }
 
-        // === Á¶°Ç ±×·ì °ü·Ã ¸Ş¼­µåµé ===
+        // === ì¡°ê±´ ê·¸ë£¹ ê´€ë ¨ ë©”ì„œë“œë“¤ ===
 
         private void BtnAddGroup_Click(object sender, RoutedEventArgs e)
         {
@@ -320,7 +320,7 @@ namespace FACTOVA_MessageLogViewer
 
             if (sender is Button button && button.Tag is TabFilterCondition condition)
             {
-                // ¸ğµç ±×·ì¿¡¼­ ÇØ´ç Á¶°Ç Ã£¾Æ¼­ »èÁ¦
+                // ëª¨ë“  ê·¸ë£¹ì—ì„œ í•´ë‹¹ ì¡°ê±´ ì°¾ì•„ì„œ ì‚­ì œ
                 foreach (var group in selectedTab.ConditionGroups ?? Enumerable.Empty<ConditionGroup>())
                 {
                     if (group.Conditions?.Remove(condition) == true)
@@ -340,10 +340,10 @@ namespace FACTOVA_MessageLogViewer
 
         private void BtnSave_Click(object sender, RoutedEventArgs e)
         {
-            // ¼ø¼­ ¾÷µ¥ÀÌÆ®
+            // ìˆœì„œ ì—…ë°ì´íŠ¸
             UpdateOrders();
 
-            // ¼³Á¤ ÀúÀå
+            // ì„¤ì • ì €ì¥
             var settings = ColumnSettingsManager.CurrentSettings;
             settings.TabSettings = new TabSettings
             {

@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.IO;
@@ -6,57 +6,57 @@ using System.IO;
 namespace FACTOVA_MessageLogViewer.Models
 {
     /// <summary>
-    /// ÇÊµå Ç¥½Ã Å¸ÀÔ
+    /// í•„ë“œ í‘œì‹œ íƒ€ì…
     /// </summary>
     public enum FieldDisplayType
     {
-        Column,     // °³º° ÄÃ·³À¸·Î Ç¥½Ã
-        Summary,    // Summary ÄÃ·³¿¡ ÇÔ²² Ç¥½Ã
-        Hidden      // ¼û±è
+        Column,     // ê°œë³„ ì»¬ëŸ¼ìœ¼ë¡œ í‘œì‹œ
+        Summary,    // Summary ì»¬ëŸ¼ì— í•¨ê»˜ í‘œì‹œ
+        Hidden      // ìˆ¨ê¹€
     }
 
     /// <summary>
-    /// °³º° ÇÊµå ¼³Á¤
+    /// ê°œë³„ í•„ë“œ ì„¤ì •
     /// </summary>
     public class FieldConfig
     {
         public string FieldName { get; set; } = "";
-        public string DisplayName { get; set; } = "";  // ÄÃ·³ Çì´õ¿¡ Ç¥½ÃÇÒ ÀÌ¸§
+        public string DisplayName { get; set; } = "";  // ì»¬ëŸ¼ í—¤ë”ì— í‘œì‹œí•  ì´ë¦„
         public FieldDisplayType DisplayType { get; set; } = FieldDisplayType.Summary;
         public int ColumnWidth { get; set; } = 100;
-        public int Order { get; set; } = 0;  // ÄÃ·³ ¼ø¼­
+        public int Order { get; set; } = 0;  // ì»¬ëŸ¼ ìˆœì„œ
     }
 
     /// <summary>
-    /// ÀüÃ¼ ÄÃ·³ ¼³Á¤ (ÇÁ¸®¼ÂÀ¸·Î ÀúÀå)
+    /// ì „ì²´ ì»¬ëŸ¼ ì„¤ì • (í”„ë¦¬ì…‹ìœ¼ë¡œ ì €ì¥)
     /// </summary>
     public class ColumnSettings
     {
-        public string Name { get; set; } = "±âº» ¼³Á¤";
+        public string Name { get; set; } = "ê¸°ë³¸ ì„¤ì •";
         public string Description { get; set; } = "";
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime ModifiedAt { get; set; } = DateTime.Now;
         public List<FieldConfig> Fields { get; set; } = new();
 
         /// <summary>
-        /// ·Î±× ºä¾î ÆùÆ® Å©±â
+        /// ë¡œê·¸ ë·°ì–´ í°íŠ¸ í¬ê¸°
         /// </summary>
         public int FontSize { get; set; } = 11;
 
         /// <summary>
-        /// ÅÇ ¼³Á¤ (¾÷¹«º° ÅÇ ÇÊÅÍ¸µ)
+        /// íƒ­ ì„¤ì • (ì—…ë¬´ë³„ íƒ­ í•„í„°ë§)
         /// </summary>
         public TabSettings TabSettings { get; set; } = TabSettings.CreateDefault();
 
         /// <summary>
-        /// ÄÃ·³À¸·Î Ç¥½ÃÇÒ ÇÊµåµé
+        /// ì»¬ëŸ¼ìœ¼ë¡œ í‘œì‹œí•  í•„ë“œë“¤
         /// </summary>
         public IEnumerable<FieldConfig> ColumnFields => 
             Fields.Where(f => f.DisplayType == FieldDisplayType.Column)
                   .OrderBy(f => f.Order);
 
         /// <summary>
-        /// Summary¿¡ Ç¥½ÃÇÒ ÇÊµåµé
+        /// Summaryì— í‘œì‹œí•  í•„ë“œë“¤
         /// </summary>
         public IEnumerable<FieldConfig> SummaryFields =>
             Fields.Where(f => f.DisplayType == FieldDisplayType.Summary)
@@ -67,7 +67,7 @@ namespace FACTOVA_MessageLogViewer.Models
 
 
     /// <summary>
-    /// ÄÃ·³ ¼³Á¤ °ü¸®ÀÚ (AppSettingsManager ·¡ÆÛ)
+    /// ì»¬ëŸ¼ ì„¤ì • ê´€ë¦¬ì (AppSettingsManager ë˜í¼)
     /// </summary>
     public static class ColumnSettingsManager
     {
@@ -83,7 +83,7 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// ±âº» ¼³Á¤ »ı¼º
+        /// ê¸°ë³¸ ì„¤ì • ìƒì„±
         /// </summary>
         public static ColumnSettings CreateDefaultSettings()
         {
@@ -91,7 +91,7 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// ÇöÀç ¼³Á¤ ÀúÀå
+        /// í˜„ì¬ ì„¤ì • ì €ì¥
         /// </summary>
         public static void SaveCurrentSettings(ColumnSettings settings)
         {
@@ -100,7 +100,7 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// ¼³Á¤À» ÀÌ¸§À¸·Î ÀúÀå (ÇÁ¸®¼Â)
+        /// ì„¤ì •ì„ ì´ë¦„ìœ¼ë¡œ ì €ì¥ (í”„ë¦¬ì…‹)
         /// </summary>
         public static void SaveSettingsAsPreset(ColumnSettings settings, string name)
         {
@@ -108,7 +108,7 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// ÀúÀåµÈ ÇÁ¸®¼Â ¸ñ·Ï Á¶È¸
+        /// ì €ì¥ëœ í”„ë¦¬ì…‹ ëª©ë¡ ì¡°íšŒ
         /// </summary>
         public static List<string> GetPresetNames()
         {
@@ -116,7 +116,7 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// ÇÁ¸®¼Â ·Îµå
+        /// í”„ë¦¬ì…‹ ë¡œë“œ
         /// </summary>
         public static ColumnSettings? LoadPreset(string name)
         {
@@ -124,7 +124,7 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// ÇÊµå ¼³Á¤ °¡Á®¿À±â (¾øÀ¸¸é Summary·Î ±âº» »ı¼º)
+        /// í•„ë“œ ì„¤ì • ê°€ì ¸ì˜¤ê¸° (ì—†ìœ¼ë©´ Summaryë¡œ ê¸°ë³¸ ìƒì„±)
         /// </summary>
         public static FieldConfig GetFieldConfig(string fieldName)
         {
@@ -132,7 +132,7 @@ namespace FACTOVA_MessageLogViewer.Models
             if (existing != null)
                 return existing;
 
-            // »õ ÇÊµå - Summary·Î ±âº» ¼³Á¤
+            // ìƒˆ í•„ë“œ - Summaryë¡œ ê¸°ë³¸ ì„¤ì •
             return new FieldConfig
             {
                 FieldName = fieldName,

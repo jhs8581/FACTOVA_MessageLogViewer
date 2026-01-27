@@ -38,6 +38,8 @@ namespace FACTOVA_MessageLogViewer.Models
                 LogEntries.RemoveAt(0);
             }
 
+
+
             LogEntries.Add(entry);
         }
 
