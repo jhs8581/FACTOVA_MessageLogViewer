@@ -1,7 +1,7 @@
 ﻿<Application x:Class="FACTOVA_MessageLogViewer.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             StartupUri="MainWindow.xaml">
+             StartupUri="LogViewerWindow.xaml">
     <Application.Resources>
 
     </Application.Resources>

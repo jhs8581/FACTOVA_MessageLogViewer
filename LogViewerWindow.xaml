@@ -18,6 +18,7 @@ Closing="Window_Closing">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="50"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="40"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="35"/>
@@ -43,33 +44,6 @@ Closing="Window_Closing">
                             HorizontalAlignment="Right" 
                             VerticalAlignment="Center"
                             Margin="15,0">
-
-                    <!-- 프리셋 선택 -->
-                    <TextBlock Text="Preset:" 
-                               Foreground="White" 
-                               VerticalAlignment="Center" 
-                               Margin="0,0,5,0"
-                               FontSize="11"/>
-                    <ComboBox x:Name="cboPresets" 
-                              Width="140" Height="24"
-                              FontSize="11"
-                              SelectionChanged="CboPresets_SelectionChanged"
-                              ToolTip="Select preset to apply"/>
-
-                    <!-- 설정 버튼 -->
-                    <Button Content="⚙" 
-                            Width="28" Height="24" 
-                            Margin="3,0,15,0"
-                            Click="BtnColumnSettings_Click"
-                            Background="#1976D2"
-                            Foreground="White"
-                            BorderThickness="0"
-                            FontSize="14"
-                            Cursor="Hand"
-                            ToolTip="Edit Settings"/>
-
-                    <!-- 구분선 -->
-                    <Border Width="1" Background="#64B5F6" Margin="0,5,15,5"/>
 
                     <!-- 폰트 크기 -->
                     <TextBlock Text="Font:" 
@@ -128,8 +102,200 @@ Closing="Window_Closing">
             </Grid>
         </Border>
 
+        <!-- 설정 영역 (Expander) -->
+        <Expander Grid.Row="1" 
+                  x:Name="expanderSettings"
+                  Header="⚙️ 로그 설정"
+                  IsExpanded="True"
+                  Background="White"
+                  BorderBrush="#CCCCCC"
+                  BorderThickness="0,1,0,1"
+                  Padding="15,10">
+            <StackPanel Margin="10">
+                <!-- 로그 폴더 선택 -->
+                <GroupBox Header="📁 로그 폴더" FontSize="13" Margin="0,0,0,10">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <TextBox x:Name="txtLogFolderPath" 
+                                     Grid.Column="0"
+                                     Height="32"
+                                     IsReadOnly="True" 
+                                     VerticalContentAlignment="Center"
+                                     Padding="8"
+                                     FontSize="11"
+                                     FontFamily="Consolas"
+                                     Background="#FAFAFA"
+                                     Margin="0,0,10,0"/>
+                            <Button Grid.Column="1"
+                                    Content="기본폴더" 
+                                    Width="90" 
+                                    Height="32"
+                                    FontSize="11"
+                                    Margin="0,0,5,0"
+                                    Click="BtnSetDefaultFolder_Click"
+                                    ToolTip="기본 폴더로 설정"/>
+                            <Button Grid.Column="2"
+                                    Content="폴더 선택" 
+                                    Width="90" 
+                                    Height="32"
+                                    FontSize="11"
+                                    Click="BtnBrowse_Click"
+                                    ToolTip="사용자 폴더 선택"/>
+                        </Grid>
+                        <TextBlock Text="기본폴더: 년/월 구조 자동 검색 | 사용자폴더: 해당 폴더 내 로그 검색"
+                                   Foreground="#666"
+                                   FontSize="10"
+                                   Margin="0,5,0,0"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- 프리셋 선택 -->
+                <GroupBox Header="🎨 프리셋 선택" FontSize="13" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="저장된 컬럼 설정과 탭 필터를 불러올 수 있습니다."
+                                   Foreground="#666"
+                                   FontSize="10"
+                                   Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="프리셋:" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="12"/>
+                            <ComboBox x:Name="cboPresets" 
+                                      Width="250"
+                                      Height="28"
+                                      FontSize="12"
+                                      SelectionChanged="CboPresets_SelectionChanged"
+                                      ToolTip="저장된 프리셋을 선택하세요"/>
+                            <Button Content="⚙ 프리셋 편집" 
+                                    Width="110" 
+                                    Height="32"
+                                    FontSize="11"
+                                    Margin="10,0,0,0"
+                                    Click="BtnColumnSettings_Click"
+                                    Background="#1976D2"
+                                    Foreground="White"
+                                    Cursor="Hand"
+                                    ToolTip="프리셋 생성, 수정, 삭제"/>
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- 날짜 선택 -->
+                <GroupBox Header="📅 로그 날짜 선택" FontSize="13" Margin="0,0,0,10">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="날짜:" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="12"/>
+                            <ComboBox x:Name="cboAvailableDates" 
+                                      Width="200"
+                                      Height="28"
+                                      FontSize="12"
+                                      DisplayMemberPath="DisplayText"
+                                      SelectedValuePath="Date"/>
+                            <Button Content="새로고침" 
+                                    Width="80" 
+                                    Height="32"
+                                    Margin="10,0,0,0"
+                                    Click="BtnRefreshDates_Click"
+                                    FontSize="11"/>
+                            <Button Content="로그 다시 로드" 
+                                    Width="120" 
+                                    Height="32"
+                                    Margin="10,0,0,0"
+                                    Background="#4CAF50"
+                                    Foreground="White"
+                                    Click="BtnReloadLog_Click"
+                                    FontSize="11"/>
+                        </StackPanel>
+                        <TextBlock x:Name="txtDateInfo"
+                                   Text="폴더에서 로그 파일을 검색합니다."
+                                   Foreground="#666"
+                                   FontSize="10"
+                                   Margin="0,8,0,0"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- 로그 표시 옵션 -->
+                <GroupBox Header="⚙ 로그 표시 옵션" FontSize="13">
+                    <StackPanel>
+                        <RadioButton x:Name="rbNewOnly" 
+                                     Content="📍 실행 시점 이후 로그만 표시 (추천 - 빠른 시작)"
+                                     IsChecked="True"
+                                     Margin="0,5"
+                                     FontSize="12"
+                                     FontWeight="Bold"/>
+                        <TextBlock Text="   → 기존 로그는 무시하고 프로그램 실행 후 발생하는 로그만 표시합니다."
+                                   Foreground="#666"
+                                   FontSize="11"
+                                   Margin="0,0,0,10"
+                                   TextWrapping="Wrap"/>
+
+                        <RadioButton x:Name="rbLoadRecent" 
+                                     Content="📚 최근 로그 로드"
+                                     FontSize="12"
+                                     Margin="0,5"/>
+                        <StackPanel Orientation="Horizontal" Margin="20,5,0,10">
+                            <TextBlock Text="개수:" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="12"/>
+                            <TextBox x:Name="txtRecentCount" 
+                                     Width="100" 
+                                     Height="26"
+                                     FontSize="12"
+                                     Text="1000" 
+                                     VerticalContentAlignment="Center"
+                                     IsEnabled="{Binding IsChecked, ElementName=rbLoadRecent}"/>
+                            <TextBlock Text="개 (기본: 1000개)" 
+                                       VerticalAlignment="Center" 
+                                       FontSize="11"
+                                       Margin="10,0,0,0"
+                                       Foreground="#666"/>
+                        </StackPanel>
+                        
+                        <!-- 시작 버튼 -->
+                        <Button Content="🚀 로그 뷰어 시작" 
+                                Width="200" 
+                                Height="40"
+                                FontSize="14"
+                                FontWeight="Bold"
+                                Background="#4CAF50"
+                                Foreground="White"
+                                BorderThickness="0"
+                                Margin="0,15,0,5"
+                                HorizontalAlignment="Center"
+                                Click="BtnStartViewer_Click"
+                                Cursor="Hand">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        CornerRadius="5"
+                                                        Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter HorizontalAlignment="Center" 
+                                                                     VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#45A049"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </Expander>
+
         <!-- 필터 영역 -->
-        <Border Grid.Row="1" Background="#E3F2FD">
+        <Border Grid.Row="2" Background="#E3F2FD">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
                 <TextBlock Text="🔍 검색:" 
                            Foreground="#1565C0" 
@@ -224,7 +390,7 @@ Closing="Window_Closing">
         </Border>
 
         <!-- TabControl with ListView -->
-        <TabControl Grid.Row="2" 
+        <TabControl Grid.Row="3" 
                     x:Name="tabControlLogs"
                     Margin="10"
                     SelectionChanged="TabControlLogs_SelectionChanged">
@@ -234,7 +400,7 @@ Closing="Window_Closing">
         </TabControl>
 
         <!-- 하단 상태바 -->
-        <Border Grid.Row="3" Background="#EEEEEE" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0">
+        <Border Grid.Row="4" Background="#EEEEEE" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0">
             <Grid>
                 <TextBlock x:Name="txtStatus" 
                            Text="로그 개수: 0" 
