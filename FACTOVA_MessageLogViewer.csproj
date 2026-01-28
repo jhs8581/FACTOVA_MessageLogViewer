@@ -8,9 +8,9 @@
     <UseWPF>true</UseWPF>
     
     <!-- 버전 정보 -->
-    <Version>1.0.7</Version>
-    <AssemblyVersion>1.0.7.0</AssemblyVersion>
-    <FileVersion>1.0.7.0</FileVersion>
+    <Version>1.0.8</Version>
+    <AssemblyVersion>1.0.8.0</AssemblyVersion>
+    <FileVersion>1.0.8.0</FileVersion>
     
     <!-- 어플리케이션 정보 -->
     <Product>FACTOVA Message Log Viewer</Product>
@@ -30,6 +30,14 @@
 
   <ItemGroup>
     <None Include=".github\workflows\release.yml" />
+  </ItemGroup>
+
+  <!-- XAML 강제 재컴파일 -->
+  <ItemGroup>
+    <Page Update="TabSettingsWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <XamlRuntime>Wpf</XamlRuntime>
+    </Page>
   </ItemGroup>
 
 </Project>

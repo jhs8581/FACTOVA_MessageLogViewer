@@ -27,6 +27,61 @@ namespace FACTOVA_MessageLogViewer.Models
         public bool ExactMatch { get; set; } = true;
 
         /// <summary>
+        /// 디스플레이 명칭 (쉼표 구분, Value와 순서 매핑)
+        /// 예: Value="2,3", DisplayNames="RR,R" → 2→RR, 3→R
+        /// </summary>
+        public string DisplayNames { get; set; } = "";
+
+        /// <summary>
+        /// Value 값을 DisplayNames로 변환 (없으면 원래 값 반환)
+        /// </summary>
+        public string GetDisplayValue(string value)
+        {
+            if (string.IsNullOrEmpty(DisplayNames))
+                return value;
+
+            var values = Value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                              .Select(v => v.Trim())
+                              .ToList();
+            var displayNames = DisplayNames.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                           .Select(v => v.Trim())
+                                           .ToList();
+
+            int index = values.FindIndex(v => string.Equals(v, value, StringComparison.OrdinalIgnoreCase));
+            if (index >= 0 && index < displayNames.Count)
+                return displayNames[index];
+
+            return value;
+        }
+
+        /// <summary>
+        /// 전체 Value에 대한 디스플레이 문자열 반환
+        /// </summary>
+        public string GetDisplayString()
+        {
+            if (string.IsNullOrEmpty(Value))
+                return "";
+
+            var values = Value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                              .Select(v => v.Trim())
+                              .ToList();
+            var displayNames = DisplayNames?.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                            .Select(v => v.Trim())
+                                            .ToList() ?? new List<string>();
+
+            var result = new List<string>();
+            for (int i = 0; i < values.Count; i++)
+            {
+                if (i < displayNames.Count && !string.IsNullOrEmpty(displayNames[i]))
+                    result.Add(displayNames[i]);
+                else
+                    result.Add(values[i]);
+            }
+
+            return string.Join(",", result);
+        }
+
+        /// <summary>
         /// 조건 검사
         /// </summary>
         public bool IsMatch(LogEntry entry)
@@ -118,7 +173,7 @@ namespace FACTOVA_MessageLogViewer.Models
 
                 var parts = Conditions
                     .Where(c => !string.IsNullOrEmpty(c.FieldName) && !string.IsNullOrEmpty(c.Value))
-                    .Select(c => $"{c.FieldName}={c.Value}");
+                    .Select(c => $"{c.FieldName}={c.GetDisplayString()}");
 
                 return string.Join(" AND ", parts);
             }
@@ -245,7 +300,7 @@ namespace FACTOVA_MessageLogViewer.Models
                 {
                     new TabConfig
                     {
-                        Name = "?? 통합 로그",
+                        Name = "통합 로그",
                         Order = 0,
                         IsIntegrated = true,
                         IsEnabled = true

@@ -94,6 +94,7 @@ namespace FACTOVA_MessageLogViewer
                     DisplayName = config.DisplayName,
                     DisplayType = config.DisplayType,
                     ColumnWidth = config.ColumnWidth,
+                    ValueMapping = config.ValueMapping,
                     SampleValues = analysisResult?.SampleValues ?? new()
                 });
             }
@@ -165,6 +166,7 @@ namespace FACTOVA_MessageLogViewer
                     item.DisplayName = config.DisplayName;
                     item.DisplayType = config.DisplayType;
                     item.ColumnWidth = config.ColumnWidth;
+                    item.ValueMapping = config.ValueMapping;
                 }
             }
             dgFields.Items.Refresh();
@@ -210,6 +212,9 @@ namespace FACTOVA_MessageLogViewer
             // 탭 순서 업데이트
             UpdateTabOrders();
 
+            // Tab Settings의 DisplayNames를 Column Settings의 ValueMapping으로 동기화
+            SyncDisplayNamesToValueMapping();
+
             // 현재 선택된 프리셋 이름 사용
             var presetName = cboPresets.SelectedItem?.ToString() ?? "Default";
 
@@ -222,6 +227,7 @@ namespace FACTOVA_MessageLogViewer
                     DisplayName = item.DisplayName,
                     DisplayType = item.DisplayType,
                     ColumnWidth = item.ColumnWidth,
+                    ValueMapping = item.ValueMapping,
                     Order = index
                 }).ToList(),
                 TabSettings = new TabSettings
@@ -232,6 +238,82 @@ namespace FACTOVA_MessageLogViewer
                 FontSize = ColumnSettingsManager.CurrentSettings.FontSize
             };
             return settings;
+        }
+
+        /// <summary>
+        /// Tab Settings의 DisplayNames를 Column Settings의 ValueMapping으로 동기화
+        /// </summary>
+        private void SyncDisplayNamesToValueMapping()
+        {
+            System.Diagnostics.Debug.WriteLine("=== SyncDisplayNamesToValueMapping 시작 ===");
+            
+            foreach (var tab in tabs)
+            {
+                System.Diagnostics.Debug.WriteLine($"Tab: {tab.Name}");
+                
+                foreach (var group in tab.ConditionGroups)
+                {
+                    System.Diagnostics.Debug.WriteLine($"  Group: {group.Name}");
+                    
+                    foreach (var condition in group.Conditions)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"    Condition - Field: {condition.FieldName}, Value: {condition.Value}, DisplayNames: {condition.DisplayNames}");
+                        
+                        if (string.IsNullOrEmpty(condition.FieldName) || 
+                            string.IsNullOrEmpty(condition.Value) || 
+                            string.IsNullOrEmpty(condition.DisplayNames))
+                        {
+                            System.Diagnostics.Debug.WriteLine($"      -> 스킵 (빈 값)");
+                            continue;
+                        }
+
+                        // 해당 필드 찾기
+                        var fieldItem = fieldItems.FirstOrDefault(f => f.FieldName == condition.FieldName);
+                        if (fieldItem == null)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"      -> 필드를 찾을 수 없음: {condition.FieldName}");
+                            continue;
+                        }
+
+                        // Value와 DisplayNames를 매핑 형식으로 변환
+                        // 예: Value="1,2", DisplayNames="장입,미장입" → "1:장입,2:미장입"
+                        var values = condition.Value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                                    .Select(v => v.Trim())
+                                                    .ToList();
+                        var displayNames = condition.DisplayNames.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                                                 .Select(d => d.Trim())
+                                                                 .ToList();
+
+                        var mappings = new List<string>();
+                        for (int i = 0; i < values.Count && i < displayNames.Count; i++)
+                        {
+                            mappings.Add($"{values[i]}:{displayNames[i]}");
+                        }
+
+                        if (mappings.Count > 0)
+                        {
+                            var newMapping = string.Join(",", mappings);
+                            
+                            System.Diagnostics.Debug.WriteLine($"      -> 기존 ValueMapping: '{fieldItem.ValueMapping}'");
+                            System.Diagnostics.Debug.WriteLine($"      -> 새 ValueMapping: '{newMapping}'");
+                            
+                            // 기존 매핑이 없거나, 새 매핑이 더 많은 항목을 포함하면 업데이트
+                            if (string.IsNullOrEmpty(fieldItem.ValueMapping) || 
+                                mappings.Count > fieldItem.ValueMapping.Split(',').Length)
+                            {
+                                fieldItem.ValueMapping = newMapping;
+                                System.Diagnostics.Debug.WriteLine($"      -> ValueMapping 업데이트됨!");
+                            }
+                            else
+                            {
+                                System.Diagnostics.Debug.WriteLine($"      -> ValueMapping 업데이트 안함 (기존 매핑이 더 많거나 같음)");
+                            }
+                        }
+                    }
+                }
+            }
+            
+            System.Diagnostics.Debug.WriteLine("=== SyncDisplayNamesToValueMapping 완료 ===");
         }
 
         private void BtnAllSummary_Click(object sender, RoutedEventArgs e)
@@ -250,6 +332,40 @@ namespace FACTOVA_MessageLogViewer
                 item.DisplayType = FieldDisplayType.Hidden;
             }
             UpdateFieldOrders();
+        }
+
+        private void BtnBulkChange_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedType = (cboBulkChange.SelectedItem as ComboBoxItem)?.Content?.ToString();
+            if (string.IsNullOrEmpty(selectedType))
+            {
+                MessageBox.Show("변경할 타입을 선택해주세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var checkedItems = fieldItems.Where(f => f.IsSelected).ToList();
+            if (checkedItems.Count == 0)
+            {
+                MessageBox.Show("변경할 항목을 체크해주세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            FieldDisplayType targetType = selectedType switch
+            {
+                "Column" => FieldDisplayType.Column,
+                "Summary" => FieldDisplayType.Summary,
+                "Hidden" => FieldDisplayType.Hidden,
+                _ => FieldDisplayType.Summary
+            };
+
+            foreach (var item in checkedItems)
+            {
+                item.DisplayType = targetType;
+                item.IsSelected = false;  // 체크박스 해제
+            }
+
+            UpdateFieldOrders();
+            MessageBox.Show($"{checkedItems.Count}개 항목이 {selectedType}(으)로 변경되었습니다.", "완료", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void BtnMoveUp_Click(object sender, RoutedEventArgs e)
@@ -319,7 +435,8 @@ namespace FACTOVA_MessageLogViewer
                         {
                             FieldName = c.FieldName,
                             Value = c.Value,
-                            ExactMatch = c.ExactMatch
+                            ExactMatch = c.ExactMatch,
+                            DisplayNames = c.DisplayNames
                         }).ToList() ?? new List<TabFilterCondition>(),
                         ConditionGroups = tab.ConditionGroups?.Select(g => new ConditionGroup
                         {
@@ -328,7 +445,8 @@ namespace FACTOVA_MessageLogViewer
                             {
                                 FieldName = c.FieldName,
                                 Value = c.Value,
-                                ExactMatch = c.ExactMatch
+                                ExactMatch = c.ExactMatch,
+                                DisplayNames = c.DisplayNames
                             }).ToList() ?? new List<TabFilterCondition>()
                         }).ToList() ?? new List<ConditionGroup>()
                     };
@@ -618,6 +736,8 @@ namespace FACTOVA_MessageLogViewer
         private string _displayName = "";
         private string _displayTypeString = "Summary";
         private int _columnWidth = 100;
+        private bool _isSelected = false;
+        private string _valueMapping = "";
 
         public int Order
         {
@@ -635,6 +755,18 @@ namespace FACTOVA_MessageLogViewer
         {
             get => _displayName;
             set { _displayName = value; OnPropertyChanged(nameof(DisplayName)); }
+        }
+
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set { _isSelected = value; OnPropertyChanged(nameof(IsSelected)); }
+        }
+
+        public string ValueMapping
+        {
+            get => _valueMapping;
+            set { _valueMapping = value; OnPropertyChanged(nameof(ValueMapping)); }
         }
 
         // String for ComboBox binding

@@ -71,7 +71,7 @@ namespace FACTOVA_MessageLogViewer.Models
                     var summaryFields = Fields
                         .Where(f => !excludeFields.Contains(f.Key) && !string.IsNullOrWhiteSpace(f.Value))
                         .Take(8)
-                        .Select(f => $"{ShortenKey(f.Key)}:{f.Value}");
+                        .Select(f => $"{f.Key}:{f.Value}");
 
                     var result = string.Join(" | ", summaryFields);
                     return string.IsNullOrEmpty(result) ? "-" : result;
@@ -82,7 +82,7 @@ namespace FACTOVA_MessageLogViewer.Models
                     var otherFields = Fields
                         .Where(f => !string.IsNullOrWhiteSpace(f.Value))
                         .Take(5)
-                        .Select(f => $"{ShortenKey(f.Key)}:{f.Value}");
+                        .Select(f => $"{f.Key}:{f.Value}");
                     return string.Join(" | ", otherFields);
                 }
             }
@@ -111,32 +111,6 @@ namespace FACTOVA_MessageLogViewer.Models
             }
 
             return "";
-        }
-
-        private string ShortenKey(string key)
-        {
-            var shortNames = new Dictionary<string, string>
-            {
-                {"FINISH_YN", "Finish"},
-                {"LINESTOP", "Stop"},
-                {"LINEPASS", "Pass"},
-                {"PROCESS_CLEAR", "Clear"},
-                {"DOOR_LOAD", "Load"},
-                {"POSITION", "Pos"},
-                {"BARCODE", "BC"},
-                {"PRODID", "Prod"},
-                {"AUTO_MODE", "Auto"},
-                {"SCAN_MANUAL", "Scan"},
-                {"ERROR_CODE_DESC", "ErrDesc"},
-                {"DOOR_PALLET_ID", "Pallet"},
-                {"DOOR_TYPE", "Type"},
-                {"BUFFER_TOP", "Top"},
-                {"BUFFER_BOTTOM", "Bottom"},
-                {"WORK_QUEUE", "Queue"}
-            };
-
-            return shortNames.ContainsKey(key) ? shortNames[key] :
-                   (key.Length > 10 ? key.Substring(0, 10) : key);
         }
     }
 }

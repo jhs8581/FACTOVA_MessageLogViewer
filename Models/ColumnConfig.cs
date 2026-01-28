@@ -25,6 +25,33 @@ namespace FACTOVA_MessageLogViewer.Models
         public FieldDisplayType DisplayType { get; set; } = FieldDisplayType.Summary;
         public int ColumnWidth { get; set; } = 100;
         public int Order { get; set; } = 0;  // 컬럼 순서
+        public bool IsSelected { get; set; } = false;  // 일괄 변경용 체크박스
+        
+        /// <summary>
+        /// 값 매핑 (예: "1:장입,2:미장입")
+        /// </summary>
+        public string ValueMapping { get; set; } = "";
+        
+        /// <summary>
+        /// 값을 디스플레이 명칭으로 변환
+        /// </summary>
+        public string GetDisplayValue(string value)
+        {
+            if (string.IsNullOrEmpty(ValueMapping) || string.IsNullOrEmpty(value))
+                return value;
+                
+            var mappings = ValueMapping.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var mapping in mappings)
+            {
+                var parts = mapping.Split(new[] { ':' }, 2);
+                if (parts.Length == 2 && parts[0].Trim().Equals(value.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    return parts[1].Trim();
+                }
+            }
+            
+            return value;
+        }
     }
 
     /// <summary>

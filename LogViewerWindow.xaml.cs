@@ -295,9 +295,25 @@ namespace FACTOVA_MessageLogViewer
             var style = new Style(typeof(ListViewItem));
             style.Setters.Add(new Setter(ListViewItem.BackgroundProperty, new Binding("BackgroundBrush")));
             style.Setters.Add(new Setter(ListViewItem.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
-            style.Setters.Add(new Setter(ListViewItem.PaddingProperty, new Thickness(6, 7, 6, 7)));
-            style.Setters.Add(new Setter(ListViewItem.MarginProperty, new Thickness(0, 1, 0, 0)));
+            style.Setters.Add(new Setter(ListViewItem.PaddingProperty, new Thickness(8, 9, 8, 9)));  // 행 패딩 증가
+            style.Setters.Add(new Setter(ListViewItem.MarginProperty, new Thickness(0, 2, 0, 0)));   // 행 간격 증가
             listView.ItemContainerStyle = style;
+
+            // ColumnHeaderContainerStyle - 헤더 스타일 개선
+            var headerStyle = new Style(typeof(GridViewColumnHeader));
+            headerStyle.Setters.Add(new Setter(GridViewColumnHeader.FontSizeProperty, 14.0));  // 폰트 크기 14
+            headerStyle.Setters.Add(new Setter(GridViewColumnHeader.FontWeightProperty, FontWeights.SemiBold));
+            headerStyle.Setters.Add(new Setter(GridViewColumnHeader.BackgroundProperty, new SolidColorBrush(Color.FromRgb(240, 240, 240))));
+            headerStyle.Setters.Add(new Setter(GridViewColumnHeader.ForegroundProperty, new SolidColorBrush(Color.FromRgb(60, 60, 60))));
+            headerStyle.Setters.Add(new Setter(GridViewColumnHeader.PaddingProperty, new Thickness(12, 10, 12, 10)));
+            headerStyle.Setters.Add(new Setter(GridViewColumnHeader.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(220, 220, 220))));
+            headerStyle.Setters.Add(new Setter(GridViewColumnHeader.BorderThicknessProperty, new Thickness(0, 0, 1, 1)));
+            headerStyle.Setters.Add(new Setter(GridViewColumnHeader.HorizontalContentAlignmentProperty, HorizontalAlignment.Center));
+            
+            if (gridView is GridView gv)
+            {
+                gv.ColumnHeaderContainerStyle = headerStyle;
+            }
 
             // ItemsPanel
             var panelTemplate = new ItemsPanelTemplate(new FrameworkElementFactory(typeof(VirtualizingStackPanel)));
@@ -323,6 +339,9 @@ namespace FACTOVA_MessageLogViewer
             var template = new DataTemplate();
             var factory = new FrameworkElementFactory(typeof(TextBlock));
             factory.SetBinding(TextBlock.TextProperty, new Binding(bindingPath));
+            
+            // 컬럼 간격 확보를 위한 좌우 여백 (12px로 증가)
+            factory.SetValue(TextBlock.MarginProperty, new Thickness(12, 0, 12, 0));
             
             if (fontFamily != null)
                 factory.SetValue(TextBlock.FontFamilyProperty, new FontFamily(fontFamily));
@@ -372,16 +391,34 @@ namespace FACTOVA_MessageLogViewer
             var column = new GridViewColumn
             {
                 Header = headerText,
-                // Width 0 이하면 Auto로 처리
+                // Width 0 이하면 Auto로 처리하되 최소 60px 보장
                 Width = config.ColumnWidth > 0 ? config.ColumnWidth : double.NaN
             };
+            
+            // AUTO 모드일 때도 최소 너비 확보
+            if (config.ColumnWidth <= 0)
+            {
+                // GridViewColumn은 MinWidth가 없으므로 HeaderTemplate으로 최소 너비 확보
+                // 실제로는 Content의 Margin이 이 역할을 함
+            }
 
             // DataTemplate 생성
             var template = new DataTemplate();
             var factory = new FrameworkElementFactory(typeof(TextBlock));
+            
+            // 컬럼 간격 확보를 위한 좌우 여백 (12px로 증가)
+            factory.SetValue(TextBlock.MarginProperty, new Thickness(12, 0, 12, 0));
 
             // Fields 딕셔너리에서 값 가져오는 바인딩 (FontSize는 ListView에서 상속)
-            factory.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding($"Fields[{config.FieldName}]"));
+            var binding = new System.Windows.Data.Binding($"Fields[{config.FieldName}]");
+            
+            // ValueMapping이 있으면 Converter 적용
+            if (!string.IsNullOrEmpty(config.ValueMapping))
+            {
+                binding.Converter = new Converters.FieldValueConverter { Config = config };
+            }
+            
+            factory.SetBinding(TextBlock.TextProperty, binding);
 
             // RETURN_CODE는 특별 처리 (색상)
             if (config.FieldName == "RETURN_CODE")
@@ -390,11 +427,11 @@ namespace FACTOVA_MessageLogViewer
                 var converter = TryFindResource("ReturnCodeColorConverter") as System.Windows.Data.IValueConverter;
                 if (converter != null)
                 {
-                    factory.SetBinding(TextBlock.ForegroundProperty, 
-                        new System.Windows.Data.Binding($"Fields[{config.FieldName}]")
-                        {
-                            Converter = converter
-                        });
+                    var colorBinding = new System.Windows.Data.Binding($"Fields[{config.FieldName}]")
+                    {
+                        Converter = converter
+                    };
+                    factory.SetBinding(TextBlock.ForegroundProperty, colorBinding);
                 }
             }
             // ERROR_CODE도 특별 처리
@@ -404,11 +441,11 @@ namespace FACTOVA_MessageLogViewer
                 var converter = TryFindResource("ErrorColorConverter") as System.Windows.Data.IValueConverter;
                 if (converter != null)
                 {
-                    factory.SetBinding(TextBlock.ForegroundProperty,
-                        new System.Windows.Data.Binding($"Fields[{config.FieldName}]")
-                        {
-                            Converter = converter
-                        });
+                    var colorBinding = new System.Windows.Data.Binding($"Fields[{config.FieldName}]")
+                    {
+                        Converter = converter
+                    };
+                    factory.SetBinding(TextBlock.ForegroundProperty, colorBinding);
                 }
             }
 
@@ -818,6 +855,20 @@ namespace FACTOVA_MessageLogViewer
                     "SYSTEM" => "RECV", // 시스템 로그는 RECV로 표시
                     _ => "RECV"
                 };
+
+                // 의미 없는 로그 필터링: MsgId가 없고 필드도 거의 없는 경우 무시
+                // (최소 3개 이상의 필드가 있거나 MsgId가 있어야 유효한 로그로 판단)
+                bool hasMsgId = !string.IsNullOrWhiteSpace(msgId);
+                bool hasEnoughFields = fields.Count >= 3;
+                bool hasImportantFields = fields.ContainsKey("WORK_TYPE") || 
+                                         fields.ContainsKey("LOTID") || 
+                                         fields.ContainsKey("POSITION");
+
+                if (!hasMsgId && !hasEnoughFields && !hasImportantFields)
+                {
+                    // 불완전한 로그는 스킵 (Debug.WriteLine 제거하여 성능 개선)
+                    return null;
+                }
 
                 return new LogEntry
                 {
@@ -1336,6 +1387,34 @@ namespace FACTOVA_MessageLogViewer
         }
 
         /// <summary>
+        /// Auto Fit 버튼 클릭 - 모든 컬럼을 컨텐츠에 맞게 자동 조정
+        /// </summary>
+        private void BtnAutoFit_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 모든 탭의 ListView에 접근하여 컬럼 너비를 AUTO로 설정
+                foreach (var listView in tabListViews.Values)
+                {
+                    if (listView.View is GridView gridView)
+                    {
+                        foreach (var column in gridView.Columns)
+                        {
+                            // AUTO 모드로 설정 (NaN)
+                            column.Width = double.NaN;
+                        }
+                    }
+                }
+
+                System.Diagnostics.Debug.WriteLine("✅ Auto Fit 적용: 모든 컬럼 너비를 AUTO로 설정");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ Auto Fit 실패: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// 탭 다시 로드
         /// </summary>
         private void ReloadTabs()
@@ -1365,6 +1444,7 @@ namespace FACTOVA_MessageLogViewer
             UpdateStatus();
         }
 
+
         protected override void OnClosing(CancelEventArgs e)
         {
             // 마지막 선택한 탭 인덱스 저장
@@ -1379,6 +1459,38 @@ namespace FACTOVA_MessageLogViewer
             
             fileWatcher?.Dispose();
             base.OnClosing(e);
+        }
+
+        /// <summary>
+        /// Window가 로드될 때 자동으로 컬럼 FIT 적용
+        /// </summary>
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            // UI가 완전히 렌더링된 후에 Auto Fit 적용
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    // 모든 탭의 ListView에 접근하여 컬럼 너비를 AUTO로 설정
+                    foreach (var listView in tabListViews.Values)
+                    {
+                        if (listView.View is GridView gridView)
+                        {
+                            foreach (var column in gridView.Columns)
+                            {
+                                // AUTO 모드로 설정 (NaN)
+                                column.Width = double.NaN;
+                            }
+                        }
+                    }
+
+                    System.Diagnostics.Debug.WriteLine("✅ 초기 Auto Fit 적용 완료");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"❌ 초기 Auto Fit 실패: {ex.Message}");
+                }
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
         private void Window_Closing(object sender, CancelEventArgs e)

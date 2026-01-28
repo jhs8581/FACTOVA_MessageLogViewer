@@ -7,6 +7,7 @@ Height="800"
 Width="1600"
 WindowStartupLocation="CenterScreen"
 Background="#F5F5F5"
+Loaded="Window_Loaded"
 Closing="Window_Closing">
 
     <Window.Resources>
@@ -83,7 +84,20 @@ Closing="Window_Closing">
                              HorizontalContentAlignment="Center"
                              FontSize="11"/>
                     <Button Content="-" Width="22" Height="24" Margin="3,0,0,0" Click="BtnFontMinus_Click" FontWeight="Bold"/>
-                    <Button Content="+" Width="22" Height="24" Margin="3,0,15,0" Click="BtnFontPlus_Click" FontWeight="Bold"/>
+                    <Button Content="+" Width="22" Height="24" Margin="3,0,8,0" Click="BtnFontPlus_Click" FontWeight="Bold"/>
+                    
+                    <!-- Auto Fit 버튼 -->
+                    <Button Content="📐 Fit" 
+                            Width="50" Height="24" 
+                            Margin="0,0,15,0"
+                            Click="BtnAutoFit_Click"
+                            Background="#40FFFFFF"
+                            Foreground="White"
+                            BorderBrush="White"
+                            BorderThickness="1"
+                            FontSize="10"
+                            Cursor="Hand"
+                            ToolTip="컬럼을 컨텐츠에 맞게 자동 조정"/>
 
                     <!-- 구분선 -->
                     <Border Width="1" Background="#64B5F6" Margin="0,5,15,5"/>

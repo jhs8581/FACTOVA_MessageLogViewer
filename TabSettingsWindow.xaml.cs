@@ -46,7 +46,8 @@ namespace FACTOVA_MessageLogViewer
                         {
                             FieldName = c.FieldName,
                             Value = c.Value,
-                            ExactMatch = c.ExactMatch
+                            ExactMatch = c.ExactMatch,
+                            DisplayNames = c.DisplayNames
                         }).ToList() ?? new List<TabFilterCondition>(),
                         // 새 버전: ConditionGroups 복사
                         ConditionGroups = tab.ConditionGroups?.Select(g => new ConditionGroup
@@ -56,7 +57,8 @@ namespace FACTOVA_MessageLogViewer
                             {
                                 FieldName = c.FieldName,
                                 Value = c.Value,
-                                ExactMatch = c.ExactMatch
+                                ExactMatch = c.ExactMatch,
+                                DisplayNames = c.DisplayNames
                             }).ToList() ?? new List<TabFilterCondition>()
                         }).ToList() ?? new List<ConditionGroup>()
                     };
@@ -280,7 +282,7 @@ namespace FACTOVA_MessageLogViewer
                 Name = $"Group {selectedTab.ConditionGroups.Count + 1}",
                 Conditions = new List<TabFilterCondition>
                 {
-                    new TabFilterCondition { FieldName = "MSGID", Value = "", ExactMatch = true }
+                    new TabFilterCondition { FieldName = "MSGID", Value = "", ExactMatch = true, DisplayNames = "" }
                 }
             });
 
