@@ -95,6 +95,7 @@ namespace FACTOVA_MessageLogViewer
                     DisplayType = config.DisplayType,
                     ColumnWidth = config.ColumnWidth,
                     ValueMapping = config.ValueMapping,
+                    VisibleInTabs = config.VisibleInTabs,  // ✅ 추가: 탭별 표시 설정 로드!
                     SampleValues = analysisResult?.SampleValues ?? new()
                 });
             }
@@ -111,6 +112,7 @@ namespace FACTOVA_MessageLogViewer
                         DisplayName = result.FieldName,
                         DisplayType = FieldDisplayType.Summary,
                         ColumnWidth = 100,
+                        VisibleInTabs = null,  // ✅ 추가: 새 필드는 전체 탭
                         SampleValues = result.SampleValues
                     });
                 }
@@ -158,18 +160,44 @@ namespace FACTOVA_MessageLogViewer
 
         private void ApplySettingsToGrid(ColumnSettings settings)
         {
+            System.Diagnostics.Debug.WriteLine($"📂 ApplySettingsToGrid - 설정 로드 시작:");
+            
             foreach (var item in fieldItems)
             {
                 var config = settings.Fields.FirstOrDefault(f => f.FieldName == item.FieldName);
                 if (config != null)
                 {
+                    System.Diagnostics.Debug.WriteLine($"  - {item.FieldName}:");
+                    System.Diagnostics.Debug.WriteLine($"      config.VisibleInTabs = {config.VisibleInTabs?.Count ?? 0}개");
+                    if (config.VisibleInTabs != null)
+                    {
+                        foreach (var tab in config.VisibleInTabs)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"        * {tab}");
+                        }
+                    }
+                    
                     item.DisplayName = config.DisplayName;
                     item.DisplayType = config.DisplayType;
                     item.ColumnWidth = config.ColumnWidth;
                     item.ValueMapping = config.ValueMapping;
+                    item.VisibleInTabs = config.VisibleInTabs;  // 탭별 표시 설정 로드
+                    
+                    System.Diagnostics.Debug.WriteLine($"      item.VisibleInTabs = {item.VisibleInTabs?.Count ?? 0}개");
+                    System.Diagnostics.Debug.WriteLine($"      DisplayText = {item.VisibleTabsDisplayText}");
+                    
+                    // UI 강제 갱신
+                    item.RefreshDisplay();
                 }
             }
-            dgFields.Items.Refresh();
+            
+            System.Diagnostics.Debug.WriteLine($"📂 ApplySettingsToGrid 완료 - DataGrid 강제 갱신");
+            
+            // 강력한 갱신: ItemsSource를 다시 설정
+            var items = dgFields.ItemsSource;
+            dgFields.ItemsSource = null;
+            dgFields.ItemsSource = items;
+            dgFields.UpdateLayout();
         }
 
         private void BtnSavePreset_Click(object sender, RoutedEventArgs e)
@@ -218,17 +246,32 @@ namespace FACTOVA_MessageLogViewer
             // 현재 선택된 프리셋 이름 사용
             var presetName = cboPresets.SelectedItem?.ToString() ?? "Default";
 
+            System.Diagnostics.Debug.WriteLine($"💾 CreateSettingsFromAll - 설정 저장 시작:");
+            
             var settings = new ColumnSettings
             {
                 Name = presetName,
-                Fields = fieldItems.Select((item, index) => new FieldConfig
+                Fields = fieldItems.Select((item, index) => 
                 {
-                    FieldName = item.FieldName,
-                    DisplayName = item.DisplayName,
-                    DisplayType = item.DisplayType,
-                    ColumnWidth = item.ColumnWidth,
-                    ValueMapping = item.ValueMapping,
-                    Order = index
+                    System.Diagnostics.Debug.WriteLine($"  - {item.FieldName}: VisibleInTabs = {item.VisibleInTabs?.Count ?? 0}개");
+                    if (item.VisibleInTabs != null)
+                    {
+                        foreach (var tab in item.VisibleInTabs)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"      * {tab}");
+                        }
+                    }
+                    
+                    return new FieldConfig
+                    {
+                        FieldName = item.FieldName,
+                        DisplayName = item.DisplayName,
+                        DisplayType = item.DisplayType,
+                        ColumnWidth = item.ColumnWidth,
+                        ValueMapping = item.ValueMapping,
+                        Order = index,
+                        VisibleInTabs = item.VisibleInTabs  // 탭별 표시 설정 저장
+                    };
                 }).ToList(),
                 TabSettings = new TabSettings
                 {
@@ -237,6 +280,8 @@ namespace FACTOVA_MessageLogViewer
                 },
                 FontSize = ColumnSettingsManager.CurrentSettings.FontSize
             };
+            
+            System.Diagnostics.Debug.WriteLine($"💾 CreateSettingsFromAll 완료");
             return settings;
         }
 
@@ -334,6 +379,18 @@ namespace FACTOVA_MessageLogViewer
             UpdateFieldOrders();
         }
 
+        /// <summary>
+        /// 체크박스 셀 전체 클릭으로 토글
+        /// </summary>
+        private void CheckBoxCell_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is Border border && border.DataContext is FieldSettingItem item)
+            {
+                item.IsSelected = !item.IsSelected;
+                e.Handled = true;
+            }
+        }
+
         private void BtnBulkChange_Click(object sender, RoutedEventArgs e)
         {
             var selectedType = (cboBulkChange.SelectedItem as ComboBoxItem)?.Content?.ToString();
@@ -366,6 +423,56 @@ namespace FACTOVA_MessageLogViewer
 
             UpdateFieldOrders();
             MessageBox.Show($"{checkedItems.Count}개 항목이 {selectedType}(으)로 변경되었습니다.", "완료", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        /// <summary>
+        /// 체크한 항목들의 표시할 탭 일괄 설정
+        /// </summary>
+        private void BtnBulkSetTabs_Click(object sender, RoutedEventArgs e)
+        {
+            var checkedItems = fieldItems.Where(f => f.IsSelected).ToList();
+            if (checkedItems.Count == 0)
+            {
+                MessageBox.Show("표시할 탭을 설정할 항목을 체크해주세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // tabs가 null이면 경고
+            if (tabs == null || tabs.Count == 0)
+            {
+                MessageBox.Show("설정된 탭이 없습니다. 탭 설정 탭에서 탭을 먼저 설정해주세요.", 
+                                "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // 현재 설정의 탭 목록 가져오기
+            var availableTabs = tabs.Select(t => t.Name).ToList();
+
+            // 팝업 창 생성 (빈 선택으로 시작)
+            var popup = new TabSelectionPopup(availableTabs, new List<string>());
+            popup.Owner = this;
+            popup.Title = "일괄 탭 설정";
+
+            if (popup.ShowDialog() == true)
+            {
+                // 선택 결과 적용 (전체 탭이면 null)
+                var selectedTabs = popup.SelectedTabs.Count > 0 ? popup.SelectedTabs : null;
+                
+                foreach (var item in checkedItems)
+                {
+                    item.VisibleInTabs = selectedTabs != null ? new List<string>(selectedTabs) : null;
+                    item.IsSelected = false;  // 체크박스 해제
+                }
+
+                // DataGrid 갱신
+                var items = dgFields.ItemsSource;
+                dgFields.ItemsSource = null;
+                dgFields.ItemsSource = items;
+
+                string tabsText = selectedTabs == null ? "전체 탭" : string.Join(", ", selectedTabs);
+                MessageBox.Show($"{checkedItems.Count}개 항목의 표시할 탭이 [{tabsText}](으)로 설정되었습니다.", 
+                                "완료", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
 
         private void BtnMoveUp_Click(object sender, RoutedEventArgs e)
@@ -723,6 +830,71 @@ namespace FACTOVA_MessageLogViewer
             Close();
         }
 
+        /// <summary>
+        /// 탭 선택 버튼 클릭
+        /// </summary>
+        private void BtnSelectTabs_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is FieldSettingItem fieldItem)
+            {
+                // tabs가 null이면 경고
+                if (tabs == null || tabs.Count == 0)
+                {
+                    MessageBox.Show("설정된 탭이 없습니다. Tab Settings 탭에서 탭을 먼저 설정해주세요.", 
+                                    "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                // 현재 설정의 탭 목록 가져오기
+                var availableTabs = tabs.Select(t => t.Name).ToList();
+                
+                if (availableTabs.Count == 0)
+                {
+                    MessageBox.Show("설정된 탭이 없습니다. Tab Settings 탭에서 탭을 먼저 설정해주세요.", 
+                                    "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                // 현재 선택된 탭 목록 (디버그)
+                System.Diagnostics.Debug.WriteLine($"🔍 팝업 열기 전 - VisibleInTabs: {fieldItem.VisibleInTabs?.Count ?? 0}개");
+                if (fieldItem.VisibleInTabs != null)
+                {
+                    foreach (var tab in fieldItem.VisibleInTabs)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"  - {tab}");
+                    }
+                }
+                
+                var currentSelection = fieldItem.VisibleInTabs ?? new List<string>();
+                
+                // 팝업 창 생성
+                var popup = new TabSelectionPopup(availableTabs, currentSelection);
+                popup.Owner = this;
+                
+                if (popup.ShowDialog() == true)
+                {
+                    // 선택 결과 적용
+                    var selectedTabs = popup.SelectedTabs.Count > 0 ? popup.SelectedTabs : null;
+                    
+                    System.Diagnostics.Debug.WriteLine($"✅ 팝업 확인 후 - 선택된 탭: {selectedTabs?.Count ?? 0}개");
+                    if (selectedTabs != null)
+                    {
+                        foreach (var tab in selectedTabs)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"  - {tab}");
+                        }
+                    }
+                    
+                    fieldItem.VisibleInTabs = selectedTabs;
+                    
+                    System.Diagnostics.Debug.WriteLine($"✅ FieldItem 업데이트 후: {fieldItem.VisibleTabsDisplayText}");
+                    
+                    // DataGrid 전체 갱신
+                    dgFields.Items.Refresh();
+                }
+            }
+        }
+
         #endregion
     }
 
@@ -799,6 +971,43 @@ namespace FACTOVA_MessageLogViewer
             set { _columnWidth = value; OnPropertyChanged(nameof(ColumnWidth)); }
         }
 
+        private List<string>? _visibleInTabs = null;
+        
+        /// <summary>
+        /// 이 컬럼을 표시할 탭 목록
+        /// </summary>
+        public List<string>? VisibleInTabs
+        {
+            get => _visibleInTabs;
+            set
+            {
+                System.Diagnostics.Debug.WriteLine($"🔧 FieldSettingItem.VisibleInTabs setter 호출: {FieldName}");
+                System.Diagnostics.Debug.WriteLine($"   이전 값: {_visibleInTabs?.Count ?? 0}개");
+                System.Diagnostics.Debug.WriteLine($"   새 값: {value?.Count ?? 0}개");
+                
+                _visibleInTabs = value;
+                OnPropertyChanged(nameof(VisibleInTabs));
+                OnPropertyChanged(nameof(VisibleTabsDisplayText));
+                
+                System.Diagnostics.Debug.WriteLine($"   DisplayText: {VisibleTabsDisplayText}");
+            }
+        }
+
+        /// <summary>
+        /// UI 표시용 텍스트
+        /// </summary>
+        public string VisibleTabsDisplayText
+        {
+            get
+            {
+                if (_visibleInTabs == null || _visibleInTabs.Count == 0)
+                    return "전체 탭";
+                if (_visibleInTabs.Count > 2)
+                    return $"{_visibleInTabs[0]} 외 {_visibleInTabs.Count - 1}개";
+                return string.Join(", ", _visibleInTabs);
+            }
+        }
+
         public System.Collections.Generic.List<string> SampleValues { get; set; } = new();
         
         public string SamplePreview => SampleValues.Count > 0 
@@ -808,5 +1017,13 @@ namespace FACTOVA_MessageLogViewer
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged(string name) => 
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        
+        /// <summary>
+        /// UI 강제 갱신용 public 메서드
+        /// </summary>
+        public void RefreshDisplay()
+        {
+            OnPropertyChanged(nameof(VisibleTabsDisplayText));
+        }
     }
 }

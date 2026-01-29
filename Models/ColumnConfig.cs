@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.IO;
 
 namespace FACTOVA_MessageLogViewer.Models
@@ -31,6 +33,66 @@ namespace FACTOVA_MessageLogViewer.Models
         /// 값 매핑 (예: "1:장입,2:미장입")
         /// </summary>
         public string ValueMapping { get; set; } = "";
+        
+        /// <summary>
+        /// 이 컬럼을 표시할 탭 이름 목록 (null이면 모든 탭에 표시)
+        /// </summary>
+        public List<string>? VisibleInTabs { get; set; } = null;
+        
+        /// <summary>
+        /// UI 바인딩용 (쉼표로 구분된 문자열) - JSON에서 제외
+        /// </summary>
+        [JsonIgnore]
+        public string VisibleTabsString
+        {
+            get
+            {
+                if (VisibleInTabs == null || VisibleInTabs.Count == 0)
+                    return "";
+                return string.Join(",", VisibleInTabs);
+            }
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    VisibleInTabs = null;
+                }
+                else
+                {
+                    VisibleInTabs = value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                         .Select(s => s.Trim())
+                                         .ToList();
+                }
+            }
+        }
+        
+        /// <summary>
+        /// UI 표시용 (버튼에 표시될 텍스트) - JSON에서 제외
+        /// </summary>
+        [JsonIgnore]
+        public string VisibleTabsDisplayText
+        {
+            get
+            {
+                if (VisibleInTabs == null || VisibleInTabs.Count == 0)
+                    return "전체 탭";
+                if (VisibleInTabs.Count > 2)
+                    return $"{VisibleInTabs[0]} 외 {VisibleInTabs.Count - 1}개";
+                return string.Join(", ", VisibleInTabs);
+            }
+        }
+        
+        /// <summary>
+        /// 특정 탭에서 이 컬럼이 표시되어야 하는지 확인
+        /// </summary>
+        public bool IsVisibleInTab(string tabName)
+        {
+            // null이면 모든 탭에 표시
+            if (VisibleInTabs == null || VisibleInTabs.Count == 0)
+                return true;
+            
+            return VisibleInTabs.Contains(tabName);
+        }
         
         /// <summary>
         /// 값을 디스플레이 명칭으로 변환

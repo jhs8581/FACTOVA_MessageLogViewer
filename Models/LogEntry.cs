@@ -7,6 +7,7 @@ namespace FACTOVA_MessageLogViewer.Models
 {
     public class LogEntry
     {
+        public int RowNumber { get; set; }  // ROW 번호 추가
         public DateTime Timestamp { get; set; }
         public string TimeString => Timestamp.ToString("HH:mm:ss.fff");
         public string Direction { get; set; } = "";
@@ -49,12 +50,20 @@ namespace FACTOVA_MessageLogViewer.Models
         public string LotId => GetFieldValue("LOTID");
         public string PalletId => GetFieldValue("PALLET_ID", "DOOR_PALLET_ID");
 
+        private string? _cachedSummary = null;
         public string Summary
         {
             get
             {
+                // 캐싱으로 성능 최적화
+                if (_cachedSummary != null)
+                    return _cachedSummary;
+
                 if (Fields == null || Fields.Count == 0)
-                    return "";
+                {
+                    _cachedSummary = "";
+                    return _cachedSummary;
+                }
 
                 try
                 {
@@ -67,35 +76,55 @@ namespace FACTOVA_MessageLogViewer.Models
                             .Select(f => f.FieldName)
                     );
 
-                    // Summary로 설정된 필드만 표시
+                    // Summary로 설정된 필드만 표시 (최대 5개로 제한)
                     var summaryFields = Fields
                         .Where(f => !excludeFields.Contains(f.Key) && !string.IsNullOrWhiteSpace(f.Value))
-                        .Take(8)
+                        .Take(5)  // 8개에서 5개로 축소
                         .Select(f => $"{f.Key}:{f.Value}");
 
                     var result = string.Join(" | ", summaryFields);
-                    return string.IsNullOrEmpty(result) ? "-" : result;
+                    
+                    // 최대 길이 제한 (150자로 축소)
+                    if (result.Length > 150)
+                        result = result.Substring(0, 150);
+                    
+                    _cachedSummary = string.IsNullOrEmpty(result) ? "-" : result;
+                    return _cachedSummary;
                 }
                 catch
                 {
                     // 설정 로드 실패 시 기본 동작
                     var otherFields = Fields
                         .Where(f => !string.IsNullOrWhiteSpace(f.Value))
-                        .Take(5)
+                        .Take(3)  // 5개에서 3개로 축소
                         .Select(f => $"{f.Key}:{f.Value}");
-                    return string.Join(" | ", otherFields);
+                    
+                    var result = string.Join(" | ", otherFields);
+                    if (result.Length > 150)
+                        result = result.Substring(0, 150);
+                    
+                    _cachedSummary = result;
+                    return _cachedSummary;
                 }
             }
         }
 
+        private Brush? _cachedBackgroundBrush = null;
         public Brush BackgroundBrush
         {
             get
             {
+                // 캐싱으로 성능 최적화
+                if (_cachedBackgroundBrush != null)
+                    return _cachedBackgroundBrush;
+
                 if (Direction == "SEND")
-                    return new SolidColorBrush(Color.FromRgb(230, 240, 255));
+                    _cachedBackgroundBrush = new SolidColorBrush(Color.FromRgb(230, 240, 255));
                 else
-                    return new SolidColorBrush(Color.FromRgb(230, 255, 230));
+                    _cachedBackgroundBrush = new SolidColorBrush(Color.FromRgb(230, 255, 230));
+
+                _cachedBackgroundBrush.Freeze();  // Freeze로 성능 향상
+                return _cachedBackgroundBrush;
             }
         }
 

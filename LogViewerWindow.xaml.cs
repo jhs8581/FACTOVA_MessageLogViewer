@@ -9,8 +9,11 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Media;
+using OfficeOpenXml;
+using OfficeOpenXml.Style;
 
 namespace FACTOVA_MessageLogViewer
 {
@@ -34,11 +37,11 @@ namespace FACTOVA_MessageLogViewer
         private int recentCount;
         private DateTime selectedDate;
 
-        // 탭별 ListView 및 View 관리
-        private Dictionary<TabConfig, ListView> tabListViews = new();
+        // 탭별 DataGrid 및 View 관리
+        private Dictionary<TabConfig, DataGrid> tabDataGrids = new();
         private Dictionary<TabConfig, ICollectionView> tabViews = new();
         private Dictionary<TabConfig, ObservableCollection<LogEntry>> tabDisplayEntries = new();
-        private ListView? currentListView;
+        private DataGrid? currentDataGrid;
         private TabConfig? currentTabConfig;
 
         // 멀티라인 파싱용 버퍼
@@ -59,6 +62,9 @@ namespace FACTOVA_MessageLogViewer
         private bool isDefaultFolder = true;
         private ObservableCollection<AvailableDate> availableDates = new();
         private int lastSelectedTabIndex = 0;
+        
+        // 자동 스크롤 설정
+        private bool isAutoScrollEnabled = true;
 
         // 기본 생성자 (설정 화면으로 시작)
         public LogViewerWindow()
@@ -360,6 +366,10 @@ namespace FACTOVA_MessageLogViewer
                     return;
                 }
             }
+            else if (rbLoadAll.IsChecked == true)
+            {
+                loadMode = LogLoadMode.All;
+            }
 
             // 로그 뷰어 초기화
             currentLogFile = logFilePath;
@@ -384,6 +394,12 @@ namespace FACTOVA_MessageLogViewer
 
             // 설정 저장
             SaveConfig();
+
+            // 로그 로드 완료 후 Auto Fit 자동 적용
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                ApplyAutoFit();
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
         // 이벤트 핸들러들
@@ -485,7 +501,7 @@ namespace FACTOVA_MessageLogViewer
         private void InitializeTabs()
         {
             tabControlLogs.Items.Clear();
-            tabListViews.Clear();
+            tabDataGrids.Clear();
             tabViews.Clear();
             tabDisplayEntries.Clear();
 
@@ -535,16 +551,24 @@ namespace FACTOVA_MessageLogViewer
             var entries = new ObservableCollection<LogEntry>();
             tabDisplayEntries[tabConfig] = entries;
 
-            // ListView 생성
-            var listView = CreateListView(tabConfig, entries);
-            tabListViews[tabConfig] = listView;
+            // DataGrid 생성
+            var dataGrid = CreateDataGrid(tabConfig, entries);
+            tabDataGrids[tabConfig] = dataGrid;
 
             // View 생성 및 필터 설정
             var view = CollectionViewSource.GetDefaultView(entries);
-            view.Filter = item => FilterLogEntry(item, tabConfig);
+            
+            // 필터가 있을 때만 적용 (성능 최적화)
+            if (!string.IsNullOrWhiteSpace(txtSearch?.Text) || 
+                chkSendOnly?.IsChecked == true || 
+                chkRecvOnly?.IsChecked == true)
+            {
+                view.Filter = item => FilterLogEntry(item, tabConfig);
+            }
+            
             tabViews[tabConfig] = view;
 
-            listView.ItemsSource = view;
+            dataGrid.ItemsSource = view;
 
             // 탭 헤더 (카운트 표시 포함)
             var headerPanel = new StackPanel { Orientation = Orientation.Horizontal };
@@ -567,7 +591,7 @@ namespace FACTOVA_MessageLogViewer
             var tabItem = new TabItem
             {
                 Header = headerPanel,
-                Content = listView,
+                Content = dataGrid,
                 Tag = tabConfig,
                 ToolTip = tooltip
             };
@@ -576,78 +600,213 @@ namespace FACTOVA_MessageLogViewer
         }
 
         /// <summary>
-        /// ListView 생성
+        /// DataGrid 생성 (ListView보다 성능 우수)
         /// </summary>
-        private ListView CreateListView(TabConfig tabConfig, ObservableCollection<LogEntry> entries)
+        private DataGrid CreateDataGrid(TabConfig tabConfig, ObservableCollection<LogEntry> entries)
         {
-            var listView = new ListView
+            var dataGrid = new DataGrid
             {
                 FontSize = 11,
-                Margin = new Thickness(0)
+                Margin = new Thickness(0),
+                AutoGenerateColumns = false,
+                IsReadOnly = true,
+                SelectionMode = DataGridSelectionMode.Extended,
+                SelectionUnit = DataGridSelectionUnit.FullRow,  // 행 전체 선택
+                ClipboardCopyMode = DataGridClipboardCopyMode.ExcludeHeader,  // 복사 시 헤더 제외
+                GridLinesVisibility = DataGridGridLinesVisibility.All,
+                HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(230, 230, 230)),
+                VerticalGridLinesBrush = new SolidColorBrush(Color.FromRgb(230, 230, 230)),
+                HeadersVisibility = DataGridHeadersVisibility.Column,
+                RowHeaderWidth = 0,
+                CanUserAddRows = false,
+                CanUserDeleteRows = false,
+                CanUserReorderColumns = false,
+                CanUserResizeRows = false,
+                CanUserSortColumns = true,
+                EnableRowVirtualization = true,
+                EnableColumnVirtualization = true
             };
 
-            // 가상화 설정
-            VirtualizingPanel.SetIsVirtualizing(listView, true);
-            VirtualizingPanel.SetVirtualizationMode(listView, VirtualizationMode.Recycling);
-            VirtualizingPanel.SetCacheLength(listView, new VirtualizationCacheLength(20));
-            ScrollViewer.SetIsDeferredScrollingEnabled(listView, true);
+            // 더블클릭 이벤트 (상세 보기)
+            dataGrid.MouseDoubleClick += DataGrid_MouseDoubleClick;
+            
+            // 키보드 이벤트 (Ctrl+C 셀 값 복사)
+            dataGrid.PreviewKeyDown += DataGrid_PreviewKeyDown;
 
-            // GridView 생성
-            var gridView = new GridView();
+            // 가상화 설정 (휠 스크롤 최적화)
+            VirtualizingPanel.SetIsVirtualizing(dataGrid, true);
+            VirtualizingPanel.SetVirtualizationMode(dataGrid, VirtualizationMode.Recycling);
+            VirtualizingPanel.SetCacheLength(dataGrid, new VirtualizationCacheLength(10, 10));  // 캐시 축소로 스크롤 속도 향상
+            VirtualizingPanel.SetCacheLengthUnit(dataGrid, VirtualizationCacheLengthUnit.Item);
+            VirtualizingPanel.SetScrollUnit(dataGrid, ScrollUnit.Item);  // 항목 단위 스크롤 (중요!)
+            
+            // 스크롤 최적화
+            ScrollViewer.SetIsDeferredScrollingEnabled(dataGrid, false);
+            ScrollViewer.SetCanContentScroll(dataGrid, true);  // 픽셀이 아닌 항목 단위
+            ScrollViewer.SetHorizontalScrollBarVisibility(dataGrid, ScrollBarVisibility.Auto);
+            ScrollViewer.SetVerticalScrollBarVisibility(dataGrid, ScrollBarVisibility.Auto);
+
+            // ROW 번호 컬럼 (5자리 고정 - 99999까지 표시 가능)
+            var rowNumberColumn = CreateDataGridTextColumn("#", "RowNumber", 60, HorizontalAlignment.Center, "Consolas", "#666666");
+            rowNumberColumn.CanUserResize = false;  // 크기 조정 불가
+            rowNumberColumn.CanUserSort = false;    // 정렬 불가
+            dataGrid.Columns.Add(rowNumberColumn);
 
             // 기본 컬럼들
-            gridView.Columns.Add(CreateColumn("시간", "TimeString", 100, fontFamily: "Consolas"));
-            gridView.Columns.Add(CreateColumn("구분", "DirectionText", 50, fontWeight: FontWeights.Bold, hAlign: HorizontalAlignment.Center));
-            gridView.Columns.Add(CreateColumn("MsgId", "MessageId", 60, fontFamily: "Consolas", hAlign: HorizontalAlignment.Center));
+            dataGrid.Columns.Add(CreateDataGridTextColumn("시간", "TimeString", 100, HorizontalAlignment.Left, "Consolas"));
+            dataGrid.Columns.Add(CreateDataGridTextColumn("구분", "DirectionText", 50, HorizontalAlignment.Center, null, null, FontWeights.Bold));
+            dataGrid.Columns.Add(CreateDataGridTextColumn("MsgId", "MessageId", 60, HorizontalAlignment.Center, "Consolas"));
 
             // 통합 로그 탭에만 "분류" 컬럼 추가
             if (tabConfig.IsIntegrated)
             {
-                gridView.Columns.Add(CreateColumn("분류", "MatchedTabName", 100, foregroundColor: "#1565C0"));
+                dataGrid.Columns.Add(CreateDataGridTextColumn("분류", "MatchedTabName", 100, HorizontalAlignment.Left, null, "#1565C0"));
             }
 
-            // 동적 컬럼 추가
+            // 동적 컬럼 추가 (탭별 필터링)
             var settings = ColumnSettingsManager.CurrentSettings;
             foreach (var fieldConfig in settings.ColumnFields)
             {
-                var column = CreateDynamicColumn(fieldConfig, listView);
-                gridView.Columns.Add(column);
+                // 이 컬럼이 현재 탭에서 표시되어야 하는지 확인
+                if (fieldConfig.IsVisibleInTab(tabConfig.Name))
+                {
+                    var column = CreateDataGridDynamicColumn(fieldConfig);
+                    dataGrid.Columns.Add(column);
+                }
             }
 
             // Summary 컬럼 (항상 마지막)
-            gridView.Columns.Add(CreateColumn("주요내용", "Summary", 500, trimming: true));
+            dataGrid.Columns.Add(CreateDataGridTextColumn("주요내용", "Summary", 400));
 
-            listView.View = gridView;
+            // DataGrid Row 스타일 (배경색)
+            var rowStyle = new Style(typeof(DataGridRow));
+            rowStyle.Setters.Add(new Setter(DataGridRow.BackgroundProperty, new Binding("BackgroundBrush") { Mode = BindingMode.OneTime }));
+            rowStyle.Setters.Add(new Setter(DataGridRow.MinHeightProperty, 28.0));
+            dataGrid.RowStyle = rowStyle;
 
-            // ItemContainerStyle
-            var style = new Style(typeof(ListViewItem));
-            style.Setters.Add(new Setter(ListViewItem.BackgroundProperty, new Binding("BackgroundBrush")));
-            style.Setters.Add(new Setter(ListViewItem.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
-            style.Setters.Add(new Setter(ListViewItem.PaddingProperty, new Thickness(8, 9, 8, 9)));  // 행 패딩 증가
-            style.Setters.Add(new Setter(ListViewItem.MarginProperty, new Thickness(0, 2, 0, 0)));   // 행 간격 증가
-            listView.ItemContainerStyle = style;
+            // 헤더 스타일
+            var headerStyle = new Style(typeof(DataGridColumnHeader));
+            headerStyle.Setters.Add(new Setter(DataGridColumnHeader.FontSizeProperty, 13.0));
+            headerStyle.Setters.Add(new Setter(DataGridColumnHeader.FontWeightProperty, FontWeights.SemiBold));
+            headerStyle.Setters.Add(new Setter(DataGridColumnHeader.BackgroundProperty, new SolidColorBrush(Color.FromRgb(240, 240, 240))));
+            headerStyle.Setters.Add(new Setter(DataGridColumnHeader.ForegroundProperty, new SolidColorBrush(Color.FromRgb(60, 60, 60))));
+            headerStyle.Setters.Add(new Setter(DataGridColumnHeader.PaddingProperty, new Thickness(8, 8, 8, 8)));
+            headerStyle.Setters.Add(new Setter(DataGridColumnHeader.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(220, 220, 220))));
+            headerStyle.Setters.Add(new Setter(DataGridColumnHeader.BorderThicknessProperty, new Thickness(0, 0, 1, 1)));
+            headerStyle.Setters.Add(new Setter(DataGridColumnHeader.HorizontalContentAlignmentProperty, HorizontalAlignment.Center));
+            dataGrid.ColumnHeaderStyle = headerStyle;
 
-            // ColumnHeaderContainerStyle - 헤더 스타일 개선
-            var headerStyle = new Style(typeof(GridViewColumnHeader));
-            headerStyle.Setters.Add(new Setter(GridViewColumnHeader.FontSizeProperty, 14.0));  // 폰트 크기 14
-            headerStyle.Setters.Add(new Setter(GridViewColumnHeader.FontWeightProperty, FontWeights.SemiBold));
-            headerStyle.Setters.Add(new Setter(GridViewColumnHeader.BackgroundProperty, new SolidColorBrush(Color.FromRgb(240, 240, 240))));
-            headerStyle.Setters.Add(new Setter(GridViewColumnHeader.ForegroundProperty, new SolidColorBrush(Color.FromRgb(60, 60, 60))));
-            headerStyle.Setters.Add(new Setter(GridViewColumnHeader.PaddingProperty, new Thickness(12, 10, 12, 10)));
-            headerStyle.Setters.Add(new Setter(GridViewColumnHeader.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(220, 220, 220))));
-            headerStyle.Setters.Add(new Setter(GridViewColumnHeader.BorderThicknessProperty, new Thickness(0, 0, 1, 1)));
-            headerStyle.Setters.Add(new Setter(GridViewColumnHeader.HorizontalContentAlignmentProperty, HorizontalAlignment.Center));
-            
-            if (gridView is GridView gv)
+            // Cell 스타일 (패딩 - 좌우 10px로 여유 있게)
+            var cellStyle = new Style(typeof(DataGridCell));
+            cellStyle.Setters.Add(new Setter(DataGridCell.PaddingProperty, new Thickness(10, 4, 10, 4)));
+            cellStyle.Setters.Add(new Setter(DataGridCell.BorderThicknessProperty, new Thickness(0)));
+            cellStyle.Setters.Add(new Setter(DataGridCell.FocusVisualStyleProperty, null));
+            dataGrid.CellStyle = cellStyle;
+
+            return dataGrid;
+        }
+
+        /// <summary>
+        /// DataGrid TextColumn 생성 헬퍼
+        /// </summary>
+        private DataGridTextColumn CreateDataGridTextColumn(
+            string header, 
+            string bindingPath, 
+            double width = double.NaN,
+            HorizontalAlignment hAlign = HorizontalAlignment.Left,
+            string? fontFamily = null,
+            string? foregroundColor = null,
+            FontWeight? fontWeight = null)
+        {
+            var column = new DataGridTextColumn
             {
-                gv.ColumnHeaderContainerStyle = headerStyle;
+                Header = header,
+                Binding = new Binding(bindingPath) { Mode = BindingMode.OneTime },
+                Width = width > 0 ? new DataGridLength(width) : DataGridLength.Auto
+            };
+
+            // ElementStyle 설정
+            var style = new Style(typeof(TextBlock));
+            style.Setters.Add(new Setter(TextBlock.HorizontalAlignmentProperty, hAlign));
+            style.Setters.Add(new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center));
+            style.Setters.Add(new Setter(TextBlock.MarginProperty, new Thickness(8, 0, 8, 0)));  // 좌우 여백
+            
+            if (fontFamily != null)
+                style.Setters.Add(new Setter(TextBlock.FontFamilyProperty, new FontFamily(fontFamily)));
+            if (fontWeight != null)
+                style.Setters.Add(new Setter(TextBlock.FontWeightProperty, fontWeight));
+            if (foregroundColor != null)
+            {
+                try
+                {
+                    var color = (Color)ColorConverter.ConvertFromString(foregroundColor);
+                    style.Setters.Add(new Setter(TextBlock.ForegroundProperty, new SolidColorBrush(color)));
+                }
+                catch { }
             }
 
-            // ItemsPanel
-            var panelTemplate = new ItemsPanelTemplate(new FrameworkElementFactory(typeof(VirtualizingStackPanel)));
-            listView.ItemsPanel = panelTemplate;
+            column.ElementStyle = style;
+            return column;
+        }
 
-            return listView;
+        /// <summary>
+        /// 동적 DataGrid 컬럼 생성
+        /// </summary>
+        private DataGridTextColumn CreateDataGridDynamicColumn(FieldConfig config)
+        {
+            var headerText = config.DisplayName.Replace("_", "__");
+            var binding = new Binding($"Fields[{config.FieldName}]") { Mode = BindingMode.OneTime };
+
+            if (!string.IsNullOrEmpty(config.ValueMapping))
+            {
+                binding.Converter = new Converters.FieldValueConverter { Config = config };
+            }
+
+            var column = new DataGridTextColumn
+            {
+                Header = headerText,
+                Binding = binding,
+                Width = config.ColumnWidth > 0 ? new DataGridLength(config.ColumnWidth) : DataGridLength.Auto
+            };
+
+            // 기본 스타일 (좌우 여백)
+            var baseStyle = new Style(typeof(TextBlock));
+            baseStyle.Setters.Add(new Setter(TextBlock.MarginProperty, new Thickness(8, 0, 8, 0)));
+            baseStyle.Setters.Add(new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center));
+
+            // RETURN_CODE 특별 처리
+            if (config.FieldName == "RETURN_CODE")
+            {
+                baseStyle.Setters.Add(new Setter(TextBlock.FontWeightProperty, FontWeights.Bold));
+                
+                var converter = TryFindResource("ReturnCodeColorConverter") as System.Windows.Data.IValueConverter;
+                if (converter != null)
+                {
+                    var colorBinding = new Binding($"Fields[{config.FieldName}]")
+                    {
+                        Converter = converter,
+                        Mode = BindingMode.OneTime
+                    };
+                    baseStyle.Setters.Add(new Setter(TextBlock.ForegroundProperty, colorBinding));
+                }
+            }
+            // ERROR_CODE 특별 처리
+            else if (config.FieldName == "ERROR_CODE")
+            {
+                var converter = TryFindResource("ErrorColorConverter") as System.Windows.Data.IValueConverter;
+                if (converter != null)
+                {
+                    var colorBinding = new Binding($"Fields[{config.FieldName}]")
+                    {
+                        Converter = converter,
+                        Mode = BindingMode.OneTime
+                    };
+                    baseStyle.Setters.Add(new Setter(TextBlock.ForegroundProperty, colorBinding));
+                }
+            }
+
+            column.ElementStyle = baseStyle;
+            return column;
         }
 
         /// <summary>
@@ -666,10 +825,13 @@ namespace FACTOVA_MessageLogViewer
 
             var template = new DataTemplate();
             var factory = new FrameworkElementFactory(typeof(TextBlock));
-            factory.SetBinding(TextBlock.TextProperty, new Binding(bindingPath));
             
-            // 컬럼 간격 확보를 위한 좌우 여백 (12px로 증가)
-            factory.SetValue(TextBlock.MarginProperty, new Thickness(12, 0, 12, 0));
+            // Binding Mode를 OneTime으로 설정 (읽기 전용 데이터)
+            var binding = new Binding(bindingPath) { Mode = BindingMode.OneTime };
+            factory.SetBinding(TextBlock.TextProperty, binding);
+            
+            // 컬럼 간격 확보를 위한 좌우 여백 (6px로 최적화)
+            factory.SetValue(TextBlock.MarginProperty, new Thickness(6, 0, 6, 0));
             
             if (fontFamily != null)
                 factory.SetValue(TextBlock.FontFamilyProperty, new FontFamily(fontFamily));
@@ -734,11 +896,14 @@ namespace FACTOVA_MessageLogViewer
             var template = new DataTemplate();
             var factory = new FrameworkElementFactory(typeof(TextBlock));
             
-            // 컬럼 간격 확보를 위한 좌우 여백 (12px로 증가)
-            factory.SetValue(TextBlock.MarginProperty, new Thickness(12, 0, 12, 0));
+            // 컬럼 간격 확보를 위한 좌우 여백 (6px로 최적화)
+            factory.SetValue(TextBlock.MarginProperty, new Thickness(6, 0, 6, 0));
 
-            // Fields 딕셔너리에서 값 가져오는 바인딩 (FontSize는 ListView에서 상속)
-            var binding = new System.Windows.Data.Binding($"Fields[{config.FieldName}]");
+            // Fields 딕셔너리에서 값 가져오는 바인딩 (OneTime으로 성능 최적화)
+            var binding = new System.Windows.Data.Binding($"Fields[{config.FieldName}]")
+            {
+                Mode = BindingMode.OneTime
+            };
             
             // ValueMapping이 있으면 Converter 적용
             if (!string.IsNullOrEmpty(config.ValueMapping))
@@ -811,7 +976,7 @@ namespace FACTOVA_MessageLogViewer
             txtMode.Text = modeText;
         }
 
-        private void LoadLogs()
+        private async void LoadLogs()
         {
             // 파일 존재 확인
             if (!File.Exists(currentLogFile))
@@ -833,7 +998,7 @@ namespace FACTOVA_MessageLogViewer
                     break;
 
                 case LogLoadMode.All:
-                    LoadAllLogs();
+                    await LoadAllLogsAsync();
                     break;
             }
         }
@@ -878,25 +1043,28 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
-        private void LoadAllLogs()
+        private async Task LoadAllLogsAsync()
         {
             try
             {
-                var content = File.ReadAllText(currentLogFile, Encoding.UTF8);
+                // 프로그레스바 표시
+                ShowLoadingOverlay(true);
+                UpdateLoadingStatus("파일을 읽는 중...");
+
+                // 백그라운드 스레드에서 파일 읽기
+                string content = await Task.Run(() => File.ReadAllText(currentLogFile, Encoding.UTF8));
                 
-                // 디버그: 파일 내용 일부 출력
                 System.Diagnostics.Debug.WriteLine($"📄 파일 크기: {content.Length} 문자");
-                if (content.Length > 0)
-                {
-                    var firstLines = content.Substring(0, Math.Min(500, content.Length));
-                    System.Diagnostics.Debug.WriteLine($"📄 파일 시작:\n{firstLines}");
-                }
                 
-                var entries = ParseLogEntries(content);
+                UpdateLoadingStatus("로그 파싱 중...");
+                
+                // 백그라운드 스레드에서 파싱
+                var entries = await Task.Run(() => ParseLogEntries(content));
 
                 System.Diagnostics.Debug.WriteLine($"📖 전체 {entries.Count}개 로그 로드 중...");
+                UpdateLoadingStatus($"{entries.Count}개 로그 추가 중...");
 
-                // 일괄 추가로 UI 갱신 최소화
+                // UI 스레드에서 추가
                 logManager.AddLogEntries(entries);
 
                 lastPosition = new FileInfo(currentLogFile).Length;
@@ -906,6 +1074,18 @@ namespace FACTOVA_MessageLogViewer
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"❌ 전체 로그 로드 실패: {ex.Message}");
+                MessageBox.Show($"로그 로드 중 오류가 발생했습니다:\n{ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                // 프로그레스바 숨김
+                ShowLoadingOverlay(false);
+                
+                // 전체 로그 로드 완료 후 Auto Fit 자동 적용
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    ApplyAutoFit();
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
             }
         }
 
@@ -1239,6 +1419,9 @@ namespace FACTOVA_MessageLogViewer
                     {
                         foreach (LogEntry item in e.NewItems)
                         {
+                            // ROW 번호 할당 (전체 로그의 순번)
+                            item.RowNumber = displayEntries.Count + 1;
+                            
                             displayEntries.Add(item);
                             
                             // 매칭된 첫 번째 탭 이름 찾기 (통합 탭 제외)
@@ -1349,9 +1532,9 @@ namespace FACTOVA_MessageLogViewer
             {
                 currentTabConfig = tabConfig;
                 
-                if (tabListViews.TryGetValue(tabConfig, out var listView))
+                if (tabDataGrids.TryGetValue(tabConfig, out var dataGrid))
                 {
-                    currentListView = listView;
+                    currentDataGrid = dataGrid;
                 }
 
                 if (tabViews.TryGetValue(tabConfig, out var view))
@@ -1363,8 +1546,136 @@ namespace FACTOVA_MessageLogViewer
                 lastSelectedTabIndex = tabControlLogs.SelectedIndex;
 
                 UpdateStatus();
+                
+                // 탭 전환 시 AutoFit 자동 실행
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    ApplyAutoFitForCurrentTab();
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
             }
         }
+
+        /// <summary>
+        /// 현재 탭에만 AutoFit 적용
+        /// </summary>
+        private void ApplyAutoFitForCurrentTab()
+        {
+            try
+            {
+                if (currentDataGrid != null)
+                {
+                    foreach (var column in currentDataGrid.Columns)
+                    {
+                        column.Width = DataGridLength.Auto;
+                    }
+                    
+                    currentDataGrid.UpdateLayout();
+                    
+                    foreach (var column in currentDataGrid.Columns)
+                    {
+                        double actualWidth = column.ActualWidth;
+                        if (actualWidth > 0)
+                        {
+                            // 여유 공간 추가 (15px)
+                            column.Width = new DataGridLength(actualWidth + 15);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ Auto Fit 실패: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// DataGrid 더블클릭 - 로그 상세 보기 팝업
+        /// </summary>
+        private void DataGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is DataGrid dataGrid && dataGrid.SelectedItem is LogEntry entry)
+            {
+                var popup = new LogDetailPopup(entry);
+                popup.Owner = this;
+                popup.ShowDialog();
+            }
+        }
+
+        /// <summary>
+        /// DataGrid 키보드 이벤트 - Ctrl+C로 선택된 셀 값 복사
+        /// </summary>
+        private void DataGrid_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.C && 
+                (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) == System.Windows.Input.ModifierKeys.Control)
+            {
+                if (sender is DataGrid dataGrid && dataGrid.CurrentCell.Column != null && dataGrid.SelectedItem is LogEntry entry)
+                {
+                    // 현재 셀의 값 가져오기
+                    var column = dataGrid.CurrentCell.Column;
+                    string? cellValue = null;
+
+                    if (column.Header is string header)
+                    {
+                        // 바인딩 경로에서 값 추출
+                        cellValue = header switch
+                        {
+                            "#" => entry.RowNumber.ToString(),
+                            "시간" => entry.TimeString,
+                            "구분" => entry.DirectionText,
+                            "MsgId" => entry.MessageId,
+                            "분류" => entry.MatchedTabName,
+                            "주요내용" => entry.Summary,
+                            _ => null
+                        };
+
+                        // 동적 필드에서 찾기
+                        if (cellValue == null)
+                        {
+                            var fieldName = header.Replace("__", "_"); // WPF AccessKey 복원
+                            if (entry.Fields.TryGetValue(fieldName, out var fieldValue))
+                            {
+                                cellValue = fieldValue;
+                            }
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(cellValue))
+                    {
+                        try
+                        {
+                            Clipboard.SetText(cellValue);
+                            e.Handled = true; // 기본 복사 동작 방지
+                        }
+                        catch { }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 자동 스크롤 토글 버튼 클릭
+        /// </summary>
+        private void BtnAutoScroll_Click(object sender, RoutedEventArgs e)
+        {
+            isAutoScrollEnabled = !isAutoScrollEnabled;
+            
+            if (sender is Button btn)
+            {
+                if (isAutoScrollEnabled)
+                {
+                    btn.Content = "⬇ 자동스크롤";
+                    btn.Background = new SolidColorBrush(Color.FromRgb(76, 175, 80)); // Green
+                }
+                else
+                {
+                    btn.Content = "⬇ 자동스크롤 OFF";
+                    btn.Background = new SolidColorBrush(Color.FromRgb(158, 158, 158)); // Gray
+                }
+            }
+        }
+
+
 
         private void BtnPause_Click(object sender, RoutedEventArgs e)
         {
@@ -1391,6 +1702,26 @@ namespace FACTOVA_MessageLogViewer
                     foreach (var entry in pausedBuffer)
                     {
                         displayEntries.Add(entry);
+                        
+                        // 탭별 컬렉션에도 추가
+                        string? matchedTabName = null;
+                        foreach (var kvp in tabDisplayEntries)
+                        {
+                            var tabConfig = kvp.Key;
+                            var entries = kvp.Value;
+                            
+                            if (tabConfig.IsMatch(entry))
+                            {
+                                entries.Add(entry);
+                                
+                                if (matchedTabName == null && !tabConfig.IsIntegrated)
+                                {
+                                    matchedTabName = tabConfig.Name;
+                                }
+                            }
+                        }
+                        
+                        entry.MatchedTabName = matchedTabName ?? "";
                     }
 
                     pausedBuffer.Clear();
@@ -1403,16 +1734,25 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
+        private void BtnExportExcel_Click(object sender, RoutedEventArgs e)
+        {
+            ExportToExcel();
+        }
+
         private void AutoScrollToBottom()
         {
-            var listView = currentListView;
-            if (listView != null && listView.Items.Count > 0)
+            // 자동 스크롤이 비활성화되어 있으면 스킵
+            if (!isAutoScrollEnabled)
+                return;
+                
+            var dataGrid = currentDataGrid;
+            if (dataGrid != null && dataGrid.Items.Count > 0)
             {
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     try
                     {
-                        listView.ScrollIntoView(listView.Items[listView.Items.Count - 1]);
+                        dataGrid.ScrollIntoView(dataGrid.Items[dataGrid.Items.Count - 1]);
                     }
                     catch { }
                 }), System.Windows.Threading.DispatcherPriority.Background);
@@ -1608,6 +1948,13 @@ namespace FACTOVA_MessageLogViewer
         /// </summary>
         private void ReloadExistingLogs()
         {
+            // null 체크
+            if (logEntries == null || displayEntries == null || tabDisplayEntries == null)
+            {
+                System.Diagnostics.Debug.WriteLine("⚠️ ReloadExistingLogs: 컬렉션이 초기화되지 않음");
+                return;
+            }
+
             var existingEntries = logEntries.ToList();
             displayEntries.Clear();
             
@@ -1679,10 +2026,10 @@ namespace FACTOVA_MessageLogViewer
 
         private void ApplyFontSize(int size)
         {
-            // 모든 탭의 ListView에 폰트 사이즈 적용
-            foreach (var listView in tabListViews.Values)
+            // 모든 탭의 DataGrid에 폰트 사이즈 적용
+            foreach (var dataGrid in tabDataGrids.Values)
             {
-                listView.FontSize = size;
+                dataGrid.FontSize = size;
             }
             
             // 설정에 저장
@@ -1699,9 +2046,9 @@ namespace FACTOVA_MessageLogViewer
 
         private void ApplyFontSizeWithoutSave(int size)
         {
-            foreach (var listView in tabListViews.Values)
+            foreach (var dataGrid in tabDataGrids.Values)
             {
-                listView.FontSize = size;
+                dataGrid.FontSize = size;
             }
         }
 
@@ -1717,22 +2064,40 @@ namespace FACTOVA_MessageLogViewer
         /// </summary>
         private void BtnAutoFit_Click(object sender, RoutedEventArgs e)
         {
+            ApplyAutoFit();
+        }
+
+        /// <summary>
+        /// 모든 컬럼을 컨텐츠에 맞게 자동 조정
+        /// </summary>
+        private void ApplyAutoFit()
+        {
             try
             {
-                // 모든 탭의 ListView에 접근하여 컬럼 너비를 AUTO로 설정
-                foreach (var listView in tabListViews.Values)
+                // 모든 탭의 DataGrid에 접근하여 컬럼 너비 자동 조정
+                foreach (var dataGrid in tabDataGrids.Values)
                 {
-                    if (listView.View is GridView gridView)
+                    foreach (var column in dataGrid.Columns)
                     {
-                        foreach (var column in gridView.Columns)
+                        // AUTO 모드로 설정하여 최적 너비 계산
+                        column.Width = DataGridLength.Auto;
+                    }
+                    
+                    // UI 업데이트를 기다림
+                    dataGrid.UpdateLayout();
+                    
+                    // 계산된 너비를 고정값으로 변환 (여유 공간 15px 추가)
+                    foreach (var column in dataGrid.Columns)
+                    {
+                        double actualWidth = column.ActualWidth;
+                        if (actualWidth > 0)
                         {
-                            // AUTO 모드로 설정 (NaN)
-                            column.Width = double.NaN;
+                            column.Width = new DataGridLength(actualWidth + 15);
                         }
                     }
                 }
 
-                System.Diagnostics.Debug.WriteLine("✅ Auto Fit 적용: 모든 컬럼 너비를 AUTO로 설정");
+                System.Diagnostics.Debug.WriteLine("✅ Auto Fit 적용: 모든 컬럼 너비를 최적화 후 고정 (+15px 여유)");
             }
             catch (Exception ex)
             {
@@ -1792,36 +2157,217 @@ namespace FACTOVA_MessageLogViewer
         /// </summary>
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            // UI가 완전히 렌더링된 후에 Auto Fit 적용
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                try
-                {
-                    // 모든 탭의 ListView에 접근하여 컬럼 너비를 AUTO로 설정
-                    foreach (var listView in tabListViews.Values)
-                    {
-                        if (listView.View is GridView gridView)
-                        {
-                            foreach (var column in gridView.Columns)
-                            {
-                                // AUTO 모드로 설정 (NaN)
-                                column.Width = double.NaN;
-                            }
-                        }
-                    }
-
-                    System.Diagnostics.Debug.WriteLine("✅ 초기 Auto Fit 적용 완료");
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"❌ 초기 Auto Fit 실패: {ex.Message}");
-                }
-            }), System.Windows.Threading.DispatcherPriority.Loaded);
+            // Window_Loaded는 데이터 로드 전이므로 여기서는 Auto Fit 적용 안 함
+            // LoadLogViewerWithSettings에서 처리됨
         }
 
         private void Window_Closing(object sender, CancelEventArgs e)
         {
             // OnClosing에서 처리됨
+        }
+
+        /// <summary>
+        /// 로딩 오버레이 표시/숨김
+        /// </summary>
+        private void ShowLoadingOverlay(bool show)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                loadingOverlay.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            });
+        }
+
+        /// <summary>
+        /// 로딩 상태 텍스트 업데이트
+        /// </summary>
+        private void UpdateLoadingStatus(string message)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                txtLoadingStatus.Text = message;
+            });
+        }
+
+        /// <summary>
+        /// 현재 탭의 로그를 엑셀로 저장
+        /// </summary>
+        private void ExportToExcel()
+        {
+            try
+            {
+                // EPPlus 라이선스 설정
+                ExcelPackage.LicenseContext = OfficeOpenXml.LicenseContext.NonCommercial;
+
+                // 현재 탭의 데이터 가져오기
+                var entries = GetCurrentTabEntries();
+                if (entries == null || entries.Count == 0)
+                {
+                    MessageBox.Show("내보낼 로그가 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                // 저장 경로 선택
+                var saveDialog = new Microsoft.Win32.SaveFileDialog
+                {
+                    Filter = "Excel 파일 (*.xlsx)|*.xlsx",
+                    FileName = $"로그_{selectedDate:yyyyMMdd}_{DateTime.Now:HHmmss}.xlsx"
+                };
+
+                if (saveDialog.ShowDialog() != true)
+                    return;
+
+                // 프로그레스바 표시
+                ShowLoadingOverlay(true);
+                UpdateLoadingStatus("엑셀 파일 생성 중...");
+
+                // 백그라운드 스레드에서 엑셀 생성
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        using (var package = new ExcelPackage())
+                        {
+                            var worksheet = package.Workbook.Worksheets.Add("로그");
+
+                            // 헤더 생성
+                            var headers = new List<string> { "#", "시간", "구분", "MsgId" };
+                            
+                            // 탭 이름 (통합 로그일 때만)
+                            if (currentTabConfig?.IsIntegrated == true)
+                            {
+                                headers.Add("분류");
+                            }
+
+                            // 동적 컬럼 헤더
+                            var settings = ColumnSettingsManager.CurrentSettings;
+                            foreach (var field in settings.ColumnFields)
+                            {
+                                headers.Add(field.DisplayName);
+                            }
+                            
+                            headers.Add("주요내용");
+
+                            // 헤더 작성
+                            for (int i = 0; i < headers.Count; i++)
+                            {
+                                worksheet.Cells[1, i + 1].Value = headers[i];
+                                worksheet.Cells[1, i + 1].Style.Font.Bold = true;
+                                worksheet.Cells[1, i + 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                                worksheet.Cells[1, i + 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGray);
+                            }
+
+                            // 데이터 작성
+                            int row = 2;
+                            foreach (var entry in entries)
+                            {
+                                int col = 1;
+                                worksheet.Cells[row, col++].Value = entry.RowNumber;
+                                worksheet.Cells[row, col++].Value = entry.TimeString;
+                                worksheet.Cells[row, col++].Value = entry.DirectionText;
+                                worksheet.Cells[row, col++].Value = entry.MessageId;
+
+                                if (currentTabConfig?.IsIntegrated == true)
+                                {
+                                    worksheet.Cells[row, col++].Value = entry.MatchedTabName;
+                                }
+
+                                // 동적 필드
+                                foreach (var field in settings.ColumnFields)
+                                {
+                                    var value = entry.Fields.GetValueOrDefault(field.FieldName, "");
+                                    worksheet.Cells[row, col++].Value = value;
+                                }
+
+                                worksheet.Cells[row, col++].Value = entry.Summary;
+
+                                // 배경색 (송신/수신)
+                                var bgColor = entry.Direction == "SEND" 
+                                    ? System.Drawing.Color.FromArgb(230, 240, 255)
+                                    : System.Drawing.Color.FromArgb(230, 255, 230);
+                                
+                                for (int c = 1; c <= headers.Count; c++)
+                                {
+                                    worksheet.Cells[row, c].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                                    worksheet.Cells[row, c].Style.Fill.BackgroundColor.SetColor(bgColor);
+                                }
+
+                                row++;
+                            }
+
+                            // 자동 너비 조정
+                            worksheet.Cells.AutoFitColumns();
+
+                            // 파일 저장
+                            package.SaveAs(new FileInfo(saveDialog.FileName));
+                        }
+
+                        Dispatcher.Invoke(() =>
+                        {
+                            ShowLoadingOverlay(false);
+                            
+                            // 파일을 열겠냐고 물어보기
+                            var result = MessageBox.Show(
+                                $"엑셀 파일이 저장되었습니다.\n\n{saveDialog.FileName}\n\n파일을 열겠습니까?",
+                                "완료",
+                                MessageBoxButton.YesNo,
+                                MessageBoxImage.Information
+                            );
+
+                            // 예를 선택하면 파일 열기
+                            if (result == MessageBoxResult.Yes)
+                            {
+                                try
+                                {
+                                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                                    {
+                                        FileName = saveDialog.FileName,
+                                        UseShellExecute = true
+                                    });
+                                }
+                                catch (Exception openEx)
+                                {
+                                    MessageBox.Show(
+                                        $"파일을 열 수 없습니다:\n{openEx.Message}",
+                                        "오류",
+                                        MessageBoxButton.OK,
+                                        MessageBoxImage.Warning
+                                    );
+                                }
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            ShowLoadingOverlay(false);
+                            MessageBox.Show(
+                                $"엑셀 저장 중 오류가 발생했습니다:\n{ex.Message}",
+                                "오류",
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Error
+                            );
+                        });
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                ShowLoadingOverlay(false);
+                MessageBox.Show($"엑셀 내보내기 오류:\n{ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 현재 탭의 로그 엔트리 가져오기 (필터 적용된)
+        /// </summary>
+        private List<LogEntry> GetCurrentTabEntries()
+        {
+            if (currentTabConfig != null && tabViews.TryGetValue(currentTabConfig, out var view))
+            {
+                return view.Cast<LogEntry>().ToList();
+            }
+            return displayEntries.ToList();
         }
     }
 }
