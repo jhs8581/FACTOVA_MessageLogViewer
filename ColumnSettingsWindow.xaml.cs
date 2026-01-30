@@ -503,10 +503,65 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
+        /// <summary>
+        /// 입력한 순번대로 정렬
+        /// </summary>
+        private void BtnApplyOrder_Click(object sender, RoutedEventArgs e)
+        {
+            // 입력된 순번대로 정렬
+            var sortedItems = fieldItems.OrderBy(f => f.Order).ToList();
+            
+            fieldItems.Clear();
+            foreach (var item in sortedItems)
+            {
+                fieldItems.Add(item);
+            }
+            
+            // 순번 재정렬 (1부터 연속으로)
+            UpdateFieldOrders();
+            
+            MessageBox.Show("순번대로 정렬되었습니다.", "완료", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        /// <summary>
+        /// 표시타입으로 정렬 (선택한 타입을 맨 위로)
+        /// </summary>
+        private void BtnSortByType_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedType = (cboSortType.SelectedItem as ComboBoxItem)?.Content?.ToString();
+            if (string.IsNullOrEmpty(selectedType))
+            {
+                MessageBox.Show("정렬할 타입을 선택해주세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // 선택한 타입을 맨 위로, 나머지는 기존 순서 유지
+            var sortedItems = fieldItems
+                .OrderByDescending(f => f.DisplayTypeString == selectedType)  // 선택한 타입 먼저
+                .ThenBy(f => f.DisplayTypeString switch  // Column > Summary > Hidden 순
+                {
+                    "Column" => 0,
+                    "Summary" => 1,
+                    "Hidden" => 2,
+                    _ => 3
+                })
+                .ThenBy(f => f.Order)  // 기존 순서 유지
+                .ToList();
+
+            fieldItems.Clear();
+            foreach (var item in sortedItems)
+            {
+                fieldItems.Add(item);
+            }
+
+            UpdateFieldOrders();
+        }
+
         private void BtnReanalyze_Click(object sender, RoutedEventArgs e)
         {
             AnalyzeAndLoadFields();
         }
+
 
         #endregion
 
@@ -895,6 +950,24 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
+        /// <summary>
+        /// 값 매핑 편집 버튼 클릭
+        /// </summary>
+        private void BtnEditValueMapping_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement element && element.Tag is FieldSettingItem fieldItem)
+            {
+                var popup = new ValueMappingPopup(fieldItem.ValueMapping);
+                popup.Owner = this;
+                
+                if (popup.ShowDialog() == true)
+                {
+                    fieldItem.ValueMapping = popup.ResultMapping;
+                    dgFields.Items.Refresh();
+                }
+            }
+        }
+
         #endregion
     }
 
@@ -938,7 +1011,36 @@ namespace FACTOVA_MessageLogViewer
         public string ValueMapping
         {
             get => _valueMapping;
-            set { _valueMapping = value; OnPropertyChanged(nameof(ValueMapping)); }
+            set 
+            { 
+                _valueMapping = value; 
+                OnPropertyChanged(nameof(ValueMapping)); 
+                OnPropertyChanged(nameof(ValueMappingDisplayText));
+            }
+        }
+
+        /// <summary>
+        /// 값 매핑 UI 표시용 텍스트
+        /// </summary>
+        public string ValueMappingDisplayText
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(_valueMapping))
+                    return "(없음)";
+                
+                var pairs = _valueMapping.Split(',');
+                if (pairs.Length > 2)
+                    return $"{pairs.Length}개 매핑";
+                
+                // 짧게 표시: 1→자동, 2→수동
+                var displayPairs = pairs.Take(2).Select(p =>
+                {
+                    var parts = p.Split(':');
+                    return parts.Length == 2 ? $"{parts[0].Trim()}→{parts[1].Trim()}" : p;
+                });
+                return string.Join(", ", displayPairs);
+            }
         }
 
         // String for ComboBox binding

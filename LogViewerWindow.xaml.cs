@@ -1496,9 +1496,26 @@ namespace FACTOVA_MessageLogViewer
         /// </summary>
         private void RefreshAllTabViews()
         {
-            foreach (var view in tabViews.Values)
+            // 필터가 있으면 각 뷰에 필터를 재설정 (초기화 시점에 필터가 없었을 경우 대비)
+            bool hasFilter = !string.IsNullOrWhiteSpace(txtSearch?.Text) || 
+                             chkSendOnly?.IsChecked == true || 
+                             chkRecvOnly?.IsChecked == true;
+
+            foreach (var kvp in tabViews)
             {
-                view?.Refresh();
+                var tabConfig = kvp.Key;
+                var view = kvp.Value;
+                if (view == null) continue;
+
+                if (hasFilter)
+                {
+                    view.Filter = item => FilterLogEntry(item, tabConfig);
+                }
+                else
+                {
+                    view.Filter = null;
+                }
+                view.Refresh();
             }
             UpdateTabCounts();
         }

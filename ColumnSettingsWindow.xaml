@@ -48,17 +48,28 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
+
                     <StackPanel Grid.Row="0" Margin="0,0,0,10">
                         <TextBlock Text="Column: 컬럼으로 표시 | Summary: 요약에 표시 | Hidden: 숨김"
                                    Foreground="#666" FontSize="11" Margin="0,0,0,8"/>
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="전체 요약" Width="100" Height="26" Click="BtnAllSummary_Click" FontSize="11"/>
-                            <Button Content="전체 숨김" Width="90" Height="26" Margin="10,0,0,0" Click="BtnAllHidden_Click" FontSize="11"/>
+                            <Button Content="전체 요약" Width="80" Height="26" Click="BtnAllSummary_Click" FontSize="11"/>
+                            <Button Content="전체 숨김" Width="80" Height="26" Margin="5,0,0,0" Click="BtnAllHidden_Click" FontSize="11"/>
                             <TextBlock Text="  |  " VerticalAlignment="Center" Foreground="#999"/>
-                            <Button Content="▲" Width="30" Height="26" Margin="10,0,0,0" Click="BtnMoveUp_Click" FontSize="11"/>
-                            <Button Content="▼" Width="30" Height="26" Margin="5,0,0,0" Click="BtnMoveDown_Click" FontSize="11"/>
+                            <Button Content="▲" Width="26" Height="26" Margin="5,0,0,0" Click="BtnMoveUp_Click" FontSize="11" ToolTip="위로 이동"/>
+                            <Button Content="▼" Width="26" Height="26" Margin="3,0,0,0" Click="BtnMoveDown_Click" FontSize="11" ToolTip="아래로 이동"/>
+                            <Button Content="순번 적용" Width="70" Height="26" Margin="5,0,0,0" Click="BtnApplyOrder_Click" FontSize="11" 
+                                    ToolTip="입력한 순번대로 정렬" Background="#FF9800" Foreground="White" FontWeight="Bold"/>
                             <TextBlock Text="  |  " VerticalAlignment="Center" Foreground="#999"/>
-                            <Button Content="재분석" Width="80" Height="26" Margin="10,0,0,0" Click="BtnReanalyze_Click" FontSize="11"
+                            <ComboBox x:Name="cboSortType" Width="80" Height="26" FontSize="11" SelectedIndex="0">
+                                <ComboBoxItem Content="Column"/>
+                                <ComboBoxItem Content="Summary"/>
+                                <ComboBoxItem Content="Hidden"/>
+                            </ComboBox>
+                            <Button Content="정렬" Width="40" Height="26" Margin="3,0,0,0" Click="BtnSortByType_Click" FontSize="11" 
+                                    ToolTip="선택한 타입을 맨 위로 정렬"/>
+                            <TextBlock Text="  |  " VerticalAlignment="Center" Foreground="#999"/>
+                            <Button Content="재분석" Width="60" Height="26" Margin="5,0,0,0" Click="BtnReanalyze_Click" FontSize="11"
                                     ToolTip="로그 파일에서 새 필드 검색"/>
                         </StackPanel>
                         <Border Background="#E3F2FD" BorderBrush="#2196F3" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,8,0,0">
@@ -92,23 +103,30 @@
                               RowHeight="32"
                               FontSize="12">
                         <DataGrid.Columns>
-                            <!-- 체크박스: 셀 전체 클릭으로 토글 가능 -->
-                            <DataGridTemplateColumn Header="선택" Width="50">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Border Background="Transparent" 
-                                                HorizontalAlignment="Stretch" 
-                                                VerticalAlignment="Stretch"
-                                                MouseLeftButtonDown="CheckBoxCell_Click"
-                                                Cursor="Hand">
-                                            <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" 
-                                                      HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                      IsHitTestVisible="False"/>
-                                        </Border>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="#" Binding="{Binding Order}" Width="40" IsReadOnly="True"/>
+                            <!-- 체크박스: 싱글클릭 및 키보드 지원 -->
+                            <DataGridCheckBoxColumn Header="선택" 
+                                                     Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" 
+                                                     Width="50">
+                                <DataGridCheckBoxColumn.ElementStyle>
+                                    <Style TargetType="CheckBox">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridCheckBoxColumn.ElementStyle>
+                            </DataGridCheckBoxColumn>
+                            <DataGridTextColumn Header="#" Binding="{Binding Order, UpdateSourceTrigger=PropertyChanged}" Width="50">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                                <DataGridTextColumn.EditingElementStyle>
+                                    <Style TargetType="TextBox">
+                                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.EditingElementStyle>
+                            </DataGridTextColumn>
                             <DataGridTextColumn Header="필드명" Binding="{Binding FieldName, UpdateSourceTrigger=PropertyChanged}" Width="150"/>
                             <DataGridTextColumn Header="표시명" Binding="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" Width="120"/>
                             <DataGridComboBoxColumn Header="표시타입" 
@@ -122,7 +140,7 @@
                                     </x:Array>
                                 </DataGridComboBoxColumn.ItemsSource>
                             </DataGridComboBoxColumn>
-                            <DataGridTextColumn Header="너비" Binding="{Binding ColumnWidth, UpdateSourceTrigger=PropertyChanged}" Width="60"/>
+                            <!-- 너비 컬럼 제거: AutoFit이 자동 적용되므로 불필요 -->
                             <DataGridTemplateColumn Header="표시할 탭" Width="130">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
@@ -135,13 +153,18 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="값 매핑" Binding="{Binding ValueMapping, UpdateSourceTrigger=PropertyChanged}" Width="150">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="ToolTip" Value="예: 1:장입,2:미장입"/>
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
+                            <DataGridTemplateColumn Header="값 매핑" Width="150">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding ValueMappingDisplayText}" 
+                                                Click="BtnEditValueMapping_Click"
+                                                Tag="{Binding}"
+                                                HorizontalAlignment="Stretch"
+                                                Padding="4,2"
+                                                ToolTip="클릭하여 값 매핑 편집&#x0a;예: 1→자동, 2→수동"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header="샘플 값" Binding="{Binding SamplePreview}" Width="*" IsReadOnly="True">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
