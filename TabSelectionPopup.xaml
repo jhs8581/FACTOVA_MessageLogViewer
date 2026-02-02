@@ -6,6 +6,7 @@ Height="450" Width="450"
 MinHeight="300" MinWidth="350"
 WindowStartupLocation="CenterOwner"
 Background="#F5F5F5"
+Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico"
 ResizeMode="CanResizeWithGrip">
     
     <Grid Margin="15">

@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -7,62 +7,72 @@ using System.Text.Json;
 namespace FACTOVA_MessageLogViewer.Models
 {
     /// <summary>
-    /// ¾Û ÀüÃ¼ ¼³Á¤ (ÅëÇÕ)
+    /// ì•± ì „ì²´ ì„¤ì • (í†µí•©)
     /// </summary>
     public class AppSettings
     {
-        #region ¸ŞÀÎ È­¸é ¼³Á¤
+        #region ë©”ì¸ í™”ë©´ ì„¤ì •
 
         /// <summary>
-        /// ±âº» ·Î±× Æú´õ °æ·Î
+        /// ê¸°ë³¸ ë¡œê·¸ í´ë” ê²½ë¡œ
         /// </summary>
         public string DefaultLogFolder { get; set; } = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             "FactovaMES", "SFC", "Logs");
 
         /// <summary>
-        /// ¸¶Áö¸·À¸·Î »ç¿ëÇÑ ·Î±× Æú´õ
+        /// ë§ˆì§€ë§‰ìœ¼ë¡œ ì‚¬ìš©í•œ ë¡œê·¸ í´ë”
         /// </summary>
         public string LastUsedFolder { get; set; } = "";
 
         /// <summary>
-        /// ÀÚµ¿ ½ÃÀÛ ¿©ºÎ
+        /// ìë™ ì‹œì‘ ì—¬ë¶€
         /// </summary>
         public bool AutoStart { get; set; } = false;
 
         #endregion
 
-        #region ÄÃ·³/ÅÇ ¼³Á¤
+        #region ì»¬ëŸ¼/íƒ­ ì„¤ì •
 
         /// <summary>
-        /// ÇöÀç È°¼ºÈ­µÈ ÇÁ¸®¼Â ÀÌ¸§
+        /// í˜„ì¬ í™œì„±í™”ëœ í”„ë¦¬ì…‹ ì´ë¦„
         /// </summary>
         public string CurrentPresetName { get; set; } = "Default";
 
         /// <summary>
-        /// ÄÃ·³ ¼³Á¤
+        /// ì»¬ëŸ¼ ì„¤ì •
         /// </summary>
         public ColumnSettings ColumnSettings { get; set; } = new();
 
         #endregion
 
-        #region ºä¾î ¼³Á¤
+        #region ë·°ì–´ ì„¤ì •
 
         /// <summary>
-        /// ÆùÆ® Å©±â
+        /// í°íŠ¸ í¬ê¸°
         /// </summary>
         public int FontSize { get; set; } = 11;
 
         /// <summary>
-        /// ¸¶Áö¸· ¼±ÅÃÇÑ ÅÇ ÀÎµ¦½º
+        /// ë§ˆì§€ë§‰ ì„ íƒí•œ íƒ­ ì¸ë±ìŠ¤
         /// </summary>
         public int LastSelectedTabIndex { get; set; } = 0;
+
+        /// <summary>
+        /// ë¡œê·¸ ë¡œë“œ ëª¨ë“œ (0: NewOnly, 1: Recent, 2: All)
+        /// </summary>
+        public int LogLoadMode { get; set; } = 0;
+
+        /// <summary>
+        /// ìµœê·¼ ë¡œê·¸ ë¡œë“œ ê°œìˆ˜
+        /// </summary>
+        public int RecentLogCount { get; set; } = 1000;
 
         #endregion
     }
 
     /// <summary>
-    /// ¾Û ¼³Á¤ °ü¸®ÀÚ
+    /// ì•± ì„¤ì • ê´€ë¦¬ì
     /// </summary>
     public static class AppSettingsManager
     {
@@ -90,7 +100,7 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// ¼³Á¤ ·Îµå (·¹°Å½Ã ÆÄÀÏ ¸¶ÀÌ±×·¹ÀÌ¼Ç Æ÷ÇÔ)
+        /// ì„¤ì • ë¡œë“œ (ë ˆê±°ì‹œ íŒŒì¼ ë§ˆì´ê·¸ë ˆì´ì…˜ í¬í•¨)
         /// </summary>
         public static AppSettings Load()
         {
@@ -106,18 +116,18 @@ namespace FACTOVA_MessageLogViewer.Models
                     }
                 }
 
-                // ·¹°Å½Ã ÆÄÀÏ ¸¶ÀÌ±×·¹ÀÌ¼Ç
+                // ë ˆê±°ì‹œ íŒŒì¼ ë§ˆì´ê·¸ë ˆì´ì…˜
                 return MigrateLegacySettings();
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"¼³Á¤ ·Îµå ½ÇÆĞ: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"ì„¤ì • ë¡œë“œ ì‹¤íŒ¨: {ex.Message}");
                 return new AppSettings();
             }
         }
 
         /// <summary>
-        /// ¼³Á¤ ÀúÀå
+        /// ì„¤ì • ì €ì¥
         /// </summary>
         public static void Save(AppSettings settings)
         {
@@ -129,12 +139,12 @@ namespace FACTOVA_MessageLogViewer.Models
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"¼³Á¤ ÀúÀå ½ÇÆĞ: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"ì„¤ì • ì €ì¥ ì‹¤íŒ¨: {ex.Message}");
             }
         }
 
         /// <summary>
-        /// ÇöÀç ¼³Á¤ ÀúÀå (ÆíÀÇ ¸Ş¼­µå)
+        /// í˜„ì¬ ì„¤ì • ì €ì¥ (í¸ì˜ ë©”ì„œë“œ)
         /// </summary>
         public static void SaveCurrent()
         {
@@ -145,13 +155,13 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// ·¹°Å½Ã ¼³Á¤ ÆÄÀÏµéÀ» ¸¶ÀÌ±×·¹ÀÌ¼Ç
+        /// ë ˆê±°ì‹œ ì„¤ì • íŒŒì¼ë“¤ì„ ë§ˆì´ê·¸ë ˆì´ì…˜
         /// </summary>
         private static AppSettings MigrateLegacySettings()
         {
             var settings = new AppSettings();
 
-            // config.txt ¸¶ÀÌ±×·¹ÀÌ¼Ç
+            // config.txt ë§ˆì´ê·¸ë ˆì´ì…˜
             if (File.Exists(LegacyConfigFile))
             {
                 try
@@ -164,7 +174,7 @@ namespace FACTOVA_MessageLogViewer.Models
                 catch { }
             }
 
-            // column_settings.json ¸¶ÀÌ±×·¹ÀÌ¼Ç
+            // column_settings.json ë§ˆì´ê·¸ë ˆì´ì…˜
             if (File.Exists(LegacyColumnSettingsFile))
             {
                 try
@@ -185,16 +195,16 @@ namespace FACTOVA_MessageLogViewer.Models
                 catch { }
             }
 
-            // ¸¶ÀÌ±×·¹ÀÌ¼Ç ÈÄ »õ Çü½ÄÀ¸·Î ÀúÀå
+            // ë§ˆì´ê·¸ë ˆì´ì…˜ í›„ ìƒˆ í˜•ì‹ìœ¼ë¡œ ì €ì¥
             Save(settings);
 
             return settings;
         }
 
-        #region ÇÁ¸®¼Â °ü¸®
+        #region í”„ë¦¬ì…‹ ê´€ë¦¬
 
         /// <summary>
-        /// ÇÁ¸®¼Â ÀúÀå
+        /// í”„ë¦¬ì…‹ ì €ì¥
         /// </summary>
         public static void SavePreset(string name, ColumnSettings columnSettings)
         {
@@ -212,12 +222,12 @@ namespace FACTOVA_MessageLogViewer.Models
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"ÇÁ¸®¼Â ÀúÀå ½ÇÆĞ: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"í”„ë¦¬ì…‹ ì €ì¥ ì‹¤íŒ¨: {ex.Message}");
             }
         }
 
         /// <summary>
-        /// ÇÁ¸®¼Â ·Îµå
+        /// í”„ë¦¬ì…‹ ë¡œë“œ
         /// </summary>
         public static ColumnSettings? LoadPreset(string name)
         {
@@ -226,7 +236,7 @@ namespace FACTOVA_MessageLogViewer.Models
                 var fileName = SanitizeFileName(name) + ".json";
                 var filePath = Path.Combine(PresetsFolder, fileName);
                 
-                // »õ °æ·Î¿¡ ¾øÀ¸¸é ·¹°Å½Ã °æ·Î È®ÀÎ
+                // ìƒˆ ê²½ë¡œì— ì—†ìœ¼ë©´ ë ˆê±°ì‹œ ê²½ë¡œ í™•ì¸
                 if (!File.Exists(filePath))
                 {
                     var legacyPath = Path.Combine(AppFolder, "ColumnSettings", fileName);
@@ -251,20 +261,20 @@ namespace FACTOVA_MessageLogViewer.Models
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"ÇÁ¸®¼Â ·Îµå ½ÇÆĞ: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"í”„ë¦¬ì…‹ ë¡œë“œ ì‹¤íŒ¨: {ex.Message}");
             }
             return null;
         }
 
         /// <summary>
-        /// ÀúÀåµÈ ÇÁ¸®¼Â ¸ñ·Ï Á¶È¸
+        /// ì €ì¥ëœ í”„ë¦¬ì…‹ ëª©ë¡ ì¡°íšŒ
         /// </summary>
         public static List<string> GetPresetNames()
         {
             var presets = new List<string>();
             try
             {
-                // »õ °æ·Î
+                // ìƒˆ ê²½ë¡œ
                 if (Directory.Exists(PresetsFolder))
                 {
                     foreach (var file in Directory.GetFiles(PresetsFolder, "*.json"))
@@ -273,7 +283,7 @@ namespace FACTOVA_MessageLogViewer.Models
                     }
                 }
 
-                // ·¹°Å½Ã °æ·Î
+                // ë ˆê±°ì‹œ ê²½ë¡œ
                 var legacyFolder = Path.Combine(AppFolder, "ColumnSettings");
                 if (Directory.Exists(legacyFolder))
                 {
@@ -303,10 +313,10 @@ namespace FACTOVA_MessageLogViewer.Models
 
         #endregion
 
-        #region ±âº» ¼³Á¤ »ı¼º
+        #region ê¸°ë³¸ ì„¤ì • ìƒì„±
 
         /// <summary>
-        /// ±âº» ÄÃ·³ ¼³Á¤ »ı¼º
+        /// ê¸°ë³¸ ì»¬ëŸ¼ ì„¤ì • ìƒì„±
         /// </summary>
         public static ColumnSettings CreateDefaultColumnSettings()
         {

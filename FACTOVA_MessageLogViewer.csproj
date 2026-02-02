@@ -8,9 +8,9 @@
     <UseWPF>true</UseWPF>
     
     <!-- 버전 정보 -->
-    <Version>1.1.1</Version>
-    <AssemblyVersion>1.1.1.0</AssemblyVersion>
-    <FileVersion>1.1.1.0</FileVersion>
+    <Version>1.1.2</Version>
+    <AssemblyVersion>1.1.2.0</AssemblyVersion>
+    <FileVersion>1.1.2.0</FileVersion>
     
     <!-- 어플리케이션 정보 -->
     <Product>FACTOVA Message Log Viewer</Product>
@@ -24,8 +24,8 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     
-    <!-- 아이콘 (있으면 설정) -->
-    <!-- <ApplicationIcon>Icons\app.ico</ApplicationIcon> -->
+    <!-- 아이콘 설정 -->
+    <ApplicationIcon>Icons\free-icon-search-10725247.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -41,6 +41,9 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="EPPlus" Version="7.5.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Icons\free-icon-search-10725247.ico" />
   </ItemGroup>
 
 </Project>

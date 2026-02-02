@@ -66,6 +66,9 @@ namespace FACTOVA_MessageLogViewer
         // 자동 스크롤 설정
         private bool isAutoScrollEnabled = true;
 
+        // 최대 표시 로그 수 (메모리 관리)
+        private const int MAX_DISPLAY_COUNT = 3000;
+
         // 기본 생성자 (설정 화면으로 시작)
         public LogViewerWindow()
         {
@@ -164,6 +167,29 @@ namespace FACTOVA_MessageLogViewer
             }
             
             txtLogFolderPath.Text = currentLogDirectory;
+
+            // 로그 로드 모드 복원
+            switch (settings.LogLoadMode)
+            {
+                case 0:
+                    rbNewOnly.IsChecked = true;
+                    break;
+                case 1:
+                    rbLoadRecent.IsChecked = true;
+                    break;
+                case 2:
+                    rbLoadAll.IsChecked = true;
+                    break;
+                default:
+                    rbNewOnly.IsChecked = true;
+                    break;
+            }
+
+            // 최근 로그 개수 복원
+            if (settings.RecentLogCount > 0)
+            {
+                txtRecentCount.Text = settings.RecentLogCount.ToString();
+            }
         }
 
         /// <summary>
@@ -173,6 +199,21 @@ namespace FACTOVA_MessageLogViewer
         {
             var settings = AppSettingsManager.Settings;
             settings.LastUsedFolder = currentLogDirectory;
+
+            // 로그 로드 모드 저장
+            if (rbNewOnly.IsChecked == true)
+                settings.LogLoadMode = 0;
+            else if (rbLoadRecent.IsChecked == true)
+                settings.LogLoadMode = 1;
+            else if (rbLoadAll.IsChecked == true)
+                settings.LogLoadMode = 2;
+
+            // 최근 로그 개수 저장
+            if (int.TryParse(txtRecentCount.Text, out int count) && count > 0)
+            {
+                settings.RecentLogCount = count;
+            }
+
             AppSettingsManager.SaveCurrent();
         }
 
@@ -1422,6 +1463,11 @@ namespace FACTOVA_MessageLogViewer
                             // ROW 번호 할당 (전체 로그의 순번)
                             item.RowNumber = displayEntries.Count + 1;
                             
+                            // displayEntries 3000건 제한
+                            if (displayEntries.Count >= MAX_DISPLAY_COUNT)
+                            {
+                                displayEntries.RemoveAt(0);
+                            }
                             displayEntries.Add(item);
                             
                             // 매칭된 첫 번째 탭 이름 찾기 (통합 탭 제외)
@@ -1436,6 +1482,11 @@ namespace FACTOVA_MessageLogViewer
                                 // 탭의 조건에 맞는 경우에만 추가
                                 if (tabConfig.IsMatch(item))
                                 {
+                                    // 탭별 3000건 제한
+                                    if (entries.Count >= MAX_DISPLAY_COUNT)
+                                    {
+                                        entries.RemoveAt(0);
+                                    }
                                     entries.Add(item);
                                     
                                     // 첫 번째 매칭된 비통합 탭 이름 저장

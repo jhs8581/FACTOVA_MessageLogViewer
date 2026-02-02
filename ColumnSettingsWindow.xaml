@@ -1,10 +1,11 @@
 ﻿<Window x:Class="FACTOVA_MessageLogViewer.ColumnSettingsWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="프리셋 설정" 
-        Height="700" Width="950"
-        WindowStartupLocation="CenterOwner"
-        Background="#F5F5F5">
+xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+Title="프리셋 설정" 
+Height="700" Width="950"
+WindowStartupLocation="CenterOwner"
+Background="#F5F5F5"
+Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
 
     <Grid Margin="15">
         <Grid.RowDefinitions>
