@@ -66,8 +66,9 @@ namespace FACTOVA_MessageLogViewer
         // 자동 스크롤 설정
         private bool isAutoScrollEnabled = true;
 
-        // 최대 표시 로그 수 (메모리 관리)
-        private const int MAX_DISPLAY_COUNT = 3000;
+        // 시간대 필터
+        private TimeSpan filterStartTime = TimeSpan.Zero;
+        private TimeSpan filterEndTime = new TimeSpan(23, 59, 59);
 
         // 기본 생성자 (설정 화면으로 시작)
         public LogViewerWindow()
@@ -410,6 +411,16 @@ namespace FACTOVA_MessageLogViewer
             else if (rbLoadAll.IsChecked == true)
             {
                 loadMode = LogLoadMode.All;
+                
+                // 시간대 필터 설정
+                if (TimeSpan.TryParse(txtStartTime.Text + ":00", out var startTime))
+                {
+                    filterStartTime = startTime;
+                }
+                if (TimeSpan.TryParse(txtEndTime.Text + ":59", out var endTime))
+                {
+                    filterEndTime = endTime;
+                }
             }
 
             // 로그 뷰어 초기화
@@ -1101,12 +1112,22 @@ namespace FACTOVA_MessageLogViewer
                 
                 // 백그라운드 스레드에서 파싱
                 var entries = await Task.Run(() => ParseLogEntries(content));
+                
+                // 시간대 필터 적용
+                var startTime = filterStartTime;
+                var endTime = filterEndTime;
+                
+                var filteredEntries = entries.Where(e => 
+                {
+                    var logTime = e.Timestamp.TimeOfDay;
+                    return logTime >= startTime && logTime <= endTime;
+                }).ToList();
 
-                System.Diagnostics.Debug.WriteLine($"📖 전체 {entries.Count}개 로그 로드 중...");
-                UpdateLoadingStatus($"{entries.Count}개 로그 추가 중...");
+                System.Diagnostics.Debug.WriteLine($"📖 전체 {entries.Count}개 중 시간필터({startTime:hh\\:mm} ~ {endTime:hh\\:mm}) 적용: {filteredEntries.Count}개 로드");
+                UpdateLoadingStatus($"{filteredEntries.Count}개 로그 추가 중... (시간필터: {startTime:hh\\:mm}~{endTime:hh\\:mm})");
 
                 // UI 스레드에서 추가
-                logManager.AddLogEntries(entries);
+                logManager.AddLogEntries(filteredEntries);
 
                 lastPosition = new FileInfo(currentLogFile).Length;
 
@@ -1463,11 +1484,6 @@ namespace FACTOVA_MessageLogViewer
                             // ROW 번호 할당 (전체 로그의 순번)
                             item.RowNumber = displayEntries.Count + 1;
                             
-                            // displayEntries 3000건 제한
-                            if (displayEntries.Count >= MAX_DISPLAY_COUNT)
-                            {
-                                displayEntries.RemoveAt(0);
-                            }
                             displayEntries.Add(item);
                             
                             // 매칭된 첫 번째 탭 이름 찾기 (통합 탭 제외)
@@ -1482,11 +1498,6 @@ namespace FACTOVA_MessageLogViewer
                                 // 탭의 조건에 맞는 경우에만 추가
                                 if (tabConfig.IsMatch(item))
                                 {
-                                    // 탭별 3000건 제한
-                                    if (entries.Count >= MAX_DISPLAY_COUNT)
-                                    {
-                                        entries.RemoveAt(0);
-                                    }
                                     entries.Add(item);
                                     
                                     // 첫 번째 매칭된 비통합 탭 이름 저장
@@ -1547,10 +1558,14 @@ namespace FACTOVA_MessageLogViewer
         /// </summary>
         private void RefreshAllTabViews()
         {
+            // 초기화 중에는 tabViews가 비어있을 수 있음
+            if (tabViews == null || tabViews.Count == 0) return;
+            
             // 필터가 있으면 각 뷰에 필터를 재설정 (초기화 시점에 필터가 없었을 경우 대비)
             bool hasFilter = !string.IsNullOrWhiteSpace(txtSearch?.Text) || 
                              chkSendOnly?.IsChecked == true || 
-                             chkRecvOnly?.IsChecked == true;
+                             chkRecvOnly?.IsChecked == true ||
+                             cboResultFilter?.SelectedIndex > 0;
 
             foreach (var kvp in tabViews)
             {
@@ -1576,6 +1591,9 @@ namespace FACTOVA_MessageLogViewer
         /// </summary>
         private void UpdateTabCounts()
         {
+            // 초기화 중에는 tabControlLogs가 null일 수 있음
+            if (tabControlLogs == null) return;
+            
             foreach (TabItem tabItem in tabControlLogs.Items)
             {
                 if (tabItem.Tag is TabConfig tabConfig && 
@@ -1829,11 +1847,14 @@ namespace FACTOVA_MessageLogViewer
 
         private void UpdateStatus()
         {
+            // 초기화 중에는 컬렉션이 null일 수 있음
+            if (displayEntries == null || txtStatus == null) return;
+            
             int displayCount = 0;
             int filteredCount = 0;
 
             // 현재 탭의 카운트 표시
-            if (currentTabConfig != null && tabDisplayEntries.TryGetValue(currentTabConfig, out var entries))
+            if (currentTabConfig != null && tabDisplayEntries != null && tabDisplayEntries.TryGetValue(currentTabConfig, out var entries))
             {
                 displayCount = entries.Count;
                 filteredCount = displayCount;  // 기본값
@@ -1841,7 +1862,8 @@ namespace FACTOVA_MessageLogViewer
                 // 필터링된 카운트는 검색 필터가 있을 때만 표시 (계산은 비동기로)
                 if (!string.IsNullOrWhiteSpace(txtSearch?.Text) || 
                     chkSendOnly?.IsChecked == true || 
-                    chkRecvOnly?.IsChecked == true)
+                    chkRecvOnly?.IsChecked == true ||
+                    cboResultFilter?.SelectedIndex > 0)
                 {
                     // 필터가 있을 때는 "(필터 적용중)" 표시
                     // 실제 카운트는 무거우므로 표시하지 않음
@@ -1946,6 +1968,25 @@ namespace FACTOVA_MessageLogViewer
             if (chkRecvOnly?.IsChecked == true && entry.Direction != "RECV")
                 return false;
 
+            // OK/NG 필터
+            if (cboResultFilter?.SelectedIndex > 0)
+            {
+                var selectedItem = cboResultFilter.SelectedItem as ComboBoxItem;
+                string? content = selectedItem?.Content?.ToString();
+                
+                if (content?.Contains("OK") == true)
+                {
+                    // OK만 표시
+                    if (entry.ReturnCode.ToUpperInvariant() != "OK")
+                        return false;
+                }
+                else if (content?.Contains("NG") == true)
+                {
+                    // NG만 표시 (OK가 아닌 모든 것)
+                    if (string.IsNullOrEmpty(entry.ReturnCode) || entry.ReturnCode.ToUpperInvariant() == "OK")
+                        return false;
+                }
+            }
 
             return true;
         }
@@ -2070,6 +2111,18 @@ namespace FACTOVA_MessageLogViewer
 
         private void Filter_Changed(object sender, RoutedEventArgs e)
         {
+            RefreshAllTabViews();
+            UpdateStatus();
+        }
+
+        /// <summary>
+        /// OK/NG 필터 변경
+        /// </summary>
+        private void CboResultFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // 초기화 중에는 무시
+            if (cboResultFilter == null) return;
+            
             RefreshAllTabViews();
             UpdateStatus();
         }
@@ -2436,6 +2489,147 @@ namespace FACTOVA_MessageLogViewer
                 return view.Cast<LogEntry>().ToList();
             }
             return displayEntries.ToList();
+        }
+
+        /// <summary>
+        /// 시간대 콤보박스 선택 변경
+        /// </summary>
+        private void CboTimeRange_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // 초기화 중에는 txtStartTime/txtEndTime이 null일 수 있음
+            if (txtStartTime == null || txtEndTime == null) return;
+            
+            if (cboTimeRange.SelectedItem is ComboBoxItem selectedItem)
+            {
+                string? content = selectedItem.Content?.ToString();
+                if (string.IsNullOrEmpty(content)) return;
+
+                switch (content)
+                {
+                    case "종일":
+                        txtStartTime.Text = "00:00";
+                        txtEndTime.Text = "23:59";
+                        break;
+                    case "오전":
+                        txtStartTime.Text = "08:00";
+                        txtEndTime.Text = "12:59";
+                        break;
+                    case "오후":
+                        txtStartTime.Text = "13:00";
+                        txtEndTime.Text = "16:59";
+                        break;
+                    case "잔업":
+                        txtStartTime.Text = "17:30";
+                        txtEndTime.Text = "20:30";
+                        break;
+                    default:
+                        // 시간대별 (07시, 08시, ... 23시)
+                        if (content.EndsWith("시") && int.TryParse(content.Replace("시", ""), out int hour))
+                        {
+                            txtStartTime.Text = $"{hour:D2}:00";
+                            txtEndTime.Text = $"{hour:D2}:59";
+                        }
+                        break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 시간 이동 텍스트박스 Enter 키 처리
+        /// </summary>
+        private void TxtJumpTime_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.Enter)
+            {
+                JumpToTime();
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// 시간 이동 버튼 클릭
+        /// </summary>
+        private void BtnJumpToTime_Click(object sender, RoutedEventArgs e)
+        {
+            JumpToTime();
+        }
+
+        /// <summary>
+        /// 지정한 시간으로 이동
+        /// </summary>
+        private void JumpToTime()
+        {
+            if (currentDataGrid == null || currentTabConfig == null) return;
+            if (!tabDisplayEntries.TryGetValue(currentTabConfig, out var entries) || entries.Count == 0) return;
+
+            string timeText = txtJumpTime.Text.Trim();
+            if (string.IsNullOrEmpty(timeText)) return;
+
+            // 시간 파싱 (HH:mm 또는 HH:mm:ss 또는 HH 형식)
+            TimeSpan targetTime;
+            if (timeText.Length <= 2 && int.TryParse(timeText, out int hourOnly))
+            {
+                // "09" 또는 "9" 형식 -> 09:00:00
+                targetTime = new TimeSpan(hourOnly, 0, 0);
+            }
+            else if (TimeSpan.TryParse(timeText, out var parsed))
+            {
+                targetTime = parsed;
+            }
+            else if (TimeSpan.TryParse(timeText + ":00", out var parsed2))
+            {
+                targetTime = parsed2;
+            }
+            else
+            {
+                MessageBox.Show("시간 형식이 올바르지 않습니다.\n예: 09:30, 14:00, 9", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // 해당 시간 이후의 첫 번째 로그 찾기
+            LogEntry? targetEntry = null;
+            int targetIndex = -1;
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (entries[i].Timestamp.TimeOfDay >= targetTime)
+                {
+                    targetEntry = entries[i];
+                    targetIndex = i;
+                    break;
+                }
+            }
+
+            if (targetEntry == null)
+            {
+                // 해당 시간 이후 로그가 없으면 마지막 로그로 이동
+                MessageBox.Show($"{targetTime:hh\\:mm} 이후의 로그가 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            try
+            {
+                // 자동 스크롤 임시 비활성화
+                bool wasAutoScrollEnabled = isAutoScrollEnabled;
+                isAutoScrollEnabled = false;
+
+                // 해당 항목으로 스크롤 및 선택
+                currentDataGrid.ScrollIntoView(targetEntry);
+                currentDataGrid.SelectedItem = targetEntry;
+                currentDataGrid.Focus();
+
+                // 상태바에 이동 정보 표시
+                txtStatus.Text = $"⏰ {targetTime:hh\\:mm} → {targetEntry.TimeString} (#{targetEntry.RowNumber})";
+
+                // 자동 스크롤 복원
+                isAutoScrollEnabled = wasAutoScrollEnabled;
+
+                System.Diagnostics.Debug.WriteLine($"⏰ 시간 이동: {targetTime:hh\\:mm} → Row #{targetEntry.RowNumber} ({targetEntry.TimeString})");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ 시간 이동 실패: {ex.Message}");
+            }
         }
     }
 }

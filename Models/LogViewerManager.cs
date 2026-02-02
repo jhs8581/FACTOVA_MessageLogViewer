@@ -8,7 +8,6 @@ namespace FACTOVA_MessageLogViewer.Models
     public class LogViewerManager
     {
         public ObservableCollection<LogEntry> LogEntries { get; private set; }
-        private const int MAX_LOG_COUNT = 3000;
 
         public LogViewerManager()
         {
@@ -33,13 +32,6 @@ namespace FACTOVA_MessageLogViewer.Models
 
         public void AddLogEntry(LogEntry entry)
         {
-            if (LogEntries.Count >= MAX_LOG_COUNT)
-            {
-                LogEntries.RemoveAt(0);
-            }
-
-
-
             LogEntries.Add(entry);
         }
 
@@ -48,19 +40,7 @@ namespace FACTOVA_MessageLogViewer.Models
         /// </summary>
         public void AddLogEntries(IEnumerable<LogEntry> entries)
         {
-            var list = entries as IList<LogEntry> ?? entries.ToList();
-            
-            // MAX_LOG_COUNT 초과 시 앞에서 제거
-            int overflow = LogEntries.Count + list.Count - MAX_LOG_COUNT;
-            if (overflow > 0)
-            {
-                for (int i = 0; i < Math.Min(overflow, LogEntries.Count); i++)
-                {
-                    LogEntries.RemoveAt(0);
-                }
-            }
-
-            foreach (var entry in list)
+            foreach (var entry in entries)
             {
                 LogEntries.Add(entry);
             }

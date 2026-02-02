@@ -278,12 +278,69 @@ Closing="Window_Closing">
                                Foreground="#666"/>
                     
                     <RadioButton x:Name="rbLoadAll" 
-                                 Content="전체 로그 표시 (시간 소요)"
+                                 Content="전체 로그 표시"
                                  VerticalAlignment="Center"
                                  FontSize="11"
-                                 Margin="0,0,0,0"
+                                 Margin="0,0,15,0"
                                  Foreground="#FF6B00"
                                  FontWeight="SemiBold"/>
+                    
+                    <!-- 시간대 필터 -->
+                    <ComboBox x:Name="cboTimeRange" 
+                              Width="70"
+                              Height="26"
+                              FontSize="11"
+                              VerticalContentAlignment="Center"
+                              IsEnabled="{Binding IsChecked, ElementName=rbLoadAll}"
+                              SelectionChanged="CboTimeRange_SelectionChanged"
+                              ToolTip="시간대 필터 선택">
+                        <ComboBoxItem Content="종일" IsSelected="True"/>
+                        <ComboBoxItem Content="오전"/>
+                        <ComboBoxItem Content="오후"/>
+                        <ComboBoxItem Content="잔업"/>
+                        <ComboBoxItem Content="07시"/>
+                        <ComboBoxItem Content="08시"/>
+                        <ComboBoxItem Content="09시"/>
+                        <ComboBoxItem Content="10시"/>
+                        <ComboBoxItem Content="11시"/>
+                        <ComboBoxItem Content="12시"/>
+                        <ComboBoxItem Content="13시"/>
+                        <ComboBoxItem Content="14시"/>
+                        <ComboBoxItem Content="15시"/>
+                        <ComboBoxItem Content="16시"/>
+                        <ComboBoxItem Content="17시"/>
+                        <ComboBoxItem Content="18시"/>
+                        <ComboBoxItem Content="19시"/>
+                        <ComboBoxItem Content="20시"/>
+                        <ComboBoxItem Content="21시"/>
+                        <ComboBoxItem Content="22시"/>
+                        <ComboBoxItem Content="23시"/>
+                    </ComboBox>
+                    
+                    <TextBox x:Name="txtStartTime" 
+                             Width="50" 
+                             Height="26"
+                             FontSize="11"
+                             Text="00:00" 
+                             VerticalContentAlignment="Center"
+                             HorizontalContentAlignment="Center"
+                             Margin="8,0,0,0"
+                             IsEnabled="{Binding IsChecked, ElementName=rbLoadAll}"/>
+                    
+                    <TextBlock Text="~" 
+                               VerticalAlignment="Center" 
+                               FontSize="11"
+                               Margin="5,0,5,0"
+                               Foreground="#666"/>
+                    
+                    <TextBox x:Name="txtEndTime" 
+                             Width="50" 
+                             Height="26"
+                             FontSize="11"
+                             Text="23:59" 
+                             VerticalContentAlignment="Center"
+                             HorizontalContentAlignment="Center"
+                             IsEnabled="{Binding IsChecked, ElementName=rbLoadAll}"/>
                     
                     <!-- 날짜 정보 -->
                     <TextBlock x:Name="txtDateInfo"
@@ -422,6 +479,66 @@ Closing="Window_Closing">
                                   FontSize="12"
                                   Checked="Filter_Changed" 
                                   Unchecked="Filter_Changed"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- 구분선 -->
+                <Border Width="1" Background="#90CAF9" Margin="20,8,20,8"/>
+                
+                <!-- OK/NG 필터 -->
+                <Border Background="White" CornerRadius="4" Padding="10,4" BorderBrush="#4CAF50" BorderThickness="1">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="결과:" 
+                                   Foreground="#2E7D32" 
+                                   VerticalAlignment="Center" 
+                                   Margin="0,0,8,0"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"/>
+                        <ComboBox x:Name="cboResultFilter" 
+                                  Width="70" Height="24"
+                                  FontSize="11"
+                                  VerticalContentAlignment="Center"
+                                  SelectionChanged="CboResultFilter_SelectionChanged"
+                                  ToolTip="RETURN_CODE 필터">
+                            <ComboBoxItem Content="전체" IsSelected="True"/>
+                            <ComboBoxItem Content="✔ OK"/>
+                            <ComboBoxItem Content="✘ NG"/>
+                        </ComboBox>
+                    </StackPanel>
+                </Border>
+                
+                <!-- 구분선 -->
+                <Border Width="1" Background="#90CAF9" Margin="20,8,20,8"/>
+                
+                <!-- 시간 이동 -->
+                <Border Background="White" CornerRadius="4" Padding="10,4" BorderBrush="#FF9800" BorderThickness="1">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⏰ 이동:" 
+                                   Foreground="#E65100" 
+                                   VerticalAlignment="Center" 
+                                   Margin="0,0,8,0"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"/>
+                        <TextBox x:Name="txtJumpTime" 
+                                 Width="55" Height="24"
+                                 VerticalContentAlignment="Center"
+                                 HorizontalContentAlignment="Center"
+                                 FontSize="11"
+                                 FontFamily="Consolas"
+                                 Text=""
+                                 ToolTip="시간 입력 후 Enter (예: 09:30, 14:00)"
+                                 KeyDown="TxtJumpTime_KeyDown"/>
+                        <Button Content="▶" 
+                                Width="28" Height="24" 
+                                Margin="5,0,0,0"
+                                Click="BtnJumpToTime_Click"
+                                Background="#FF9800"
+                                Foreground="White"
+                                BorderThickness="0"
+                                FontSize="10"
+                                FontWeight="Bold"
+                                Cursor="Hand"
+                                ToolTip="해당 시간으로 이동"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
