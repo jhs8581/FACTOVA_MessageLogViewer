@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows;
@@ -8,6 +9,7 @@ namespace FACTOVA_MessageLogViewer
     public partial class ValueMappingPopup : Window
     {
         private ObservableCollection<ValueMappingItem> mappingItems = new();
+        private bool isUpdatingPreview = false;
 
         /// <summary>
         /// 결과 문자열 (예: "1:자동,2:수동")
@@ -23,8 +25,39 @@ namespace FACTOVA_MessageLogViewer
 
             dgMappings.ItemsSource = mappingItems;
 
-            // 컬렉션 변경 시 미리보기 업데이트
-            mappingItems.CollectionChanged += (s, e) => UpdatePreview();
+            // 컬렉션 변경 시 새 아이템에 이벤트 연결 및 미리보기 업데이트
+            mappingItems.CollectionChanged += MappingItems_CollectionChanged;
+
+            // DataGrid 초기화 이벤트 - 자동 추가된 행 처리
+            dgMappings.InitializingNewItem += DgMappings_InitializingNewItem;
+
+            UpdatePreview();
+        }
+
+        private void MappingItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (e.NewItems != null)
+            {
+                foreach (ValueMappingItem item in e.NewItems)
+                {
+                    item.PropertyChanged -= Item_PropertyChanged;
+                    item.PropertyChanged += Item_PropertyChanged;
+                }
+            }
+            UpdatePreview();
+        }
+
+        private void DgMappings_InitializingNewItem(object? sender, System.Windows.Controls.InitializingNewItemEventArgs e)
+        {
+            if (e.NewItem is ValueMappingItem item)
+            {
+                item.PropertyChanged -= Item_PropertyChanged;
+                item.PropertyChanged += Item_PropertyChanged;
+            }
+        }
+
+        private void Item_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
             UpdatePreview();
         }
 
@@ -47,7 +80,7 @@ namespace FACTOVA_MessageLogViewer
                         Key = parts[0].Trim(),
                         DisplayName = parts[1].Trim()
                     };
-                    item.PropertyChanged += (s, e) => UpdatePreview();
+                    item.PropertyChanged += Item_PropertyChanged;
                     mappingItems.Add(item);
                 }
             }
@@ -58,17 +91,32 @@ namespace FACTOVA_MessageLogViewer
         /// </summary>
         private void UpdatePreview()
         {
-            var validItems = mappingItems
-                .Where(m => !string.IsNullOrWhiteSpace(m.Key) && !string.IsNullOrWhiteSpace(m.DisplayName))
-                .Select(m => $"{m.Key}:{m.DisplayName}");
+            // 재진입 방지
+            if (isUpdatingPreview)
+                return;
 
-            txtPreview.Text = string.Join(",", validItems);
+            isUpdatingPreview = true;
+            try
+            {
+                var validItems = mappingItems
+                    .Where(m => !string.IsNullOrWhiteSpace(m.Key) && !string.IsNullOrWhiteSpace(m.DisplayName))
+                    .Select(m => $"{m.Key}:{m.DisplayName}");
+
+                txtPreview.Text = string.Join(",", validItems);
+            }
+            finally
+            {
+                isUpdatingPreview = false;
+            }
         }
 
         private void BtnAddRow_Click(object sender, RoutedEventArgs e)
         {
+            // 현재 편집 중인 셀 커밋
+            dgMappings.CommitEdit();
+
             var newItem = new ValueMappingItem();
-            newItem.PropertyChanged += (s, ev) => UpdatePreview();
+            newItem.PropertyChanged += Item_PropertyChanged;
             mappingItems.Add(newItem);
         }
 
@@ -82,6 +130,9 @@ namespace FACTOVA_MessageLogViewer
 
         private void BtnOk_Click(object sender, RoutedEventArgs e)
         {
+            // 현재 편집 중인 셀 커밋
+            dgMappings.CommitEdit();
+
             // 유효한 매핑만 결과로 저장
             var validItems = mappingItems
                 .Where(m => !string.IsNullOrWhiteSpace(m.Key) && !string.IsNullOrWhiteSpace(m.DisplayName))
