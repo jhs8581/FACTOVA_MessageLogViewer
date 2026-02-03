@@ -76,10 +76,10 @@ namespace FACTOVA_MessageLogViewer.Models
                             .Select(f => f.FieldName)
                     );
 
-                    // Summary로 설정된 필드만 표시 (최대 5개로 제한)
+                    // Summary로 설정된 필드 모두 표시 (알파벳 정렬, 길이 제한 적용)
                     var summaryFields = Fields
                         .Where(f => !excludeFields.Contains(f.Key) && !string.IsNullOrWhiteSpace(f.Value))
-                        .Take(5)  // 8개에서 5개로 축소
+                        .OrderBy(f => f.Key)
                         .Select(f => $"{f.Key}:{f.Value}");
 
                     var result = string.Join(" | ", summaryFields);
@@ -96,7 +96,7 @@ namespace FACTOVA_MessageLogViewer.Models
                     // 설정 로드 실패 시 기본 동작
                     var otherFields = Fields
                         .Where(f => !string.IsNullOrWhiteSpace(f.Value))
-                        .Take(3)  // 5개에서 3개로 축소
+                        .OrderBy(f => f.Key)
                         .Select(f => $"{f.Key}:{f.Value}");
                     
                     var result = string.Join(" | ", otherFields);
