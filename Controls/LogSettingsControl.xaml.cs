@@ -92,6 +92,10 @@ namespace FACTOVA_MessageLogViewer.Controls
 
         public bool SlowQueryOnly => chkSlowQueryOnly.IsChecked == true;
 
+        public bool WatchEventLog => chkWatchEvent.IsChecked == true;
+        public bool WatchDataLog => chkWatchData.IsChecked == true;
+        public bool WatchExceptionLog => chkWatchException.IsChecked == true;
+
         public string LogFolderPath
         {
             get => txtLogFolderPath.Text;

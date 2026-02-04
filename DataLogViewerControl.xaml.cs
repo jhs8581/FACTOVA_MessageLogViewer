@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Xml.Linq;
@@ -54,6 +55,7 @@ namespace FACTOVA_MessageLogViewer
         private bool isDefaultFolder = true;
         private bool isAutoScrollEnabled = true;
         private bool slowQueryOnly = false;
+        private bool enableRealTimeWatch = true;
 
         private TimeSpan filterStartTime = TimeSpan.Zero;
         private TimeSpan filterEndTime = new TimeSpan(23, 59, 59);
@@ -108,6 +110,7 @@ namespace FACTOVA_MessageLogViewer
             currentLogDirectory = settings.LogDirectory;
             isDefaultFolder = settings.IsDefaultFolder;
             slowQueryOnly = settings.SlowQueryOnly;
+            enableRealTimeWatch = settings.EnableRealTimeWatch;
 
             if (string.IsNullOrEmpty(currentLogFile) || !File.Exists(currentLogFile))
             {
@@ -120,7 +123,12 @@ namespace FACTOVA_MessageLogViewer
 
             InitializeLogViewer();
             LoadLogs();
-            StartFileWatcher();
+            
+            // 실시간 감지가 활성화된 경우에만 파일 감시 시작
+            if (enableRealTimeWatch)
+            {
+                StartFileWatcher();
+            }
 
             UpdateStatus();
 
@@ -186,6 +194,9 @@ namespace FACTOVA_MessageLogViewer
             var settings = ColumnSettingsManager.CurrentSettings;
             var tabs = settings.DataTabSettings?.EnabledTabs?.ToList() ?? new List<TabConfig>();
 
+            // 느린 쿼리 탭은 제외 (필터 영역에서 처리)
+            tabs = tabs.Where(t => !t.Name.Contains("느린 쿼리")).ToList();
+
             if (tabs.Count == 0)
                 tabs.Add(new TabConfig { Name = "통합 로그", IsIntegrated = true, IsEnabled = true });
 
@@ -201,25 +212,63 @@ namespace FACTOVA_MessageLogViewer
                 tabViews[tabConfig] = view;
                 dataGrid.ItemsSource = view;
 
-                tabControl.Items.Add(new TabItem { Header = tabConfig.Name, Content = dataGrid, Tag = tabConfig });
-            }
-
-            if (tabControl.Items.Count > 0)
-            {
-                tabControl.SelectedIndex = 0;
-                
-                // 첫 번째 탭의 DataGrid와 TabConfig를 명시적으로 설정
-                if (tabControl.Items[0] is TabItem firstTab && firstTab.Tag is TabConfig firstCfg)
+                // 탭 헤더 (카운트 표시 포함)
+                var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                var headerText = new TextBlock 
+                { 
+                    Text = tabConfig.Name,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    FontWeight = FontWeights.Medium
+                };
+                var countText = new TextBlock
                 {
-                    currentTabConfig = firstCfg;
-                    currentDataGrid = tabDataGrids.GetValueOrDefault(firstCfg);
-                }
-            }
+                    Text = "(0)",
+                    Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 152, 0)),  // 주황색
+                    FontSize = 13,
+                    FontWeight = FontWeights.Bold,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(8, 0, 0, 0)
+                };
+                headerPanel.Children.Add(headerText);
+                headerPanel.Children.Add(countText);
 
-            logEntries.CollectionChanged += LogEntries_CollectionChanged;
+                tabControl.Items.Add(new TabItem { Header = headerPanel, Content = dataGrid, Tag = tabConfig });
+                    }
+
+                    // 탭이 1개만 있으면 탭 헤더 숨김
+                    if (tabControl.Items.Count == 1)
+                    {
+                        tabControl.Template = CreateHiddenTabHeaderTemplate();
+                    }
+
+                    if (tabControl.Items.Count > 0)
+                    {
+                        tabControl.SelectedIndex = 0;
+                
+                        // 첫 번째 탭의 DataGrid와 TabConfig를 명시적으로 설정
+                        if (tabControl.Items[0] is TabItem firstTab && firstTab.Tag is TabConfig firstCfg)
+                        {
+                            currentTabConfig = firstCfg;
+                            currentDataGrid = tabDataGrids.GetValueOrDefault(firstCfg);
+                        }
+                    }
+
+                    logEntries.CollectionChanged += LogEntries_CollectionChanged;
             
-            System.Diagnostics.Debug.WriteLine($"📊 InitializeLogViewer: 탭 {tabs.Count}개 초기화 완료");
-        }
+                    System.Diagnostics.Debug.WriteLine($"📊 InitializeLogViewer: 탭 {tabs.Count}개 초기화 완료");
+                }
+
+                /// <summary>
+                /// 탭 헤더를 숨기는 템플릿 생성
+                /// </summary>
+                private ControlTemplate CreateHiddenTabHeaderTemplate()
+                {
+                    var template = new ControlTemplate(typeof(TabControl));
+                    var contentPresenter = new FrameworkElementFactory(typeof(ContentPresenter));
+                    contentPresenter.SetValue(ContentPresenter.ContentSourceProperty, "SelectedContent");
+                    template.VisualTree = contentPresenter;
+                    return template;
+                }
 
         private DataGrid CreateDataGrid(TabConfig tabConfig)
         {
@@ -228,12 +277,60 @@ namespace FACTOVA_MessageLogViewer
                 AutoGenerateColumns = false,
                 IsReadOnly = true,
                 CanUserAddRows = false,
-                SelectionMode = DataGridSelectionMode.Single,
-                GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
-                RowHeight = 26,
+                CanUserDeleteRows = false,
+                CanUserReorderColumns = false,
+                CanUserResizeRows = false,
+                CanUserSortColumns = true,
+                SelectionMode = DataGridSelectionMode.Extended,
+                SelectionUnit = DataGridSelectionUnit.FullRow,
+                ClipboardCopyMode = DataGridClipboardCopyMode.ExcludeHeader,
+                GridLinesVisibility = DataGridGridLinesVisibility.All,
+                HorizontalGridLinesBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(230, 230, 230)),
+                VerticalGridLinesBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(230, 230, 230)),
+                HeadersVisibility = DataGridHeadersVisibility.Column,
+                RowHeaderWidth = 0,
                 FontSize = int.TryParse(txtFontSize.Text, out int fs) ? fs : 11,
                 FontFamily = new System.Windows.Media.FontFamily("Consolas"),
+                EnableRowVirtualization = true,
+                EnableColumnVirtualization = true
             };
+
+            // 가상화 설정 (휠 스크롤 최적화)
+            VirtualizingPanel.SetIsVirtualizing(dataGrid, true);
+            VirtualizingPanel.SetVirtualizationMode(dataGrid, VirtualizationMode.Recycling);
+            VirtualizingPanel.SetCacheLength(dataGrid, new VirtualizationCacheLength(10, 10));
+            VirtualizingPanel.SetCacheLengthUnit(dataGrid, VirtualizationCacheLengthUnit.Item);
+            VirtualizingPanel.SetScrollUnit(dataGrid, ScrollUnit.Item);
+
+            // 스크롤 최적화
+            ScrollViewer.SetIsDeferredScrollingEnabled(dataGrid, false);
+            ScrollViewer.SetCanContentScroll(dataGrid, true);
+            ScrollViewer.SetHorizontalScrollBarVisibility(dataGrid, ScrollBarVisibility.Auto);
+            ScrollViewer.SetVerticalScrollBarVisibility(dataGrid, ScrollBarVisibility.Auto);
+
+            // Row 스타일
+            var rowStyle = new Style(typeof(DataGridRow));
+            rowStyle.Setters.Add(new Setter(DataGridRow.MinHeightProperty, 28.0));
+            dataGrid.RowStyle = rowStyle;
+
+            // 헤더 스타일
+            var headerStyle = new Style(typeof(DataGridColumnHeader));
+            headerStyle.Setters.Add(new Setter(DataGridColumnHeader.FontSizeProperty, 13.0));
+            headerStyle.Setters.Add(new Setter(DataGridColumnHeader.FontWeightProperty, FontWeights.SemiBold));
+            headerStyle.Setters.Add(new Setter(DataGridColumnHeader.BackgroundProperty, new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(240, 240, 240))));
+            headerStyle.Setters.Add(new Setter(DataGridColumnHeader.ForegroundProperty, new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(60, 60, 60))));
+            headerStyle.Setters.Add(new Setter(DataGridColumnHeader.PaddingProperty, new Thickness(8, 8, 8, 8)));
+            headerStyle.Setters.Add(new Setter(DataGridColumnHeader.BorderBrushProperty, new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(220, 220, 220))));
+            headerStyle.Setters.Add(new Setter(DataGridColumnHeader.BorderThicknessProperty, new Thickness(0, 0, 1, 1)));
+            headerStyle.Setters.Add(new Setter(DataGridColumnHeader.HorizontalContentAlignmentProperty, HorizontalAlignment.Center));
+            dataGrid.ColumnHeaderStyle = headerStyle;
+
+            // Cell 스타일
+            var cellStyle = new Style(typeof(DataGridCell));
+            cellStyle.Setters.Add(new Setter(DataGridCell.PaddingProperty, new Thickness(10, 4, 10, 4)));
+            cellStyle.Setters.Add(new Setter(DataGridCell.BorderThicknessProperty, new Thickness(0)));
+            cellStyle.Setters.Add(new Setter(DataGridCell.FocusVisualStyleProperty, null));
+            dataGrid.CellStyle = cellStyle;
 
             // 프리셋에서 컬럼 설정 가져오기
             var dataSettings = UnifiedPresetManager.CurrentPreset?.DataSettings;
@@ -620,8 +717,34 @@ namespace FACTOVA_MessageLogViewer
             statusDebounceTimer?.Dispose();
             statusDebounceTimer = new System.Threading.Timer(_ =>
             {
-                Dispatcher.BeginInvoke(() => UpdateStatus());
+                Dispatcher.BeginInvoke(() => 
+                {
+                    UpdateStatus();
+                    UpdateTabCounts();
+                });
             }, null, 200, System.Threading.Timeout.Infinite);
+        }
+
+        /// <summary>
+        /// 탭 헤더의 카운트 업데이트
+        /// </summary>
+        private void UpdateTabCounts()
+        {
+            if (tabControl == null) return;
+
+            foreach (TabItem tabItem in tabControl.Items)
+            {
+                if (tabItem.Tag is TabConfig tabConfig &&
+                    tabItem.Header is StackPanel headerPanel &&
+                    headerPanel.Children.Count > 1 &&
+                    headerPanel.Children[1] is TextBlock countText)
+                {
+                    if (tabDisplayEntries.TryGetValue(tabConfig, out var entries))
+                    {
+                        countText.Text = $"({entries.Count:N0})";
+                    }
+                }
+            }
         }
 
         #endregion
@@ -819,17 +942,36 @@ namespace FACTOVA_MessageLogViewer
             int total = displayEntries.Count;
             int tabCount = currentTabConfig != null && tabDisplayEntries.TryGetValue(currentTabConfig, out var ent) ? ent.Count : 0;
             
-            txtCount.Text = $"| 전체: {total:N0}건 | 현재 탭: {tabCount:N0}건";
+            txtCount.Text = $" | 전체: {total:N0}건";
+            txtTabCount.Text = $" | 현재 탭: {tabCount:N0}건";
             txtFile.Text = Path.GetFileName(currentLogFile);
             txtPausedCount.Text = isPaused && pausedBuffer.Count > 0 ? $"(대기: {pausedBuffer.Count}건)" : "";
-            txtStatus.Text = isPaused ? "⏸ 일시정지" : "▶ 감시 중";
-            txtMode.Text = loadMode switch
+            
+            // 상태 표시: 실시간 감지가 활성화된 경우에만 "감시 중" 표시
+            if (enableRealTimeWatch)
             {
-                LogLoadMode.NewOnly => "📍 실행 이후 로그만",
-                LogLoadMode.Recent => $"📚 최근 {recentCount}개",
-                LogLoadMode.All => "📖 전체 로그",
-                _ => ""
-            };
+                txtStatus.Text = isPaused ? "⏸ 일시정지" : "▶ 감시 중";
+            }
+            else
+            {
+                txtStatus.Text = "✅ 로드 완료";
+            }
+            
+            // 모드 표시
+            if (enableRealTimeWatch)
+            {
+                txtMode.Text = "📍 실시간 감지";
+            }
+            else
+            {
+                txtMode.Text = loadMode switch
+                {
+                    LogLoadMode.NewOnly => "📍 실행 이후 로그만",
+                    LogLoadMode.Recent => $"📚 최근 {recentCount}개",
+                    LogLoadMode.All => "📖 전체 로그",
+                    _ => ""
+                };
+            }
         }
 
         #endregion
@@ -863,6 +1005,38 @@ namespace FACTOVA_MessageLogViewer
         /// </summary>
         private void BizFilterCheckBox_Click(object sender, RoutedEventArgs e)
         {
+            UpdateBizFilterSelection();
+        }
+
+        /// <summary>
+        /// 비즈 전체 선택
+        /// </summary>
+        private void BtnBizSelectAll_Click(object sender, RoutedEventArgs e)
+        {
+            foreach (var item in bizFilterItems)
+            {
+                item.IsSelected = true;
+            }
+            UpdateBizFilterSelection();
+        }
+
+        /// <summary>
+        /// 비즈 전체 해제
+        /// </summary>
+        private void BtnBizDeselectAll_Click(object sender, RoutedEventArgs e)
+        {
+            foreach (var item in bizFilterItems)
+            {
+                item.IsSelected = false;
+            }
+            UpdateBizFilterSelection();
+        }
+
+        /// <summary>
+        /// 비즈 필터 선택 상태 업데이트
+        /// </summary>
+        private void UpdateBizFilterSelection()
+        {
             // 선택된 비즈명 업데이트
             selectedBizNames.Clear();
             foreach (var item in bizFilterItems.Where(x => x.IsSelected))
@@ -871,7 +1045,15 @@ namespace FACTOVA_MessageLogViewer
             }
 
             // 콤보박스 텍스트 업데이트
-            if (selectedBizNames.Count == 0 || selectedBizNames.Count == bizFilterItems.Count)
+            if (bizFilterItems.Count == 0)
+            {
+                cboBizFilter.Text = "전체";
+            }
+            else if (selectedBizNames.Count == 0)
+            {
+                cboBizFilter.Text = "선택 없음";
+            }
+            else if (selectedBizNames.Count == bizFilterItems.Count)
             {
                 cboBizFilter.Text = "전체";
             }
@@ -1000,13 +1182,22 @@ namespace FACTOVA_MessageLogViewer
             string searchText = txtSearch.Text.Trim();
             bool slowQueryEnabled = chkSlowQuery.IsChecked == true;
             int threshold = int.TryParse(txtSlowThreshold.Text, out int t) ? t : 100;
+            
+            // 비즈 필터가 활성화되어 있는지 확인 (항목이 있고, 전체 선택이 아닌 경우)
+            bool bizFilterActive = bizFilterItems.Count > 0 && selectedBizNames.Count < bizFilterItems.Count;
+            // 전체 해제인 경우 (선택된 것이 없으면 아무것도 표시하지 않음)
+            bool noBizSelected = bizFilterItems.Count > 0 && selectedBizNames.Count == 0;
 
             view.Filter = obj =>
             {
                 if (obj is not DataLogEntry entry) return false;
 
-                // 비즈 필터
-                if (selectedBizNames.Count > 0 && !selectedBizNames.Contains(entry.BizName))
+                // 비즈 필터: 전체 해제 시 아무것도 표시하지 않음
+                if (noBizSelected)
+                    return false;
+                
+                // 비즈 필터: 일부만 선택된 경우 필터링
+                if (bizFilterActive && !selectedBizNames.Contains(entry.BizName))
                     return false;
 
                 // 느린 쿼리 필터

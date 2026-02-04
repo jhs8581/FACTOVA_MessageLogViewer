@@ -45,6 +45,7 @@ namespace FACTOVA_MessageLogViewer
         private string currentLogDirectory = "";
         private bool isDefaultFolder = true;
         private bool isAutoScrollEnabled = true;
+        private bool enableRealTimeWatch = true;
 
         private TimeSpan filterStartTime = TimeSpan.Zero;
         private TimeSpan filterEndTime = new TimeSpan(23, 59, 59);
@@ -84,6 +85,7 @@ namespace FACTOVA_MessageLogViewer
             filterEndTime = settings.FilterEndTime;
             currentLogDirectory = settings.LogDirectory;
             isDefaultFolder = settings.IsDefaultFolder;
+            enableRealTimeWatch = settings.EnableRealTimeWatch;
 
             if (string.IsNullOrEmpty(currentLogFile) || !File.Exists(currentLogFile))
             {
@@ -94,7 +96,13 @@ namespace FACTOVA_MessageLogViewer
             txtLogFolder.Text = $"({Path.GetFileName(currentLogFile)})";
 
             LoadLogs();
-            StartFileWatcher();
+            
+            // 실시간 감지가 활성화된 경우에만 파일 감시 시작
+            if (enableRealTimeWatch)
+            {
+                StartFileWatcher();
+            }
+            
             UpdateStatus();
 
             // Auto Fit 자동 적용
@@ -572,17 +580,35 @@ namespace FACTOVA_MessageLogViewer
         private void UpdateStatus()
         {
             int total = logEntries.Count;
-            txtCount.Text = $"| 총 {total:N0}건";
+            txtCount.Text = $" | 전체: {total:N0}건";
             txtFile.Text = Path.GetFileName(currentLogFile);
             txtPausedCount.Text = isPaused && pausedBuffer.Count > 0 ? $"(대기: {pausedBuffer.Count}건)" : "";
-            txtStatus.Text = isPaused ? "⏸ 일시정지" : "▶ 감시 중";
-            txtMode.Text = loadMode switch
+            
+            // 상태 표시: 실시간 감지가 활성화된 경우에만 "감시 중" 표시
+            if (enableRealTimeWatch)
             {
-                LogLoadMode.NewOnly => "📍 실행 이후 로그만",
-                LogLoadMode.Recent => $"📚 최근 {recentCount}개",
-                LogLoadMode.All => "📖 전체 로그",
-                _ => ""
-            };
+                txtStatus.Text = isPaused ? "⏸ 일시정지" : "▶ 감시 중";
+            }
+            else
+            {
+                txtStatus.Text = "✅ 로드 완료";
+            }
+            
+            // 모드 표시
+            if (enableRealTimeWatch)
+            {
+                txtMode.Text = "📍 실시간 감지";
+            }
+            else
+            {
+                txtMode.Text = loadMode switch
+                {
+                    LogLoadMode.NewOnly => "📍 실행 이후 로그만",
+                    LogLoadMode.Recent => $"📚 최근 {recentCount}개",
+                    LogLoadMode.All => "📖 전체 로그",
+                    _ => ""
+                };
+            }
         }
 
         #endregion

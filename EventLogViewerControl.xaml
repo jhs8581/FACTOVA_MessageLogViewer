@@ -19,6 +19,40 @@ Loaded="UserControl_Loaded">
             <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
             <Setter Property="ScrollViewer.IsDeferredScrollingEnabled" Value="False"/>
         </Style>
+        
+        <!-- 하위 탭 스타일 (부드러운 디자인) -->
+        <Style x:Key="SubTabStyle" TargetType="TabItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Border" 
+                                Background="#F5F5F5" 
+                                BorderThickness="1,1,1,0"
+                                BorderBrush="#DDDDDD"
+                                CornerRadius="4,4,0,0"
+                                Margin="1,0,0,0"
+                                Padding="15,8">
+                            <ContentPresenter x:Name="ContentSite"
+                                              ContentSource="Header"
+                                              HorizontalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="White"/>
+                                <Setter TargetName="Border" Property="BorderBrush" Value="#2196F3"/>
+                                <Setter TargetName="Border" Property="BorderThickness" Value="1,2,1,0"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#EEEEEE"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Foreground" Value="#444444"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -291,6 +325,10 @@ Loaded="UserControl_Loaded">
         <TabControl Grid.Row="2" 
                     x:Name="tabControlLogs"
                     Margin="10"
+                    Background="White"
+                    BorderBrush="#DDDDDD"
+                    BorderThickness="1"
+                    ItemContainerStyle="{StaticResource SubTabStyle}"
                     SelectionChanged="TabControlLogs_SelectionChanged">
             
             <!-- 탭들은 코드에서 동적으로 생성됨 -->
@@ -326,22 +364,18 @@ Loaded="UserControl_Loaded">
         </Border>
 
         <!-- 하단 상태바 -->
-        <Border Grid.Row="3" Background="#EEEEEE" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0">
+        <Border Grid.Row="3" Background="#EEEEEE" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Padding="15,0">
             <Grid>
-                <TextBlock x:Name="txtStatus" 
-                           Text="로그 개수: 0" 
-                           VerticalAlignment="Center" 
-                           Margin="15,0"
-                           FontSize="12"
-                           Foreground="#333"/>
-
-                <TextBlock x:Name="txtMode" 
-                           Text="" 
-                           VerticalAlignment="Center" 
-                           HorizontalAlignment="Right"
-                           Margin="15,0"
-                           FontSize="11"
-                           Foreground="#666"/>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="txtStatus" Text="준비" Foreground="#333" FontSize="12"/>
+                    <TextBlock x:Name="txtCount" Text=" | 전체: 0건" Foreground="#1976D2" FontSize="12" Margin="10,0,0,0"/>
+                    <TextBlock x:Name="txtTabCount" Text=" | 현재 탭: 0건" Foreground="#666" FontSize="12" Margin="5,0,0,0"/>
+                    <TextBlock x:Name="txtPausedCount" Text="" Foreground="#FFC107" FontSize="11" Margin="10,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock x:Name="txtFile" Foreground="#666" FontSize="11" FontFamily="Consolas"/>
+                    <TextBlock x:Name="txtMode" Text="" Foreground="#999" FontSize="11" Margin="15,0,0,0"/>
+                </StackPanel>
             </Grid>
         </Border>
     </Grid>

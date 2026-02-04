@@ -72,7 +72,12 @@ namespace FACTOVA_MessageLogViewer
             var eventFilePath = FindLogFilePath(selectedDate.Date, LogType.EVENT);
             if (!string.IsNullOrEmpty(eventFilePath))
             {
-                var eventSettings = viewerSettings with { LogFilePath = eventFilePath, LogType = LogType.EVENT };
+                var eventSettings = viewerSettings with 
+                { 
+                    LogFilePath = eventFilePath, 
+                    LogType = LogType.EVENT,
+                    EnableRealTimeWatch = logSettings.WatchEventLog
+                };
                 eventLogViewer.Initialize(eventSettings);
             }
 
@@ -80,7 +85,12 @@ namespace FACTOVA_MessageLogViewer
             var dataFilePath = FindLogFilePath(selectedDate.Date, LogType.DATA);
             if (!string.IsNullOrEmpty(dataFilePath))
             {
-                var dataSettings = viewerSettings with { LogFilePath = dataFilePath, LogType = LogType.DATA };
+                var dataSettings = viewerSettings with 
+                { 
+                    LogFilePath = dataFilePath, 
+                    LogType = LogType.DATA,
+                    EnableRealTimeWatch = logSettings.WatchDataLog
+                };
                 dataLogViewer.Initialize(dataSettings);
             }
 
@@ -88,7 +98,12 @@ namespace FACTOVA_MessageLogViewer
             var exceptionFilePath = FindLogFilePath(selectedDate.Date, LogType.EXCEPTION);
             if (!string.IsNullOrEmpty(exceptionFilePath))
             {
-                var exceptionSettings = viewerSettings with { LogFilePath = exceptionFilePath, LogType = LogType.EXCEPTION };
+                var exceptionSettings = viewerSettings with 
+                { 
+                    LogFilePath = exceptionFilePath, 
+                    LogType = LogType.EXCEPTION,
+                    EnableRealTimeWatch = logSettings.WatchExceptionLog
+                };
                 exceptionLogViewer.Initialize(exceptionSettings);
             }
 

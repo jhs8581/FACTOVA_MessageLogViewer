@@ -74,6 +74,9 @@ namespace FACTOVA_MessageLogViewer
         // 초기화 완료 여부
         private bool isInitialized = false;
 
+        // 실시간 감지 여부
+        private bool enableRealTimeWatch = true;
+
         /// <summary>
         /// 기본 생성자
         /// </summary>
@@ -103,6 +106,7 @@ namespace FACTOVA_MessageLogViewer
             filterEndTime = settings.FilterEndTime;
             currentLogDirectory = settings.LogDirectory;
             isDefaultFolder = settings.IsDefaultFolder;
+            enableRealTimeWatch = settings.EnableRealTimeWatch;
 
             txtLogFolder.Text = $"({Path.GetFileName(currentLogFile)})";
 
@@ -113,10 +117,17 @@ namespace FACTOVA_MessageLogViewer
             InitializeLogManager();
             InitializeTabs();
             LoadSavedFontSize();
-            StartFileWatcher();
+            
+            // 실시간 감지가 활성화된 경우에만 파일 감시 시작
+            if (enableRealTimeWatch)
+            {
+                StartFileWatcher();
+            }
+            
             LoadLogs();
 
             UpdateModeText();
+            UpdateStatus();
             isInitialized = true;
 
             // Auto Fit 자동 적용
@@ -202,14 +213,21 @@ namespace FACTOVA_MessageLogViewer
             dataGrid.ItemsSource = view;
 
             // 탭 헤더 (카운트 표시 포함)
-            var headerPanel = new StackPanel { Orientation = Orientation.Horizontal };
-            var headerText = new TextBlock { Text = tabConfig.Name };
+            var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            var headerText = new TextBlock 
+            { 
+                Text = tabConfig.Name,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontWeight = FontWeights.Medium
+            };
             var countText = new TextBlock
             {
-                Text = " (0)",
-                Foreground = new SolidColorBrush(Colors.Gray),
-                FontSize = 10,
-                VerticalAlignment = VerticalAlignment.Center
+                Text = "(0)",
+                Foreground = new SolidColorBrush(Color.FromRgb(255, 152, 0)),  // 주황색 (선택 시 가독성)
+                FontSize = 13,
+                FontWeight = FontWeights.Bold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 0, 0)
             };
             headerPanel.Children.Add(headerText);
             headerPanel.Children.Add(countText);
@@ -1204,7 +1222,7 @@ namespace FACTOVA_MessageLogViewer
                 {
                     if (tabDisplayEntries.TryGetValue(tabConfig, out var entries))
                     {
-                        countText.Text = $" ({entries.Count})";
+                        countText.Text = $"({entries.Count:N0})";
                     }
                 }
             }
@@ -1450,50 +1468,51 @@ namespace FACTOVA_MessageLogViewer
             // 초기화 중에는 컬렉션이 null일 수 있음
             if (displayEntries == null || txtStatus == null) return;
 
-            int displayCount = 0;
-            int filteredCount = 0;
+            int totalCount = displayEntries.Count;
+            int tabCount = 0;
 
-            // 현재 탭의 카운트 표시
+            // 현재 탭의 카운트
             if (currentTabConfig != null && tabDisplayEntries != null && tabDisplayEntries.TryGetValue(currentTabConfig, out var entries))
             {
-                displayCount = entries.Count;
-                filteredCount = displayCount;  // 기본값
+                tabCount = entries.Count;
+            }
 
-                // 필터링된 카운트는 검색 필터가 있을 때만 표시 (계산은 비동기로)
-                if (!string.IsNullOrWhiteSpace(txtSearch?.Text) ||
-                    chkSendOnly?.IsChecked == true ||
-                    chkRecvOnly?.IsChecked == true ||
-                    cboResultFilter?.SelectedIndex > 0)
+            // 상태 표시: 실시간 감지가 활성화된 경우에만 "감시 중" 표시
+            if (enableRealTimeWatch)
+            {
+                txtStatus.Text = isPaused ? "⏸ 일시정지" : "▶ 감시 중";
+            }
+            else
+            {
+                txtStatus.Text = "✅ 로드 완료";
+            }
+            
+            // 전체 카운트
+            txtCount.Text = $" | 전체: {totalCount:N0}건";
+            
+            // 현재 탭 카운트
+            txtTabCount.Text = $" | 현재 탭: {tabCount:N0}건";
+            
+            // 대기 중인 로그 수
+            txtPausedCount.Text = isPaused && pausedBuffer.Count > 0 ? $"(대기: {pausedBuffer.Count}건)" : "";
+            
+            // 파일명
+            txtFile.Text = Path.GetFileName(currentLogFile);
+            
+            // 모드 표시
+            if (enableRealTimeWatch)
+            {
+                txtMode.Text = "📍 실시간 감지";
+            }
+            else
+            {
+                txtMode.Text = loadMode switch
                 {
-                    // 필터가 있을 때는 "(필터 적용중)" 표시
-                    // 실제 카운트는 무거우므로 표시하지 않음
-                    txtStatus.Text = $"[{currentTabConfig?.Name ?? "전체"}] 로그: {displayCount} (필터 적용중)";
-                    return;
-                }
-            }
-            else
-            {
-                displayCount = displayEntries.Count;
-                filteredCount = displayCount;
-            }
-
-            string tabName = currentTabConfig?.Name ?? "전체";
-
-            if (isPaused && pausedBuffer.Count > 0)
-            {
-                txtStatus.Text = $"[{tabName}] 로그: {displayCount} (⏸ 대기: {pausedBuffer.Count})";
-            }
-            else if (isPaused)
-            {
-                txtStatus.Text = $"[{tabName}] 로그: {displayCount} (⏸ 일시정지)";
-            }
-            else if (displayCount != filteredCount)
-            {
-                txtStatus.Text = $"[{tabName}] 로그: {displayCount} (필터: {filteredCount})";
-            }
-            else
-            {
-                txtStatus.Text = $"[{tabName}] 로그: {displayCount}";
+                    LogLoadMode.NewOnly => "📍 실행 이후 로그만",
+                    LogLoadMode.Recent => $"📚 최근 {recentCount}개",
+                    LogLoadMode.All => "📖 전체 로그",
+                    _ => ""
+                };
             }
         }
 

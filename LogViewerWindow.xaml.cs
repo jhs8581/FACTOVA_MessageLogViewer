@@ -630,14 +630,21 @@ namespace FACTOVA_MessageLogViewer
             dataGrid.ItemsSource = view;
 
             // 탭 헤더 (카운트 표시 포함)
-            var headerPanel = new StackPanel { Orientation = Orientation.Horizontal };
-            var headerText = new TextBlock { Text = tabConfig.Name };
+            var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            var headerText = new TextBlock 
+            { 
+                Text = tabConfig.Name,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontWeight = FontWeights.Medium
+            };
             var countText = new TextBlock 
             { 
-                Text = " (0)", 
-                Foreground = new SolidColorBrush(Colors.Gray),
-                FontSize = 10,
-                VerticalAlignment = VerticalAlignment.Center
+                Text = "(0)", 
+                Foreground = new SolidColorBrush(Color.FromRgb(33, 150, 243)),  // 파란색
+                FontSize = 13,
+                FontWeight = FontWeights.Bold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 0, 0)
             };
             headerPanel.Children.Add(headerText);
             headerPanel.Children.Add(countText);
@@ -1610,7 +1617,7 @@ namespace FACTOVA_MessageLogViewer
                 {
                     if (tabDisplayEntries.TryGetValue(tabConfig, out var entries))
                     {
-                        countText.Text = $" ({entries.Count})";
+                        countText.Text = $"({entries.Count:N0})";
                     }
                 }
             }

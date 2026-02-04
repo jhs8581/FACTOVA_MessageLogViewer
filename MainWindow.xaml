@@ -28,7 +28,7 @@
         <!-- 로그 타입 탭 -->
         <TabControl x:Name="mainTabControl" 
                     Grid.Row="1"
-                    Background="Transparent"
+                    Background="#F5F5F5"
                     BorderThickness="0"
                     Padding="0"
                     SelectionChanged="MainTabControl_SelectionChanged">
@@ -38,35 +38,40 @@
                         <Setter.Value>
                             <ControlTemplate TargetType="TabItem">
                                 <Border x:Name="Border" 
-                                        Background="#444" 
-                                        BorderThickness="0,0,1,0"
-                                        BorderBrush="#555"
-                                        Padding="25,12">
+                                        Background="#E8E8E8" 
+                                        BorderThickness="1,1,1,0"
+                                        BorderBrush="#CCCCCC"
+                                        CornerRadius="6,6,0,0"
+                                        Margin="2,0,0,0"
+                                        Padding="20,10">
                                     <ContentPresenter x:Name="ContentSite"
                                                       ContentSource="Header"
                                                       HorizontalAlignment="Center"/>
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsSelected" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#2196F3"/>
+                                        <Setter TargetName="Border" Property="Background" Value="White"/>
+                                        <Setter TargetName="Border" Property="BorderBrush" Value="#1976D2"/>
+                                        <Setter TargetName="Border" Property="BorderThickness" Value="1,3,1,0"/>
+                                        <Setter Property="Foreground" Value="#1976D2"/>
                                     </Trigger>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#555"/>
+                                        <Setter TargetName="Border" Property="Background" Value="#F0F0F0"/>
                                     </Trigger>
                                     <MultiTrigger>
                                         <MultiTrigger.Conditions>
                                             <Condition Property="IsSelected" Value="True"/>
                                             <Condition Property="IsMouseOver" Value="True"/>
                                         </MultiTrigger.Conditions>
-                                        <Setter TargetName="Border" Property="Background" Value="#1976D2"/>
+                                        <Setter TargetName="Border" Property="Background" Value="#FAFAFA"/>
                                     </MultiTrigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
                         </Setter.Value>
                     </Setter>
-                    <Setter Property="Foreground" Value="White"/>
-                    <Setter Property="FontSize" Value="14"/>
-                    <Setter Property="FontWeight" Value="SemiBold"/>
+                    <Setter Property="Foreground" Value="#555555"/>
+                    <Setter Property="FontSize" Value="13"/>
+                    <Setter Property="FontWeight" Value="Medium"/>
                 </Style>
             </TabControl.Resources>
             

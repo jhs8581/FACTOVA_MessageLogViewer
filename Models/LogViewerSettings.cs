@@ -48,13 +48,18 @@ namespace FACTOVA_MessageLogViewer.Models
         public LogType LogType { get; init; } = LogType.EVENT;
 
         /// <summary>
-        /// 로그 폴더 경로
-        /// </summary>
-        public string LogDirectory { get; init; } = "";
+                /// 로그 폴더 경로
+                /// </summary>
+                public string LogDirectory { get; init; } = "";
 
-        /// <summary>
-        /// 기본 폴더 여부
-        /// </summary>
-        public bool IsDefaultFolder { get; init; } = true;
-    }
-}
+                /// <summary>
+                /// 기본 폴더 여부
+                /// </summary>
+                public bool IsDefaultFolder { get; init; } = true;
+
+                /// <summary>
+                /// 실시간 감지 여부 (FileWatcher 활성화)
+                /// </summary>
+                public bool EnableRealTimeWatch { get; init; } = true;
+            }
+        }

@@ -125,6 +125,16 @@ namespace FACTOVA_MessageLogViewer.Models
             if (entry == null || string.IsNullOrEmpty(FieldName))
                 return true;
 
+            // SLOW_QUERY 특수 처리: 실행시간 기반 필터
+            if (FieldName.Equals("SLOW_QUERY", StringComparison.OrdinalIgnoreCase))
+            {
+                if (double.TryParse(Value, out double thresholdMs))
+                {
+                    return entry.ExecTimeMs >= thresholdMs;
+                }
+                return false;
+            }
+
             var values = Value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                               .Select(v => v.Trim())
                               .Where(v => !string.IsNullOrEmpty(v))
@@ -414,29 +424,6 @@ namespace FACTOVA_MessageLogViewer.Models
                         Order = 0,
                         IsIntegrated = true,
                         IsEnabled = true
-                    },
-                    new TabConfig
-                    {
-                        Name = "느린 쿼리 (1초+)",
-                        Order = 1,
-                        IsIntegrated = false,
-                        IsEnabled = true,
-                        ConditionGroups = new List<ConditionGroup>
-                        {
-                            new ConditionGroup
-                            {
-                                Name = "1초 이상",
-                                Conditions = new List<TabFilterCondition>
-                                {
-                                    new TabFilterCondition
-                                    {
-                                        FieldName = "SLOW_QUERY",
-                                        Value = "1000",
-                                        ExactMatch = false
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             };
