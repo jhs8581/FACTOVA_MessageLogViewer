@@ -8,9 +8,9 @@
     <UseWPF>true</UseWPF>
     
     <!-- 버전 정보 -->
-    <Version>1.1.5</Version>
-    <AssemblyVersion>1.1.5.0</AssemblyVersion>
-    <FileVersion>1.1.5.0</FileVersion>
+    <Version>2.0.0</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
     
     <!-- 어플리케이션 정보 -->
     <Product>FACTOVA Message Log Viewer</Product>
@@ -35,6 +35,18 @@
   <!-- XAML 강제 재컴파일 -->
   <ItemGroup>
     <Page Update="TabSettingsWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <XamlRuntime>Wpf</XamlRuntime>
+    </Page>
+    <Page Update="MainWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <XamlRuntime>Wpf</XamlRuntime>
+    </Page>
+    <Page Update="EventLogViewerControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <XamlRuntime>Wpf</XamlRuntime>
+    </Page>
+    <Page Update="DataLogViewerControl.xaml">
       <Generator>MSBuild:Compile</Generator>
       <XamlRuntime>Wpf</XamlRuntime>
     </Page>

@@ -7,7 +7,9 @@ namespace FACTOVA_MessageLogViewer
 {
     public partial class LogDetailPopup : Window
     {
-        private LogEntry _logEntry;
+        private LogEntry? _logEntry;
+        private DataLogEntry? _dataLogEntry;
+        private ExceptionLogEntry? _exceptionLogEntry;
 
         public LogDetailPopup(LogEntry entry)
         {
@@ -16,8 +18,33 @@ namespace FACTOVA_MessageLogViewer
             LoadLogDetails();
         }
 
+        public LogDetailPopup()
+        {
+            InitializeComponent();
+        }
+
+        /// <summary>
+        /// DATA 로그 내용 설정
+        /// </summary>
+        public void SetDataLogContent(DataLogEntry entry)
+        {
+            _dataLogEntry = entry;
+            LoadDataLogDetails();
+        }
+
+        /// <summary>
+        /// EXCEPTION 로그 내용 설정
+        /// </summary>
+        public void SetExceptionLogContent(ExceptionLogEntry entry)
+        {
+            _exceptionLogEntry = entry;
+            LoadExceptionLogDetails();
+        }
+
         private void LoadLogDetails()
         {
+            if (_logEntry == null) return;
+
             // 헤더 정보
             txtTime.Text = _logEntry.TimeString;
             txtDirection.Text = _logEntry.DirectionText;
@@ -47,6 +74,68 @@ namespace FACTOVA_MessageLogViewer
             txtRawData.Text = FormatRawData(_logEntry.RawData);
         }
 
+        private void LoadDataLogDetails()
+        {
+            if (_dataLogEntry == null) return;
+
+            // 헤더 정보
+            txtTime.Text = _dataLogEntry.TimeString;
+            txtDirection.Text = $"실행시간: {_dataLogEntry.ExecTime}";
+            txtMsgId.Text = _dataLogEntry.BizName;
+            txtMatchedTab.Text = string.IsNullOrEmpty(_dataLogEntry.MatchedTabName) ? "(없음)" : _dataLogEntry.MatchedTabName;
+
+            // DATA 로그는 주황색
+            txtDirection.Foreground = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(255, 107, 0));
+
+            // TXN_ID를 필드에 추가
+            var fields = new Dictionary<string, string>(_dataLogEntry.Fields)
+            {
+                ["TXN_ID"] = _dataLogEntry.TxnId
+            };
+
+            // 필드 목록
+            var fieldList = fields
+                .OrderBy(f => f.Key)
+                .Select(f => new KeyValuePair<string, string>(f.Key, f.Value))
+                .ToList();
+            dgFields.ItemsSource = fieldList;
+
+            // Raw Data (XML 포맷팅)
+            txtRawData.Text = FormatXml(_dataLogEntry.ParameterXml);
+        }
+
+        private void LoadExceptionLogDetails()
+        {
+            if (_exceptionLogEntry == null) return;
+
+            // 헤더 정보
+            txtTime.Text = _exceptionLogEntry.TimeString;
+            txtDirection.Text = _exceptionLogEntry.ExceptionType;
+            txtMsgId.Text = _exceptionLogEntry.Source;
+            txtMatchedTab.Text = "EXCEPTION";
+
+            // EXCEPTION 로그는 빨간색
+            txtDirection.Foreground = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(211, 47, 47));
+
+            // 필드 목록
+            var fields = new Dictionary<string, string>
+            {
+                ["예외 타입"] = _exceptionLogEntry.ExceptionType,
+                ["메시지"] = _exceptionLogEntry.Message,
+                ["소스"] = _exceptionLogEntry.Source
+            };
+
+            var fieldList = fields
+                .Select(f => new KeyValuePair<string, string>(f.Key, f.Value))
+                .ToList();
+            dgFields.ItemsSource = fieldList;
+
+            // Raw Data (스택 트레이스)
+            txtRawData.Text = _exceptionLogEntry.RawData;
+        }
+
         /// <summary>
         /// Raw Data를 보기 좋게 포맷팅
         /// </summary>
@@ -63,11 +152,32 @@ namespace FACTOVA_MessageLogViewer
                 .Replace(",", ",\n  ");
         }
 
+        /// <summary>
+        /// XML을 보기 좋게 포맷팅
+        /// </summary>
+        private string FormatXml(string xml)
+        {
+            if (string.IsNullOrEmpty(xml))
+                return "(데이터 없음)";
+
+            try
+            {
+                var doc = System.Xml.Linq.XDocument.Parse(xml);
+                return doc.ToString();
+            }
+            catch
+            {
+                // 파싱 실패시 기본 포맷팅
+                return xml.Replace("><", ">\n<");
+            }
+        }
+
         private void BtnCopyRawData_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                Clipboard.SetText(_logEntry.RawData);
+                string dataToCopy = _logEntry?.RawData ?? _dataLogEntry?.RawData ?? _exceptionLogEntry?.RawData ?? "";
+                Clipboard.SetText(dataToCopy);
                 MessageBox.Show("Raw Data가 클립보드에 복사되었습니다.", "복사 완료", 
                     MessageBoxButton.OK, MessageBoxImage.Information);
             }

@@ -125,7 +125,16 @@ namespace FACTOVA_MessageLogViewer.Models
         public string Description { get; set; } = "";
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime ModifiedAt { get; set; } = DateTime.Now;
+        
+        /// <summary>
+        /// EVENT 로그 필드 설정
+        /// </summary>
         public List<FieldConfig> Fields { get; set; } = new();
+
+        /// <summary>
+        /// DATA 로그 필드 설정
+        /// </summary>
+        public List<FieldConfig> DataFields { get; set; } = new();
 
         /// <summary>
         /// 로그 뷰어 폰트 크기
@@ -133,23 +142,42 @@ namespace FACTOVA_MessageLogViewer.Models
         public int FontSize { get; set; } = 11;
 
         /// <summary>
-        /// 탭 설정 (업무별 탭 필터링)
+        /// 탭 설정 (업무별 탭 필터링) - EVENT 로그용
         /// </summary>
         public TabSettings TabSettings { get; set; } = TabSettings.CreateDefault();
 
         /// <summary>
-        /// 컬럼으로 표시할 필드들
+        /// DATA 로그 탭 설정
+        /// </summary>
+        public TabSettings DataTabSettings { get; set; } = TabSettings.CreateDataDefault();
+
+        /// <summary>
+        /// EVENT 로그 컬럼으로 표시할 필드들
         /// </summary>
         public IEnumerable<FieldConfig> ColumnFields => 
             Fields.Where(f => f.DisplayType == FieldDisplayType.Column)
                   .OrderBy(f => f.Order);
 
         /// <summary>
-        /// Summary에 표시할 필드들
+        /// EVENT 로그 Summary에 표시할 필드들
         /// </summary>
         public IEnumerable<FieldConfig> SummaryFields =>
             Fields.Where(f => f.DisplayType == FieldDisplayType.Summary)
                   .OrderBy(f => f.Order);
+
+        /// <summary>
+        /// DATA 로그 컬럼으로 표시할 필드들
+        /// </summary>
+        public IEnumerable<FieldConfig> DataColumnFields => 
+            DataFields.Where(f => f.DisplayType == FieldDisplayType.Column)
+                      .OrderBy(f => f.Order);
+
+        /// <summary>
+        /// DATA 로그 Summary에 표시할 필드들
+        /// </summary>
+        public IEnumerable<FieldConfig> DataSummaryFields =>
+            DataFields.Where(f => f.DisplayType == FieldDisplayType.Summary)
+                      .OrderBy(f => f.Order);
     }
 
 
@@ -205,11 +233,26 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// 프리셋 로드
+        /// 프리셋 로드 (통합 프리셋 우선)
         /// </summary>
         public static ColumnSettings? LoadPreset(string name)
         {
-            return AppSettingsManager.LoadPreset(name);
+            // 1. 통합 프리셋에서 먼저 로드 시도
+            var unifiedPreset = UnifiedPresetManager.LoadPreset(name);
+            if (unifiedPreset?.EventSettings != null)
+            {
+                System.Diagnostics.Debug.WriteLine($"📂 ColumnSettingsManager.LoadPreset: 통합 프리셋에서 로드 - {name}");
+                return unifiedPreset.EventSettings;
+            }
+            
+            // 2. 기존 프리셋 로드
+            var legacySettings = AppSettingsManager.LoadPreset(name);
+            if (legacySettings != null)
+            {
+                System.Diagnostics.Debug.WriteLine($"📂 ColumnSettingsManager.LoadPreset: 기존 프리셋에서 로드 - {name}");
+            }
+            
+            return legacySettings;
         }
 
         /// <summary>

@@ -1,0 +1,73 @@
+﻿<Window x:Class="FACTOVA_MessageLogViewer.ExceptionColumnSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="EXCEPTION 로그 프리셋 설정" 
+        Height="600" 
+        Width="800"
+        WindowStartupLocation="CenterOwner"
+        Background="#F5F5F5">
+    
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- 상단: 프리셋 선택 -->
+        <Border Grid.Row="0" Background="White" CornerRadius="5" Padding="15" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="🎨 프리셋:" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <ComboBox x:Name="cboPresets" Width="200" Height="28" FontSize="12" SelectionChanged="CboPresets_SelectionChanged"/>
+                <Button Content="새 프리셋" Width="80" Height="28" Margin="10,0,0,0" Click="BtnNewPreset_Click"/>
+                <Button Content="삭제" Width="60" Height="28" Margin="5,0,0,0" Click="BtnDeletePreset_Click" 
+                        Foreground="#D32F2F"/>
+            </StackPanel>
+        </Border>
+        
+        <!-- 중앙: 컬럼 설정 -->
+        <Border Grid.Row="1" Background="White" CornerRadius="5" Padding="10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                    <TextBlock Text="📋 컬럼 설정" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBlock Text="(표시할 컬럼과 순서를 설정합니다)" FontSize="11" Foreground="#666" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    
+                    <Button Content="▲ 위로" Width="60" Height="26" Margin="30,0,5,0" Click="BtnMoveUp_Click" FontSize="10"/>
+                    <Button Content="▼ 아래로" Width="60" Height="26" Click="BtnMoveDown_Click" FontSize="10"/>
+                </StackPanel>
+                
+                <DataGrid Grid.Row="1" x:Name="dgFields" 
+                          AutoGenerateColumns="False" 
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          SelectionMode="Single"
+                          GridLinesVisibility="Horizontal"
+                          RowHeight="28"
+                          FontSize="11">
+                    <DataGrid.Columns>
+                        <DataGridCheckBoxColumn Header="표시" Binding="{Binding IsEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="45"/>
+                        <DataGridTextColumn Header="필드명" Binding="{Binding FieldName}" Width="150" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="표시 이름" Binding="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="120"/>
+                        <DataGridTextColumn Header="너비" Binding="{Binding ColumnWidth, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="70"/>
+                        <DataGridTextColumn Header="순서" Binding="{Binding Order, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="60"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+        
+        <!-- 하단: 버튼 -->
+        <Border Grid.Row="2" Margin="0,10,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="미리보기" Width="90" Height="32" Margin="0,0,10,0" Click="BtnPreview_Click"/>
+                <Button Content="저장" Width="90" Height="32" Margin="0,0,10,0" Click="BtnSave_Click"
+                        Background="#D32F2F" Foreground="White" FontWeight="Bold"/>
+                <Button Content="취소" Width="90" Height="32" Click="BtnCancel_Click"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

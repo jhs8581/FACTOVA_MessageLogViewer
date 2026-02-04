@@ -117,6 +117,41 @@ namespace FACTOVA_MessageLogViewer.Models
             return false;
         }
 
+        /// <summary>
+        /// DATA 로그 조건 검사
+        /// </summary>
+        public bool IsMatch(DataLogEntry entry)
+        {
+            if (entry == null || string.IsNullOrEmpty(FieldName))
+                return true;
+
+            var values = Value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                              .Select(v => v.Trim())
+                              .Where(v => !string.IsNullOrEmpty(v))
+                              .ToList();
+
+            if (values.Count == 0)
+                return true;
+
+            string fieldValue = GetDataFieldValue(entry);
+
+            foreach (var val in values)
+            {
+                if (ExactMatch)
+                {
+                    if (string.Equals(fieldValue, val, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+                else
+                {
+                    if (fieldValue.Contains(val, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
         private string GetFieldValue(LogEntry entry)
         {
             // 특수 필드 처리
@@ -127,6 +162,22 @@ namespace FACTOVA_MessageLogViewer.Models
                 "RETURN_CODE" or "RETURNCODE" => entry.ReturnCode ?? "",
                 "WORK_TYPE" or "WORKTYPE" => entry.WorkType ?? "",
                 "ERROR_CODE" or "ERRORCODE" => entry.ErrorCode ?? "",
+                _ => entry.Fields?.GetValueOrDefault(FieldName, "") ?? ""
+            };
+        }
+
+        private string GetDataFieldValue(DataLogEntry entry)
+        {
+            // DATA 로그 특수 필드 처리
+            return FieldName.ToUpperInvariant() switch
+            {
+                "BIZNAME" or "BIZ_NAME" => entry.BizName ?? "",
+                "TXNID" or "TXN_ID" => entry.TxnId ?? "",
+                "EXECTIME" or "EXEC_TIME" => entry.ExecTime ?? "",
+                "CLIENT_ID" or "CLIENTID" => entry.ClientId ?? "",
+                "CLIENT_IP" or "CLIENTIP" => entry.ClientIp ?? "",
+                "EQUIPMENT_ID" or "EQUIPMENTID" => entry.EquipmentId ?? "",
+                "SFC_MODE" or "SFCMODE" => entry.SfcMode ?? "",
                 _ => entry.Fields?.GetValueOrDefault(FieldName, "") ?? ""
             };
         }
@@ -148,9 +199,23 @@ namespace FACTOVA_MessageLogViewer.Models
         public List<TabFilterCondition> Conditions { get; set; } = new();
 
         /// <summary>
-        /// 그룹 조건 검사 (모든 조건 AND)
+        /// 그룹 조건 검사 (모든 조건 AND) - EVENT 로그
         /// </summary>
         public bool IsMatch(LogEntry entry)
+        {
+            if (entry == null)
+                return false;
+
+            if (Conditions == null || Conditions.Count == 0)
+                return true;
+
+            return Conditions.All(c => c.IsMatch(entry));
+        }
+
+        /// <summary>
+        /// 그룹 조건 검사 (모든 조건 AND) - DATA 로그
+        /// </summary>
+        public bool IsMatch(DataLogEntry entry)
         {
             if (entry == null)
                 return false;
@@ -216,7 +281,7 @@ namespace FACTOVA_MessageLogViewer.Models
         public bool IsIntegrated { get; set; } = false;
 
         /// <summary>
-        /// 로그 엔트리가 이 탭의 조건에 맞는지 검사
+        /// 로그 엔트리가 이 탭의 조건에 맞는지 검사 - EVENT 로그
         /// </summary>
         public bool IsMatch(LogEntry entry)
         {
@@ -231,6 +296,31 @@ namespace FACTOVA_MessageLogViewer.Models
             if (ConditionGroups != null && ConditionGroups.Count > 0)
             {
                 // 그룹 중 하나라도 만족하면 OK (OR)
+                return ConditionGroups.Any(g => g.IsMatch(entry));
+            }
+
+            // 구버전 호환: 단일 조건 목록 (AND)
+            if (Conditions == null || Conditions.Count == 0)
+                return true;
+
+            return Conditions.All(c => c.IsMatch(entry));
+        }
+
+        /// <summary>
+        /// 로그 엔트리가 이 탭의 조건에 맞는지 검사 - DATA 로그
+        /// </summary>
+        public bool IsMatch(DataLogEntry entry)
+        {
+            if (entry == null)
+                return false;
+
+            // 통합 탭은 모든 로그 표시
+            if (IsIntegrated)
+                return true;
+
+            // 조건 그룹이 있으면 OR 로직 사용
+            if (ConditionGroups != null && ConditionGroups.Count > 0)
+            {
                 return ConditionGroups.Any(g => g.IsMatch(entry));
             }
 
@@ -290,7 +380,7 @@ namespace FACTOVA_MessageLogViewer.Models
         public int LastSelectedTabIndex { get; set; } = 0;
 
         /// <summary>
-        /// 기본 탭 설정 생성
+        /// 기본 탭 설정 생성 - EVENT 로그용
         /// </summary>
         public static TabSettings CreateDefault()
         {
@@ -304,6 +394,49 @@ namespace FACTOVA_MessageLogViewer.Models
                         Order = 0,
                         IsIntegrated = true,
                         IsEnabled = true
+                    }
+                }
+            };
+        }
+
+        /// <summary>
+        /// 기본 탭 설정 생성 - DATA 로그용
+        /// </summary>
+        public static TabSettings CreateDataDefault()
+        {
+            return new TabSettings
+            {
+                Tabs = new List<TabConfig>
+                {
+                    new TabConfig
+                    {
+                        Name = "통합 로그",
+                        Order = 0,
+                        IsIntegrated = true,
+                        IsEnabled = true
+                    },
+                    new TabConfig
+                    {
+                        Name = "느린 쿼리 (1초+)",
+                        Order = 1,
+                        IsIntegrated = false,
+                        IsEnabled = true,
+                        ConditionGroups = new List<ConditionGroup>
+                        {
+                            new ConditionGroup
+                            {
+                                Name = "1초 이상",
+                                Conditions = new List<TabFilterCondition>
+                                {
+                                    new TabFilterCondition
+                                    {
+                                        FieldName = "SLOW_QUERY",
+                                        Value = "1000",
+                                        ExactMatch = false
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             };

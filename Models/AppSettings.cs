@@ -68,6 +68,21 @@ namespace FACTOVA_MessageLogViewer.Models
         /// </summary>
         public int RecentLogCount { get; set; } = 1000;
 
+        /// <summary>
+        /// EVENT 로그 실시간 감지 여부
+        /// </summary>
+        public bool WatchEventLog { get; set; } = true;
+
+        /// <summary>
+        /// DATA 로그 실시간 감지 여부
+        /// </summary>
+        public bool WatchDataLog { get; set; } = true;
+
+        /// <summary>
+        /// EXCEPTION 로그 실시간 감지 여부
+        /// </summary>
+        public bool WatchExceptionLog { get; set; } = true;
+
         #endregion
     }
 

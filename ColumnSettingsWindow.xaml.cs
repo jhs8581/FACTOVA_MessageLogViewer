@@ -27,6 +27,13 @@ namespace FACTOVA_MessageLogViewer
         /// </summary>
         public List<string> FieldList => LogFieldAnalyzer.DiscoveredFields;
 
+        /// <summary>
+        /// 기본 생성자 (로그 파일 없이 열기)
+        /// </summary>
+        public ColumnSettingsWindow() : this("", null)
+        {
+        }
+
         public ColumnSettingsWindow(string logFilePath, string? selectedPresetName = null)
         {
             InitializeComponent();
@@ -36,7 +43,9 @@ namespace FACTOVA_MessageLogViewer
             dgFields.ItemsSource = fieldItems;
             
             LoadPresetList();
-            AnalyzeAndLoadFields();
+            
+            // 선택된 프리셋 로드 후 필드 표시
+            LoadSelectedPresetFields();
             LoadTabSettings();
         }
 
@@ -48,9 +57,18 @@ namespace FACTOVA_MessageLogViewer
             cboPresets.Items.Clear();
             cboPresets.Items.Add("Default");
             
+            // 통합 프리셋 목록도 가져오기
+            foreach (var preset in UnifiedPresetManager.GetPresetNames())
+            {
+                if (!cboPresets.Items.Contains(preset))
+                    cboPresets.Items.Add(preset);
+            }
+            
+            // 기존 프리셋 목록도 가져오기
             foreach (var preset in ColumnSettingsManager.GetPresetNames())
             {
-                cboPresets.Items.Add(preset);
+                if (!cboPresets.Items.Contains(preset))
+                    cboPresets.Items.Add(preset);
             }
 
             // 전달받은 프리셋 이름으로 선택, 없으면 현재 설정 이름으로 선택
@@ -69,6 +87,43 @@ namespace FACTOVA_MessageLogViewer
             isLoadingPreset = false;
         }
 
+        /// <summary>
+        /// 선택된 프리셋의 필드 로드
+        /// </summary>
+        private void LoadSelectedPresetFields()
+        {
+            var selected = cboPresets.SelectedItem?.ToString();
+            System.Diagnostics.Debug.WriteLine($"📂 LoadSelectedPresetFields: '{selected}'");
+            
+            ColumnSettings? settings = null;
+            
+            if (string.IsNullOrEmpty(selected) || selected == "Default")
+            {
+                settings = ColumnSettingsManager.CurrentSettings;
+                System.Diagnostics.Debug.WriteLine($"   CurrentSettings 사용 - Fields: {settings?.Fields?.Count ?? 0}개");
+            }
+            else
+            {
+                settings = ColumnSettingsManager.LoadPreset(selected);
+                System.Diagnostics.Debug.WriteLine($"   LoadPreset('{selected}') 결과 - Fields: {settings?.Fields?.Count ?? 0}개");
+            }
+
+            if (settings != null && settings.Fields != null && settings.Fields.Count > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"   ✅ 프리셋에서 {settings.Fields.Count}개 필드 로드");
+                ApplySettingsToGrid(settings);
+                ApplyTabSettingsFromSettings(settings);
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"   ⚠️ 프리셋 필드 없음 (settings={settings != null}, Fields={settings?.Fields?.Count ?? 0})");
+                System.Diagnostics.Debug.WriteLine($"   로그 파일 분석 시도: '{logFilePath}'");
+                AnalyzeAndLoadFields();
+            }
+        }
+
+
+
         #endregion
 
         #region 컬럼 설정
@@ -77,8 +132,13 @@ namespace FACTOVA_MessageLogViewer
         {
             fieldItems.Clear();
 
-            var analysisResults = LogFieldAnalyzer.AnalyzeFields(logFilePath);
+            // 로그 파일이 있으면 분석, 없으면 빈 결과
+            var analysisResults = string.IsNullOrEmpty(logFilePath) || !System.IO.File.Exists(logFilePath)
+                ? new List<FieldAnalysisResult>()
+                : LogFieldAnalyzer.AnalyzeFields(logFilePath);
+            
             var currentSettings = ColumnSettingsManager.CurrentSettings;
+            System.Diagnostics.Debug.WriteLine($"📋 AnalyzeAndLoadFields: 현재 설정 필드 {currentSettings.Fields.Count}개, 분석 결과 {analysisResults.Count}개");
 
             int order = 1;
             
@@ -100,7 +160,7 @@ namespace FACTOVA_MessageLogViewer
                 });
             }
 
-            // Add new fields from analysis
+            // Add new fields from analysis (로그 파일이 있을 때만)
             foreach (var result in analysisResults)
             {
                 if (!fieldItems.Any(f => f.FieldName == result.FieldName))
@@ -118,6 +178,7 @@ namespace FACTOVA_MessageLogViewer
                 }
             }
 
+            System.Diagnostics.Debug.WriteLine($"📋 총 {fieldItems.Count}개 필드 로드됨");
             UpdateFieldOrders();
         }
 
@@ -160,44 +221,33 @@ namespace FACTOVA_MessageLogViewer
 
         private void ApplySettingsToGrid(ColumnSettings settings)
         {
-            System.Diagnostics.Debug.WriteLine($"📂 ApplySettingsToGrid - 설정 로드 시작:");
+            System.Diagnostics.Debug.WriteLine($"📂 ApplySettingsToGrid - 프리셋 필드 로드: {settings.Fields.Count}개");
             
-            foreach (var item in fieldItems)
+            // 프리셋의 모든 필드를 로드 (기존 fieldItems 대체)
+            fieldItems.Clear();
+            
+            int order = 1;
+            foreach (var config in settings.Fields.OrderBy(f => f.Order))
             {
-                var config = settings.Fields.FirstOrDefault(f => f.FieldName == item.FieldName);
-                if (config != null)
+                fieldItems.Add(new FieldSettingItem
                 {
-                    System.Diagnostics.Debug.WriteLine($"  - {item.FieldName}:");
-                    System.Diagnostics.Debug.WriteLine($"      config.VisibleInTabs = {config.VisibleInTabs?.Count ?? 0}개");
-                    if (config.VisibleInTabs != null)
-                    {
-                        foreach (var tab in config.VisibleInTabs)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"        * {tab}");
-                        }
-                    }
-                    
-                    item.DisplayName = config.DisplayName;
-                    item.DisplayType = config.DisplayType;
-                    item.ColumnWidth = config.ColumnWidth;
-                    item.ValueMapping = config.ValueMapping;
-                    item.VisibleInTabs = config.VisibleInTabs;  // 탭별 표시 설정 로드
-                    
-                    System.Diagnostics.Debug.WriteLine($"      item.VisibleInTabs = {item.VisibleInTabs?.Count ?? 0}개");
-                    System.Diagnostics.Debug.WriteLine($"      DisplayText = {item.VisibleTabsDisplayText}");
-                    
-                    // UI 강제 갱신
-                    item.RefreshDisplay();
-                }
+                    Order = order++,
+                    FieldName = config.FieldName,
+                    DisplayName = config.DisplayName,
+                    DisplayType = config.DisplayType,
+                    ColumnWidth = config.ColumnWidth,
+                    ValueMapping = config.ValueMapping,
+                    VisibleInTabs = config.VisibleInTabs,
+                    SampleValues = new List<string>()
+                });
             }
             
-            System.Diagnostics.Debug.WriteLine($"📂 ApplySettingsToGrid 완료 - DataGrid 강제 갱신");
+            System.Diagnostics.Debug.WriteLine($"📂 ApplySettingsToGrid 완료 - {fieldItems.Count}개 필드 로드됨");
             
-            // 강력한 갱신: ItemsSource를 다시 설정
-            var items = dgFields.ItemsSource;
+            // DataGrid 갱신
             dgFields.ItemsSource = null;
-            dgFields.ItemsSource = items;
-            dgFields.UpdateLayout();
+            dgFields.ItemsSource = fieldItems;
+            dgFields.Items.Refresh();
         }
 
         private void BtnSavePreset_Click(object sender, RoutedEventArgs e)
@@ -559,7 +609,67 @@ namespace FACTOVA_MessageLogViewer
 
         private void BtnReanalyze_Click(object sender, RoutedEventArgs e)
         {
-            AnalyzeAndLoadFields();
+            // 로그 파일 경로가 없으면 파일 선택 다이얼로그 표시
+            var targetPath = logFilePath;
+            
+            if (string.IsNullOrEmpty(targetPath) || !System.IO.File.Exists(targetPath))
+            {
+                var dialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    Title = "분석할 로그 파일 선택",
+                    Filter = "로그 파일 (*.log)|*.log|모든 파일 (*.*)|*.*",
+                    DefaultExt = ".log"
+                };
+                
+                if (dialog.ShowDialog() == true)
+                {
+                    targetPath = dialog.FileName;
+                    logFilePath = targetPath;
+                }
+                else
+                {
+                    return;
+                }
+            }
+            
+            System.Diagnostics.Debug.WriteLine($"🔍 재분석: {targetPath}");
+            
+            // 분석 실행
+            var analysisResults = LogFieldAnalyzer.AnalyzeFields(targetPath);
+            System.Diagnostics.Debug.WriteLine($"   발견된 필드: {analysisResults.Count}개");
+            
+            // 기존 필드에 없는 새 필드만 추가
+            int newCount = 0;
+            int order = fieldItems.Count + 1;
+            
+            foreach (var result in analysisResults)
+            {
+                if (!fieldItems.Any(f => f.FieldName == result.FieldName))
+                {
+                    fieldItems.Add(new FieldSettingItem
+                    {
+                        Order = order++,
+                        FieldName = result.FieldName,
+                        DisplayName = result.FieldName,
+                        DisplayType = FieldDisplayType.Summary,
+                        ColumnWidth = 100,
+                        VisibleInTabs = null,
+                        SampleValues = result.SampleValues
+                    });
+                    newCount++;
+                }
+                else
+                {
+                    // 기존 필드 샘플 값 업데이트
+                    var existing = fieldItems.First(f => f.FieldName == result.FieldName);
+                    existing.SampleValues = result.SampleValues;
+                }
+            }
+            
+            dgFields.Items.Refresh();
+            
+            MessageBox.Show($"분석 완료!\n- 새 필드: {newCount}개\n- 전체 필드: {fieldItems.Count}개", 
+                "재분석", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
 

@@ -17,7 +17,7 @@ using OfficeOpenXml.Style;
 
 namespace FACTOVA_MessageLogViewer
 {
-    public partial class LogViewerWindow : Window
+    public partial class EventLogViewerControl : UserControl
     {
         private LogViewerManager logManager = null!;
         private ObservableCollection<LogEntry> logEntries = null!;
@@ -49,20 +49,21 @@ namespace FACTOVA_MessageLogViewer
         // 로그 시작 패턴: [MM-DD-YYYY HH:mm:ss.fff][RECV|SENDDATA|RECVDATA] 형식만 매칭
         // System : 같은 일반 로그는 무시
         private static readonly Regex LogStartPattern = new Regex(
-            @"^\[(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\]\[([A-Z]+)\]", 
+            @"^\[(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\]\[([A-Z]+)\]",
             RegexOptions.Compiled | RegexOptions.Multiline);
 
         // 디바운싱용
         private System.Threading.Timer? debounceTimer;
+        private System.Threading.Timer? scrollDebounceTimer;
         private readonly object fileLock = new object();
         private bool isReading = false;
+        private bool isLoadingBatch = false;  // 일괄 로드 중 플래그
 
         // 설정 관련
         private string currentLogDirectory = "";
         private bool isDefaultFolder = true;
-        private ObservableCollection<AvailableDate> availableDates = new();
         private int lastSelectedTabIndex = 0;
-        
+
         // 자동 스크롤 설정
         private bool isAutoScrollEnabled = true;
 
@@ -70,368 +71,44 @@ namespace FACTOVA_MessageLogViewer
         private TimeSpan filterStartTime = TimeSpan.Zero;
         private TimeSpan filterEndTime = new TimeSpan(23, 59, 59);
 
-        // 기본 생성자 (설정 화면으로 시작)
-        public LogViewerWindow()
+        // 초기화 완료 여부
+        private bool isInitialized = false;
+
+        /// <summary>
+        /// 기본 생성자
+        /// </summary>
+        public EventLogViewerControl()
         {
             InitializeComponent();
-
-            cboAvailableDates.ItemsSource = availableDates;
-
-            // 저장된 설정 로드
-            LoadConfig();
-
-            // 날짜 목록 갱신
-            RefreshAvailableDates();
-
-            // 설정 영역 펼쳐진 상태로 시작
-            expanderSettings.IsExpanded = true;
-
-            LoadPresetList();
-        }
-
-        // 기존 생성자 (MainWindow에서 호출용, 이제는 사용 안함)
-        public LogViewerWindow(string logFilePath, DateTime date, LogLoadMode mode, int count)
-        {
-            InitializeComponent();
-
-            currentLogFile = logFilePath;
-            logDirectory = Path.GetDirectoryName(logFilePath) ?? "";
-            selectedDate = date;
-            loadMode = mode;
-            recentCount = count;
-            currentLogDirectory = logDirectory;
-
-            cboAvailableDates.ItemsSource = availableDates;
-            txtLogFolder.Text = $"({Path.GetFileName(logFilePath)})";
-
-            // 설정 영역 접기
-            expanderSettings.IsExpanded = false;
-
-            LoadPresetList();             // 프리셋 목록 로드
-            InitializeLogManager();
-            InitializeTabs();             // 탭 초기화 (동적 컬럼 포함)
-            LoadSavedFontSize();          // 저장된 폰트 크기 로드
-            StartFileWatcher();
-            LoadLogs();
-
-            UpdateModeText();
-        }
-
-
-        /// <summary>
-        /// 프리셋 목록 로드
-        /// </summary>
-        private void LoadPresetList()
-        {
-            isLoadingPreset = true;
-            cboPresets.Items.Clear();
-            cboPresets.Items.Add("Default");
-            
-            foreach (var preset in ColumnSettingsManager.GetPresetNames())
-            {
-                cboPresets.Items.Add(preset);
-            }
-
-            // 현재 설정의 이름과 일치하는 프리셋 선택
-            var currentName = ColumnSettingsManager.CurrentSettings.Name;
-            var matchIndex = -1;
-            for (int i = 0; i < cboPresets.Items.Count; i++)
-            {
-                if (cboPresets.Items[i]?.ToString() == currentName)
-                {
-                    matchIndex = i;
-                    break;
-                }
-            }
-            
-            cboPresets.SelectedIndex = matchIndex >= 0 ? matchIndex : 0;
-            isLoadingPreset = false;
         }
 
         /// <summary>
-        /// 설정 로드 (MainWindow에서 가져옴)
+        /// 설정으로 초기화 (MainWindow에서 호출)
         /// </summary>
-        private void LoadConfig()
+        public void Initialize(Models.LogViewerSettings settings)
         {
-            var settings = AppSettingsManager.Settings;
-            
-            // 마지막 사용 폴더가 있으면 해당 폴더로 시작
-            if (!string.IsNullOrEmpty(settings.LastUsedFolder) && Directory.Exists(settings.LastUsedFolder))
+            if (isInitialized)
             {
-                currentLogDirectory = settings.LastUsedFolder;
-                isDefaultFolder = settings.LastUsedFolder.Equals(settings.DefaultLogFolder, StringComparison.OrdinalIgnoreCase);
-            }
-            else
-            {
-                currentLogDirectory = settings.DefaultLogFolder;
-                isDefaultFolder = true;
-            }
-            
-            txtLogFolderPath.Text = currentLogDirectory;
-
-            // 로그 로드 모드 복원
-            switch (settings.LogLoadMode)
-            {
-                case 0:
-                    rbNewOnly.IsChecked = true;
-                    break;
-                case 1:
-                    rbLoadRecent.IsChecked = true;
-                    break;
-                case 2:
-                    rbLoadAll.IsChecked = true;
-                    break;
-                default:
-                    rbNewOnly.IsChecked = true;
-                    break;
+                // 이미 초기화된 경우 기존 데이터 클리어
+                logManager?.Clear();
+                fileWatcher?.Dispose();
             }
 
-            // 최근 로그 개수 복원
-            if (settings.RecentLogCount > 0)
-            {
-                txtRecentCount.Text = settings.RecentLogCount.ToString();
-            }
-        }
+            currentLogFile = settings.LogFilePath;
+            logDirectory = settings.LogDirectory;
+            selectedDate = settings.SelectedDate;
+            loadMode = settings.LoadMode;
+            recentCount = settings.RecentCount;
+            filterStartTime = settings.FilterStartTime;
+            filterEndTime = settings.FilterEndTime;
+            currentLogDirectory = settings.LogDirectory;
+            isDefaultFolder = settings.IsDefaultFolder;
 
-        /// <summary>
-        /// 설정 저장
-        /// </summary>
-        private void SaveConfig()
-        {
-            var settings = AppSettingsManager.Settings;
-            settings.LastUsedFolder = currentLogDirectory;
-
-            // 로그 로드 모드 저장
-            if (rbNewOnly.IsChecked == true)
-                settings.LogLoadMode = 0;
-            else if (rbLoadRecent.IsChecked == true)
-                settings.LogLoadMode = 1;
-            else if (rbLoadAll.IsChecked == true)
-                settings.LogLoadMode = 2;
-
-            // 최근 로그 개수 저장
-            if (int.TryParse(txtRecentCount.Text, out int count) && count > 0)
-            {
-                settings.RecentLogCount = count;
-            }
-
-            AppSettingsManager.SaveCurrent();
-        }
-
-        /// <summary>
-        /// 사용 가능한 날짜 목록 갱신 (MainWindow에서 가져옴)
-        /// </summary>
-        private void RefreshAvailableDates()
-        {
-            availableDates.Clear();
-
-            var dates = new List<AvailableDate>();
-
-            if (isDefaultFolder)
-            {
-                // 기본폴더: 년/월 구조 검색
-                dates = FindDatesInDefaultFolder(currentLogDirectory);
-            }
-            else
-            {
-                // 사용자 폴더: 해당 폴더 내 로그 파일 검색
-                dates = FindDatesInCustomFolder(currentLogDirectory);
-            }
-
-            // 최신 날짜 순으로 정렬
-            foreach (var date in dates.OrderByDescending(d => d.Date))
-            {
-                availableDates.Add(date);
-            }
-
-            // 첫 번째 (최신) 선택
-            if (availableDates.Count > 0)
-            {
-                cboAvailableDates.SelectedIndex = 0;
-                txtDateInfo.Text = $"총 {availableDates.Count}개의 로그 파일을 찾았습니다.";
-            }
-            else
-            {
-                txtDateInfo.Text = "로그 파일을 찾을 수 없습니다.";
-            }
-        }
-
-        /// <summary>
-        /// 기본폴더(년/월 구조)에서 로그 파일 검색
-        /// </summary>
-        private List<AvailableDate> FindDatesInDefaultFolder(string baseDir)
-        {
-            var result = new List<AvailableDate>();
-            
-            if (!Directory.Exists(baseDir))
-                return result;
-
-            // LGE GMES_EVENT_MMDDYYYY.log 패턴
-            var filePattern = new Regex(@"LGE GMES_EVENT_(\d{2})(\d{2})(\d{4})\.log$", RegexOptions.IgnoreCase);
-
-            try
-            {
-                // 년 폴더들 검색
-                foreach (var yearDir in Directory.GetDirectories(baseDir))
-                {
-                    string yearName = Path.GetFileName(yearDir);
-                    if (!int.TryParse(yearName, out int year) || year < 2000 || year > 2100)
-                        continue;
-
-                    // 월 폴더들 검색
-                    foreach (var monthDir in Directory.GetDirectories(yearDir))
-                    {
-                        string monthName = Path.GetFileName(monthDir);
-                        if (!int.TryParse(monthName, out int month) || month < 1 || month > 12)
-                            continue;
-
-                        // 로그 파일들 검색
-                        foreach (var file in Directory.GetFiles(monthDir, "*.log"))
-                        {
-                            var match = filePattern.Match(Path.GetFileName(file));
-                            if (match.Success)
-                            {
-                                int mm = int.Parse(match.Groups[1].Value);
-                                int dd = int.Parse(match.Groups[2].Value);
-                                int yyyy = int.Parse(match.Groups[3].Value);
-
-                                try
-                                {
-                                    var date = new DateTime(yyyy, mm, dd);
-                                    result.Add(new AvailableDate { Date = date, FilePath = file });
-                                }
-                                catch { }
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"폴더 검색 오류: {ex.Message}");
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// 사용자 지정 폴더에서 로그 파일 검색
-        /// </summary>
-        private List<AvailableDate> FindDatesInCustomFolder(string folder)
-        {
-            var result = new List<AvailableDate>();
-
-            if (!Directory.Exists(folder))
-                return result;
-
-            var filePattern = new Regex(@"LGE GMES_EVENT_(\d{2})(\d{2})(\d{4})\.log$", RegexOptions.IgnoreCase);
-
-            try
-            {
-                // 현재 폴더와 하위 폴더에서 검색
-                foreach (var file in Directory.GetFiles(folder, "*.log", SearchOption.AllDirectories))
-                {
-                    var match = filePattern.Match(Path.GetFileName(file));
-                    if (match.Success)
-                    {
-                        int mm = int.Parse(match.Groups[1].Value);
-                        int dd = int.Parse(match.Groups[2].Value);
-                        int yyyy = int.Parse(match.Groups[3].Value);
-
-                        try
-                        {
-                            var date = new DateTime(yyyy, mm, dd);
-                            result.Add(new AvailableDate { Date = date, FilePath = file });
-                        }
-                        catch { }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"폴더 검색 오류: {ex.Message}");
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// 설정에 따라 로그 뷰어 로드
-        /// </summary>
-        private void LoadLogViewerWithSettings()
-        {
-            // 선택된 날짜 확인
-            var selectedItem = cboAvailableDates.SelectedItem as AvailableDate;
-            if (selectedItem == null)
-            {
-                MessageBox.Show(
-                    "로그 날짜를 선택해주세요.",
-                    "알림",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning
-                );
-                return;
-            }
-
-            string logFilePath = selectedItem.FilePath;
-            selectedDate = selectedItem.Date;
-
-            System.Diagnostics.Debug.WriteLine($"📅 선택된 날짜: {selectedDate:yyyy-MM-dd}");
-            System.Diagnostics.Debug.WriteLine($"📄 선택된 파일: {logFilePath}");
-
-            // 로그 파일 확인
-            if (!File.Exists(logFilePath))
-            {
-                MessageBox.Show(
-                    $"로그 파일이 존재하지 않습니다:\n{logFilePath}",
-                    "오류",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error
-                );
-                return;
-            }
-
-            // 옵션 확인
-            loadMode = LogLoadMode.NewOnly;
-            recentCount = 500;
-
-            if (rbNewOnly.IsChecked == true)
-            {
-                loadMode = LogLoadMode.NewOnly;
-            }
-            else if (rbLoadRecent.IsChecked == true)
-            {
-                loadMode = LogLoadMode.Recent;
-                if (!int.TryParse(txtRecentCount.Text, out recentCount) || recentCount <= 0)
-                {
-                    MessageBox.Show("개수는 1 이상의 숫자를 입력해주세요.", "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-            }
-            else if (rbLoadAll.IsChecked == true)
-            {
-                loadMode = LogLoadMode.All;
-                
-                // 시간대 필터 설정
-                if (TimeSpan.TryParse(txtStartTime.Text + ":00", out var startTime))
-                {
-                    filterStartTime = startTime;
-                }
-                if (TimeSpan.TryParse(txtEndTime.Text + ":59", out var endTime))
-                {
-                    filterEndTime = endTime;
-                }
-            }
-
-            // 로그 뷰어 초기화
-            currentLogFile = logFilePath;
-            logDirectory = Path.GetDirectoryName(logFilePath) ?? "";
-            txtLogFolder.Text = $"({Path.GetFileName(logFilePath)})";
+            txtLogFolder.Text = $"({Path.GetFileName(currentLogFile)})";
 
             // 로그 파일에서 필드 목록 미리 추출
-            var discoveredFields = LogFieldAnalyzer.ExtractFieldNames(logFilePath);
+            var discoveredFields = LogFieldAnalyzer.ExtractFieldNames(currentLogFile);
             LogFieldAnalyzer.AddDiscoveredFields(discoveredFields);
-            System.Diagnostics.Debug.WriteLine($"🔍 발견된 필드: {discoveredFields.Count}개");
 
             InitializeLogManager();
             InitializeTabs();
@@ -440,118 +117,13 @@ namespace FACTOVA_MessageLogViewer
             LoadLogs();
 
             UpdateModeText();
+            isInitialized = true;
 
-            // 설정 영역 접기
-            expanderSettings.IsExpanded = false;
-
-            // 설정 저장
-            SaveConfig();
-
-            // 로그 로드 완료 후 Auto Fit 자동 적용
+            // Auto Fit 자동 적용
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 ApplyAutoFit();
             }), System.Windows.Threading.DispatcherPriority.Loaded);
-        }
-
-        // DATA 로그 뷰어 열기
-        private void BtnOpenDataLogViewer_Click(object sender, RoutedEventArgs e)
-        {
-            var dataLogViewer = new DataLogViewerWindow();
-            dataLogViewer.Show();
-        }
-
-        // 이벤트 핸들러들
-        private void BtnSetDefaultFolder_Click(object sender, RoutedEventArgs e)
-        {
-            currentLogDirectory = AppSettingsManager.Settings.DefaultLogFolder;
-            isDefaultFolder = true;
-            txtLogFolderPath.Text = currentLogDirectory;
-            RefreshAvailableDates();
-        }
-
-        private void BtnBrowse_Click(object sender, RoutedEventArgs e)
-        {
-            var dialog = new Microsoft.Win32.OpenFolderDialog();
-            dialog.Title = "로그 폴더를 선택하세요";
-            dialog.InitialDirectory = currentLogDirectory;
-
-            if (dialog.ShowDialog() == true)
-            {
-                currentLogDirectory = dialog.FolderName;
-                isDefaultFolder = false;  // 사용자 지정 폴더
-                txtLogFolderPath.Text = currentLogDirectory;
-                
-                // 폴더 경로 저장
-                SaveConfig();
-                
-                RefreshAvailableDates();
-            }
-        }
-
-        private void BtnRefreshDates_Click(object sender, RoutedEventArgs e)
-        {
-            RefreshAvailableDates();
-        }
-
-        private void BtnReloadLog_Click(object sender, RoutedEventArgs e)
-        {
-            // 기존 데이터 클리어
-            if (logManager != null)
-            {
-                logManager.Clear();
-            }
-
-            // 로그 다시 로드
-            LoadLogViewerWithSettings();
-        }
-
-        private void BtnStartViewer_Click(object sender, RoutedEventArgs e)
-        {
-            LoadLogViewerWithSettings();
-        }
-
-        private bool isLoadingPreset = false;
-
-        /// <summary>
-        /// 프리셋 선택 변경
-        /// </summary>
-        private void CboPresets_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (isLoadingPreset) return;
-
-            var selectedPreset = cboPresets.SelectedItem?.ToString();
-            if (string.IsNullOrEmpty(selectedPreset)) return;
-
-            ColumnSettings? settings;
-            if (selectedPreset == "Default")
-            {
-                settings = ColumnSettingsManager.CreateDefaultSettings();
-            }
-            else
-            {
-                settings = ColumnSettingsManager.LoadPreset(selectedPreset);
-            }
-            
-            if (settings != null)
-            {
-                System.Diagnostics.Debug.WriteLine($"🔄 프리셋 '{selectedPreset}' 로드");
-                System.Diagnostics.Debug.WriteLine($"   - TabSettings: {settings.TabSettings != null}");
-                System.Diagnostics.Debug.WriteLine($"   - Tabs count: {settings.TabSettings?.Tabs?.Count ?? 0}");
-                System.Diagnostics.Debug.WriteLine($"   - EnabledTabs count: {settings.TabSettings?.EnabledTabs?.Count() ?? 0}");
-                
-                // 현재 설정으로 적용 (이름도 저장됨)
-                ColumnSettingsManager.CurrentSettings = settings;
-
-                // 탭 재초기화
-                InitializeTabs();
-                ReloadExistingLogs();
-                
-                
-                // 폰트 크기 적용
-                LoadSavedFontSize();
-            }
-            // 콤보박스는 선택한 프리셋 유지
         }
 
         /// <summary>
@@ -565,12 +137,12 @@ namespace FACTOVA_MessageLogViewer
             tabDisplayEntries.Clear();
 
             var settings = ColumnSettingsManager.CurrentSettings;
-            
+
             System.Diagnostics.Debug.WriteLine($"📋 InitializeTabs 호출");
             System.Diagnostics.Debug.WriteLine($"   - TabSettings: {settings.TabSettings != null}");
             System.Diagnostics.Debug.WriteLine($"   - Tabs count: {settings.TabSettings?.Tabs?.Count ?? 0}");
             System.Diagnostics.Debug.WriteLine($"   - EnabledTabs count: {settings.TabSettings?.EnabledTabs?.Count() ?? 0}");
-            
+
             var tabs = settings.TabSettings?.EnabledTabs?.ToList() ?? new List<TabConfig>();
 
             // 탭이 없으면 기본 통합 탭 생성
@@ -616,15 +188,15 @@ namespace FACTOVA_MessageLogViewer
 
             // View 생성 및 필터 설정
             var view = CollectionViewSource.GetDefaultView(entries);
-            
+
             // 필터가 있을 때만 적용 (성능 최적화)
-            if (!string.IsNullOrWhiteSpace(txtSearch?.Text) || 
-                chkSendOnly?.IsChecked == true || 
+            if (!string.IsNullOrWhiteSpace(txtSearch?.Text) ||
+                chkSendOnly?.IsChecked == true ||
                 chkRecvOnly?.IsChecked == true)
             {
                 view.Filter = item => FilterLogEntry(item, tabConfig);
             }
-            
+
             tabViews[tabConfig] = view;
 
             dataGrid.ItemsSource = view;
@@ -632,9 +204,9 @@ namespace FACTOVA_MessageLogViewer
             // 탭 헤더 (카운트 표시 포함)
             var headerPanel = new StackPanel { Orientation = Orientation.Horizontal };
             var headerText = new TextBlock { Text = tabConfig.Name };
-            var countText = new TextBlock 
-            { 
-                Text = " (0)", 
+            var countText = new TextBlock
+            {
+                Text = " (0)",
                 Foreground = new SolidColorBrush(Colors.Gray),
                 FontSize = 10,
                 VerticalAlignment = VerticalAlignment.Center
@@ -643,8 +215,8 @@ namespace FACTOVA_MessageLogViewer
             headerPanel.Children.Add(countText);
 
             // 툴팁에 조건 표시
-            var tooltip = string.IsNullOrEmpty(tabConfig.ConditionSummary) 
-                ? tabConfig.Name 
+            var tooltip = string.IsNullOrEmpty(tabConfig.ConditionSummary)
+                ? tabConfig.Name
                 : $"{tabConfig.Name}\n조건: {tabConfig.ConditionSummary}";
 
             var tabItem = new TabItem
@@ -688,7 +260,7 @@ namespace FACTOVA_MessageLogViewer
 
             // 더블클릭 이벤트 (상세 보기)
             dataGrid.MouseDoubleClick += DataGrid_MouseDoubleClick;
-            
+
             // 키보드 이벤트 (Ctrl+C 셀 값 복사)
             dataGrid.PreviewKeyDown += DataGrid_PreviewKeyDown;
 
@@ -698,7 +270,7 @@ namespace FACTOVA_MessageLogViewer
             VirtualizingPanel.SetCacheLength(dataGrid, new VirtualizationCacheLength(10, 10));  // 캐시 축소로 스크롤 속도 향상
             VirtualizingPanel.SetCacheLengthUnit(dataGrid, VirtualizationCacheLengthUnit.Item);
             VirtualizingPanel.SetScrollUnit(dataGrid, ScrollUnit.Item);  // 항목 단위 스크롤 (중요!)
-            
+
             // 스크롤 최적화
             ScrollViewer.SetIsDeferredScrollingEnabled(dataGrid, false);
             ScrollViewer.SetCanContentScroll(dataGrid, true);  // 픽셀이 아닌 항목 단위
@@ -769,8 +341,8 @@ namespace FACTOVA_MessageLogViewer
         /// DataGrid TextColumn 생성 헬퍼
         /// </summary>
         private DataGridTextColumn CreateDataGridTextColumn(
-            string header, 
-            string bindingPath, 
+            string header,
+            string bindingPath,
             double width = double.NaN,
             HorizontalAlignment hAlign = HorizontalAlignment.Left,
             string? fontFamily = null,
@@ -789,7 +361,7 @@ namespace FACTOVA_MessageLogViewer
             style.Setters.Add(new Setter(TextBlock.HorizontalAlignmentProperty, hAlign));
             style.Setters.Add(new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center));
             style.Setters.Add(new Setter(TextBlock.MarginProperty, new Thickness(8, 0, 8, 0)));  // 좌우 여백
-            
+
             if (fontFamily != null)
                 style.Setters.Add(new Setter(TextBlock.FontFamilyProperty, new FontFamily(fontFamily)));
             if (fontWeight != null)
@@ -837,7 +409,7 @@ namespace FACTOVA_MessageLogViewer
             if (config.FieldName == "RETURN_CODE")
             {
                 baseStyle.Setters.Add(new Setter(TextBlock.FontWeightProperty, FontWeights.Bold));
-                
+
                 var converter = TryFindResource("ReturnCodeColorConverter") as System.Windows.Data.IValueConverter;
                 if (converter != null)
                 {
@@ -871,8 +443,8 @@ namespace FACTOVA_MessageLogViewer
         /// <summary>
         /// 기본 컬럼 생성 헬퍼
         /// </summary>
-        private GridViewColumn CreateColumn(string header, string bindingPath, double width, 
-            string? fontFamily = null, FontWeight? fontWeight = null, 
+        private GridViewColumn CreateColumn(string header, string bindingPath, double width,
+            string? fontFamily = null, FontWeight? fontWeight = null,
             HorizontalAlignment hAlign = HorizontalAlignment.Left, bool trimming = false,
             string? foregroundColor = null)
         {
@@ -884,14 +456,14 @@ namespace FACTOVA_MessageLogViewer
 
             var template = new DataTemplate();
             var factory = new FrameworkElementFactory(typeof(TextBlock));
-            
+
             // Binding Mode를 OneTime으로 설정 (읽기 전용 데이터)
             var binding = new Binding(bindingPath) { Mode = BindingMode.OneTime };
             factory.SetBinding(TextBlock.TextProperty, binding);
-            
+
             // 컬럼 간격 확보를 위한 좌우 여백 (6px로 최적화)
             factory.SetValue(TextBlock.MarginProperty, new Thickness(6, 0, 6, 0));
-            
+
             if (fontFamily != null)
                 factory.SetValue(TextBlock.FontFamilyProperty, new FontFamily(fontFamily));
             if (fontWeight != null)
@@ -936,14 +508,14 @@ namespace FACTOVA_MessageLogViewer
         {
             // 헤더에서 언더바를 두 개로 변경 (WPF AccessKey 문제 해결)
             var headerText = config.DisplayName.Replace("_", "__");
-            
+
             var column = new GridViewColumn
             {
                 Header = headerText,
                 // Width 0 이하면 Auto로 처리하되 최소 60px 보장
                 Width = config.ColumnWidth > 0 ? config.ColumnWidth : double.NaN
             };
-            
+
             // AUTO 모드일 때도 최소 너비 확보
             if (config.ColumnWidth <= 0)
             {
@@ -954,7 +526,7 @@ namespace FACTOVA_MessageLogViewer
             // DataTemplate 생성
             var template = new DataTemplate();
             var factory = new FrameworkElementFactory(typeof(TextBlock));
-            
+
             // 컬럼 간격 확보를 위한 좌우 여백 (6px로 최적화)
             factory.SetValue(TextBlock.MarginProperty, new Thickness(6, 0, 6, 0));
 
@@ -963,13 +535,13 @@ namespace FACTOVA_MessageLogViewer
             {
                 Mode = BindingMode.OneTime
             };
-            
+
             // ValueMapping이 있으면 Converter 적용
             if (!string.IsNullOrEmpty(config.ValueMapping))
             {
                 binding.Converter = new Converters.FieldValueConverter { Config = config };
             }
-            
+
             factory.SetBinding(TextBlock.TextProperty, binding);
 
             // RETURN_CODE는 특별 처리 (색상)
@@ -1081,6 +653,8 @@ namespace FACTOVA_MessageLogViewer
         {
             try
             {
+                isLoadingBatch = true;  // 일괄 로드 시작
+                
                 var content = File.ReadAllText(currentLogFile, Encoding.UTF8);
                 var entries = ParseLogEntries(content);
 
@@ -1095,9 +669,16 @@ namespace FACTOVA_MessageLogViewer
                 lastPosition = new FileInfo(currentLogFile).Length;
 
                 System.Diagnostics.Debug.WriteLine($"✅ 로드 완료: {logManager.LogEntries.Count}개");
+                
+                isLoadingBatch = false;  // 일괄 로드 완료
+                
+                // 로드 완료 후 마지막으로 스크롤
+                if (isAutoScrollEnabled)
+                    AutoScrollToBottom();
             }
             catch (Exception ex)
             {
+                isLoadingBatch = false;
                 System.Diagnostics.Debug.WriteLine($"❌ 최근 로그 로드 실패: {ex.Message}");
             }
         }
@@ -1106,25 +687,27 @@ namespace FACTOVA_MessageLogViewer
         {
             try
             {
+                isLoadingBatch = true;  // 일괄 로드 시작
+                
                 // 프로그레스바 표시
                 ShowLoadingOverlay(true);
                 UpdateLoadingStatus("파일을 읽는 중...");
 
                 // 백그라운드 스레드에서 파일 읽기
                 string content = await Task.Run(() => File.ReadAllText(currentLogFile, Encoding.UTF8));
-                
+
                 System.Diagnostics.Debug.WriteLine($"📄 파일 크기: {content.Length} 문자");
-                
+
                 UpdateLoadingStatus("로그 파싱 중...");
-                
+
                 // 백그라운드 스레드에서 파싱
                 var entries = await Task.Run(() => ParseLogEntries(content));
-                
+
                 // 시간대 필터 적용
                 var startTime = filterStartTime;
                 var endTime = filterEndTime;
-                
-                var filteredEntries = entries.Where(e => 
+
+                var filteredEntries = entries.Where(e =>
                 {
                     var logTime = e.Timestamp.TimeOfDay;
                     return logTime >= startTime && logTime <= endTime;
@@ -1147,9 +730,11 @@ namespace FACTOVA_MessageLogViewer
             }
             finally
             {
+                isLoadingBatch = false;  // 일괄 로드 완료
+                
                 // 프로그레스바 숨김
                 ShowLoadingOverlay(false);
-                
+
                 // 전체 로그 로드 완료 후 Auto Fit 자동 적용
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
@@ -1239,7 +824,7 @@ namespace FACTOVA_MessageLogViewer
                     using (var reader = new StreamReader(fileStream, Encoding.UTF8, true, 4096, leaveOpen: true))
                     {
                         string newContent = reader.ReadToEnd();
-                        
+
                         if (!string.IsNullOrEmpty(newContent))
                         {
                             // 버퍼에 이전 내용이 있으면 합쳐서 파싱
@@ -1247,7 +832,7 @@ namespace FACTOVA_MessageLogViewer
                             multiLineBuffer.Clear();
 
                             var entries = ParseLogEntries(contentToParse, out string remainingContent);
-                            
+
                             // 완료되지 않은 마지막 엔트리는 버퍼에 보관
                             if (!string.IsNullOrEmpty(remainingContent))
                             {
@@ -1303,33 +888,33 @@ namespace FACTOVA_MessageLogViewer
 
             // 각 로그 엔트리 시작 위치 찾기
             var matches = LogStartPattern.Matches(content);
-            
+
             System.Diagnostics.Debug.WriteLine($"🔍 정규식 매칭 결과: {matches.Count}개 발견");
-            
+
             // 매칭 안되면 첫 100자 출력
             if (matches.Count == 0 && content.Length > 0)
             {
                 var sample = content.Substring(0, Math.Min(200, content.Length));
                 System.Diagnostics.Debug.WriteLine($"⚠️ 매칭 실패! 샘플:\n{sample}");
             }
-            
+
             for (int i = 0; i < matches.Count; i++)
             {
                 int startIndex = matches[i].Index;
                 int endIndex = (i + 1 < matches.Count) ? matches[i + 1].Index : content.Length;
-                
+
                 // 마지막 엔트리이고 완전하지 않으면 버퍼에 보관 (실시간 감시용)
                 // 초기 로드 시에는 remainingContent가 무시되므로 상관없음
                 if (i == matches.Count - 1 && remainingContent != null)
                 {
                     string lastEntry = content.Substring(startIndex);
                     string trimmed = lastEntry.TrimEnd();
-                    
+
                     // 완료 조건: } 또는 : 로 끝나면 완료된 것으로 판단
-                    bool isComplete = trimmed.EndsWith("}") || 
-                                      trimmed.EndsWith(":") || 
+                    bool isComplete = trimmed.EndsWith("}") ||
+                                      trimmed.EndsWith(":") ||
                                       trimmed.EndsWith(": ");
-                    
+
                     if (!isComplete)
                     {
                         remainingContent = lastEntry;
@@ -1339,7 +924,7 @@ namespace FACTOVA_MessageLogViewer
 
                 string entryText = content.Substring(startIndex, endIndex - startIndex);
                 var entry = ParseSingleEntry(entryText);
-                
+
                 if (entry != null)
                 {
                     entries.Add(entry);
@@ -1377,8 +962,8 @@ namespace FACTOVA_MessageLogViewer
                 // 타임스탬프 파싱 (밀리초 있는 경우와 없는 경우 모두 처리)
                 DateTime timestamp;
                 string[] formats = { "MM-dd-yyyy HH:mm:ss.fff", "MM-dd-yyyy HH:mm:ss" };
-                if (!DateTime.TryParseExact(timestampStr, formats, 
-                    System.Globalization.CultureInfo.InvariantCulture, 
+                if (!DateTime.TryParseExact(timestampStr, formats,
+                    System.Globalization.CultureInfo.InvariantCulture,
                     System.Globalization.DateTimeStyles.None, out timestamp))
                 {
                     timestamp = DateTime.Now;
@@ -1402,7 +987,7 @@ namespace FACTOVA_MessageLogViewer
 
                 // ITEM 섹션에서 NAME/VALUE 쌍들 추출
                 var fields = new Dictionary<string, string>();
-                
+
                 // PROCID 추가
                 if (!string.IsNullOrEmpty(procId))
                 {
@@ -1437,8 +1022,8 @@ namespace FACTOVA_MessageLogViewer
                 // (최소 3개 이상의 필드가 있거나 MsgId가 있어야 유효한 로그로 판단)
                 bool hasMsgId = !string.IsNullOrWhiteSpace(msgId);
                 bool hasEnoughFields = fields.Count >= 3;
-                bool hasImportantFields = fields.ContainsKey("WORK_TYPE") || 
-                                         fields.ContainsKey("LOTID") || 
+                bool hasImportantFields = fields.ContainsKey("WORK_TYPE") ||
+                                         fields.ContainsKey("LOTID") ||
                                          fields.ContainsKey("POSITION");
 
                 if (!hasMsgId && !hasEnoughFields && !hasImportantFields)
@@ -1490,23 +1075,23 @@ namespace FACTOVA_MessageLogViewer
                         {
                             // ROW 번호 할당 (전체 로그의 순번)
                             item.RowNumber = displayEntries.Count + 1;
-                            
+
                             displayEntries.Add(item);
-                            
+
                             // 매칭된 첫 번째 탭 이름 찾기 (통합 탭 제외)
                             string? matchedTabName = null;
-                            
+
                             // 각 탭에 로그 추가 (조건 체크는 여기서 한 번만)
                             foreach (var kvp in tabDisplayEntries)
                             {
                                 var tabConfig = kvp.Key;
                                 var entries = kvp.Value;
-                                
+
                                 // 탭의 조건에 맞는 경우에만 추가
                                 if (tabConfig.IsMatch(item))
                                 {
                                     entries.Add(item);
-                                    
+
                                     // 첫 번째 매칭된 비통합 탭 이름 저장
                                     if (matchedTabName == null && !tabConfig.IsIntegrated)
                                     {
@@ -1514,7 +1099,7 @@ namespace FACTOVA_MessageLogViewer
                                     }
                                 }
                             }
-                            
+
                             // 매칭된 탭 이름 설정
                             item.MatchedTabName = matchedTabName ?? "";
                         }
@@ -1523,7 +1108,7 @@ namespace FACTOVA_MessageLogViewer
                 else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
                 {
                     displayEntries.Clear();
-                    
+
                     // 모든 탭의 데이터도 클리어
                     foreach (var entries in tabDisplayEntries.Values)
                     {
@@ -1533,7 +1118,16 @@ namespace FACTOVA_MessageLogViewer
 
                 // View.Refresh()는 검색 필터 변경 시에만 호출 (여기서는 호출 안 함)
                 UpdateTabCountsThrottled();
-                AutoScrollToBottom();
+                
+                // 스크롤 디바운싱 (일괄 로드 중에는 스킵)
+                if (isAutoScrollEnabled && !isLoadingBatch)
+                {
+                    scrollDebounceTimer?.Dispose();
+                    scrollDebounceTimer = new System.Threading.Timer(_ =>
+                    {
+                        Dispatcher.BeginInvoke(() => AutoScrollToBottom());
+                    }, null, 100, System.Threading.Timeout.Infinite);
+                }
             }
         }
 
@@ -1567,10 +1161,10 @@ namespace FACTOVA_MessageLogViewer
         {
             // 초기화 중에는 tabViews가 비어있을 수 있음
             if (tabViews == null || tabViews.Count == 0) return;
-            
+
             // 필터가 있으면 각 뷰에 필터를 재설정 (초기화 시점에 필터가 없었을 경우 대비)
-            bool hasFilter = !string.IsNullOrWhiteSpace(txtSearch?.Text) || 
-                             chkSendOnly?.IsChecked == true || 
+            bool hasFilter = !string.IsNullOrWhiteSpace(txtSearch?.Text) ||
+                             chkSendOnly?.IsChecked == true ||
                              chkRecvOnly?.IsChecked == true ||
                              cboResultFilter?.SelectedIndex > 0;
 
@@ -1600,10 +1194,10 @@ namespace FACTOVA_MessageLogViewer
         {
             // 초기화 중에는 tabControlLogs가 null일 수 있음
             if (tabControlLogs == null) return;
-            
+
             foreach (TabItem tabItem in tabControlLogs.Items)
             {
-                if (tabItem.Tag is TabConfig tabConfig && 
+                if (tabItem.Tag is TabConfig tabConfig &&
                     tabItem.Header is StackPanel headerPanel &&
                     headerPanel.Children.Count > 1 &&
                     headerPanel.Children[1] is TextBlock countText)
@@ -1624,7 +1218,7 @@ namespace FACTOVA_MessageLogViewer
             if (tabControlLogs.SelectedItem is TabItem tabItem && tabItem.Tag is TabConfig tabConfig)
             {
                 currentTabConfig = tabConfig;
-                
+
                 if (tabDataGrids.TryGetValue(tabConfig, out var dataGrid))
                 {
                     currentDataGrid = dataGrid;
@@ -1639,7 +1233,7 @@ namespace FACTOVA_MessageLogViewer
                 lastSelectedTabIndex = tabControlLogs.SelectedIndex;
 
                 UpdateStatus();
-                
+
                 // 탭 전환 시 AutoFit 자동 실행
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
@@ -1661,9 +1255,9 @@ namespace FACTOVA_MessageLogViewer
                     {
                         column.Width = DataGridLength.Auto;
                     }
-                    
+
                     currentDataGrid.UpdateLayout();
-                    
+
                     foreach (var column in currentDataGrid.Columns)
                     {
                         double actualWidth = column.ActualWidth;
@@ -1689,17 +1283,16 @@ namespace FACTOVA_MessageLogViewer
             if (sender is DataGrid dataGrid && dataGrid.SelectedItem is LogEntry entry)
             {
                 var popup = new LogDetailPopup(entry);
-                popup.Owner = this;
+                popup.Owner = Window.GetWindow(this);
                 popup.ShowDialog();
             }
         }
-
         /// <summary>
         /// DataGrid 키보드 이벤트 - Ctrl+C로 선택된 셀 값 복사
         /// </summary>
         private void DataGrid_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            if (e.Key == System.Windows.Input.Key.C && 
+            if (e.Key == System.Windows.Input.Key.C &&
                 (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) == System.Windows.Input.ModifierKeys.Control)
             {
                 if (sender is DataGrid dataGrid && dataGrid.CurrentCell.Column != null && dataGrid.SelectedItem is LogEntry entry)
@@ -1752,7 +1345,7 @@ namespace FACTOVA_MessageLogViewer
         private void BtnAutoScroll_Click(object sender, RoutedEventArgs e)
         {
             isAutoScrollEnabled = !isAutoScrollEnabled;
-            
+
             if (sender is Button btn)
             {
                 if (isAutoScrollEnabled)
@@ -1795,25 +1388,25 @@ namespace FACTOVA_MessageLogViewer
                     foreach (var entry in pausedBuffer)
                     {
                         displayEntries.Add(entry);
-                        
+
                         // 탭별 컬렉션에도 추가
                         string? matchedTabName = null;
                         foreach (var kvp in tabDisplayEntries)
                         {
                             var tabConfig = kvp.Key;
                             var entries = kvp.Value;
-                            
+
                             if (tabConfig.IsMatch(entry))
                             {
                                 entries.Add(entry);
-                                
+
                                 if (matchedTabName == null && !tabConfig.IsIntegrated)
                                 {
                                     matchedTabName = tabConfig.Name;
                                 }
                             }
                         }
-                        
+
                         entry.MatchedTabName = matchedTabName ?? "";
                     }
 
@@ -1837,7 +1430,7 @@ namespace FACTOVA_MessageLogViewer
             // 자동 스크롤이 비활성화되어 있으면 스킵
             if (!isAutoScrollEnabled)
                 return;
-                
+
             var dataGrid = currentDataGrid;
             if (dataGrid != null && dataGrid.Items.Count > 0)
             {
@@ -1856,7 +1449,7 @@ namespace FACTOVA_MessageLogViewer
         {
             // 초기화 중에는 컬렉션이 null일 수 있음
             if (displayEntries == null || txtStatus == null) return;
-            
+
             int displayCount = 0;
             int filteredCount = 0;
 
@@ -1865,10 +1458,10 @@ namespace FACTOVA_MessageLogViewer
             {
                 displayCount = entries.Count;
                 filteredCount = displayCount;  // 기본값
-                
+
                 // 필터링된 카운트는 검색 필터가 있을 때만 표시 (계산은 비동기로)
-                if (!string.IsNullOrWhiteSpace(txtSearch?.Text) || 
-                    chkSendOnly?.IsChecked == true || 
+                if (!string.IsNullOrWhiteSpace(txtSearch?.Text) ||
+                    chkSendOnly?.IsChecked == true ||
                     chkRecvOnly?.IsChecked == true ||
                     cboResultFilter?.SelectedIndex > 0)
                 {
@@ -1980,7 +1573,7 @@ namespace FACTOVA_MessageLogViewer
             {
                 var selectedItem = cboResultFilter.SelectedItem as ComboBoxItem;
                 string? content = selectedItem?.Content?.ToString();
-                
+
                 if (content?.Contains("OK") == true)
                 {
                     // OK만 표시
@@ -2027,35 +1620,15 @@ namespace FACTOVA_MessageLogViewer
             {
                 displayEntries.Clear();
                 pausedBuffer.Clear();
-                
+
                 // 모든 탭의 데이터도 클리어
                 foreach (var entries in tabDisplayEntries.Values)
                 {
                     entries.Clear();
                 }
-                
+
                 RefreshAllTabViews();
                 UpdateStatus();
-            }
-        }
-
-        private void BtnColumnSettings_Click(object sender, RoutedEventArgs e)
-        {
-            // 현재 선택된 프리셋 이름 전달
-            var currentPreset = cboPresets.SelectedItem?.ToString();
-            var settingsWindow = new ColumnSettingsWindow(currentLogFile, currentPreset);
-            settingsWindow.Owner = this;
-            if (settingsWindow.ShowDialog() == true)
-            {
-                // 프리셋 목록 새로고침
-                LoadPresetList();
-                
-                // 설정이 변경되면 탭 재초기화
-                InitializeTabs();
-                ReloadExistingLogs();
-                
-                // 폰트 크기 적용
-                LoadSavedFontSize();
             }
         }
 
@@ -2073,7 +1646,7 @@ namespace FACTOVA_MessageLogViewer
 
             var existingEntries = logEntries.ToList();
             displayEntries.Clear();
-            
+
             foreach (var entries in tabDisplayEntries.Values)
             {
                 entries.Clear();
@@ -2082,7 +1655,7 @@ namespace FACTOVA_MessageLogViewer
             foreach (var entry in existingEntries)
             {
                 displayEntries.Add(entry);
-                
+
                 foreach (var kvp in tabDisplayEntries)
                 {
                     var tabConfig = kvp.Key;
@@ -2129,7 +1702,7 @@ namespace FACTOVA_MessageLogViewer
         {
             // 초기화 중에는 무시
             if (cboResultFilter == null) return;
-            
+
             RefreshAllTabViews();
             UpdateStatus();
         }
@@ -2159,7 +1732,7 @@ namespace FACTOVA_MessageLogViewer
             {
                 dataGrid.FontSize = size;
             }
-            
+
             // 설정에 저장
             SaveFontSize(size);
         }
@@ -2196,9 +1769,9 @@ namespace FACTOVA_MessageLogViewer
         }
 
         /// <summary>
-        /// 모든 컬럼을 컨텐츠에 맞게 자동 조정
+        /// 모든 컬럼을 컨텐츠에 맞게 자동 조정 (외부에서 호출 가능)
         /// </summary>
-        private void ApplyAutoFit()
+        public void ApplyAutoFit()
         {
             try
             {
@@ -2210,10 +1783,10 @@ namespace FACTOVA_MessageLogViewer
                         // AUTO 모드로 설정하여 최적 너비 계산
                         column.Width = DataGridLength.Auto;
                     }
-                    
+
                     // UI 업데이트를 기다림
                     dataGrid.UpdateLayout();
-                    
+
                     // 계산된 너비를 고정값으로 변환 (여유 공간 15px 추가)
                     foreach (var column in dataGrid.Columns)
                     {
@@ -2240,10 +1813,10 @@ namespace FACTOVA_MessageLogViewer
         {
             // 현재 데이터 백업
             var currentEntries = displayEntries.ToList();
-            
+
             // 탭 다시 생성
             InitializeTabs();
-            
+
             // 데이터 다시 분배
             foreach (var entry in currentEntries)
             {
@@ -2251,20 +1824,23 @@ namespace FACTOVA_MessageLogViewer
                 {
                     var tabConfig = kvp.Key;
                     var entries = kvp.Value;
-                    
+
                     if (tabConfig.IsMatch(entry))
                     {
                         entries.Add(entry);
                     }
                 }
             }
-            
+
             RefreshAllTabViews();
             UpdateStatus();
         }
 
 
-        protected override void OnClosing(CancelEventArgs e)
+        /// <summary>
+        /// UserControl 정리 (MainWindow에서 호출)
+        /// </summary>
+        public void Cleanup()
         {
             // 마지막 선택한 탭 인덱스 저장
             var settings = ColumnSettingsManager.CurrentSettings;
@@ -2272,27 +1848,28 @@ namespace FACTOVA_MessageLogViewer
             {
                 settings.TabSettings.LastSelectedTabIndex = lastSelectedTabIndex;
             }
-            
+
             // 현재 설정 저장
             ColumnSettingsManager.SaveCurrentSettings(settings);
-            
+
+            // 타이머 정리
             fileWatcher?.Dispose();
-            base.OnClosing(e);
+            debounceTimer?.Dispose();
+            scrollDebounceTimer?.Dispose();
+            statusUpdateTimer?.Dispose();
+            searchDebounceTimer?.Dispose();
         }
 
         /// <summary>
-        /// Window가 로드될 때 자동으로 컬럼 FIT 적용
+        /// UserControl 로드될 때
         /// </summary>
-        private void Window_Loaded(object sender, RoutedEventArgs e)
+        private void UserControl_Loaded(object sender, RoutedEventArgs e)
         {
-            // Window_Loaded는 데이터 로드 전이므로 여기서는 Auto Fit 적용 안 함
+            // 데이터 로드 전이므로 여기서는 Auto Fit 적용 안 함
             // LoadLogViewerWithSettings에서 처리됨
         }
 
-        private void Window_Closing(object sender, CancelEventArgs e)
-        {
-            // OnClosing에서 처리됨
-        }
+
 
         /// <summary>
         /// 로딩 오버레이 표시/숨김
@@ -2359,7 +1936,7 @@ namespace FACTOVA_MessageLogViewer
 
                             // 헤더 생성
                             var headers = new List<string> { "#", "시간", "구분", "MsgId" };
-                            
+
                             // 탭 이름 (통합 로그일 때만)
                             if (currentTabConfig?.IsIntegrated == true)
                             {
@@ -2372,7 +1949,7 @@ namespace FACTOVA_MessageLogViewer
                             {
                                 headers.Add(field.DisplayName);
                             }
-                            
+
                             headers.Add("주요내용");
 
                             // 헤더 작성
@@ -2409,10 +1986,10 @@ namespace FACTOVA_MessageLogViewer
                                 worksheet.Cells[row, col++].Value = entry.Summary;
 
                                 // 배경색 (송신/수신)
-                                var bgColor = entry.Direction == "SEND" 
+                                var bgColor = entry.Direction == "SEND"
                                     ? System.Drawing.Color.FromArgb(230, 240, 255)
                                     : System.Drawing.Color.FromArgb(230, 255, 230);
-                                
+
                                 for (int c = 1; c <= headers.Count; c++)
                                 {
                                     worksheet.Cells[row, c].Style.Fill.PatternType = ExcelFillStyle.Solid;
@@ -2432,7 +2009,7 @@ namespace FACTOVA_MessageLogViewer
                         Dispatcher.Invoke(() =>
                         {
                             ShowLoadingOverlay(false);
-                            
+
                             // 파일을 열겠냐고 물어보기
                             var result = MessageBox.Show(
                                 $"엑셀 파일이 저장되었습니다.\n\n{saveDialog.FileName}\n\n파일을 열겠습니까?",
@@ -2496,49 +2073,6 @@ namespace FACTOVA_MessageLogViewer
                 return view.Cast<LogEntry>().ToList();
             }
             return displayEntries.ToList();
-        }
-
-        /// <summary>
-        /// 시간대 콤보박스 선택 변경
-        /// </summary>
-        private void CboTimeRange_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            // 초기화 중에는 txtStartTime/txtEndTime이 null일 수 있음
-            if (txtStartTime == null || txtEndTime == null) return;
-            
-            if (cboTimeRange.SelectedItem is ComboBoxItem selectedItem)
-            {
-                string? content = selectedItem.Content?.ToString();
-                if (string.IsNullOrEmpty(content)) return;
-
-                switch (content)
-                {
-                    case "종일":
-                        txtStartTime.Text = "00:00";
-                        txtEndTime.Text = "23:59";
-                        break;
-                    case "오전":
-                        txtStartTime.Text = "08:00";
-                        txtEndTime.Text = "12:59";
-                        break;
-                    case "오후":
-                        txtStartTime.Text = "13:00";
-                        txtEndTime.Text = "16:59";
-                        break;
-                    case "잔업":
-                        txtStartTime.Text = "17:30";
-                        txtEndTime.Text = "20:30";
-                        break;
-                    default:
-                        // 시간대별 (07시, 08시, ... 23시)
-                        if (content.EndsWith("시") && int.TryParse(content.Replace("시", ""), out int hour))
-                        {
-                            txtStartTime.Text = $"{hour:D2}:00";
-                            txtEndTime.Text = $"{hour:D2}:59";
-                        }
-                        break;
-                }
-            }
         }
 
         /// <summary>

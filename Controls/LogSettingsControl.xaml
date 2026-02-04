@@ -1,0 +1,287 @@
+﻿<UserControl x:Class="FACTOVA_MessageLogViewer.Controls.LogSettingsControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="White">
+
+    <Expander x:Name="expanderSettings"
+              Header="⚙️ 로그 설정"
+              IsExpanded="True"
+              Background="White"
+              BorderBrush="#CCCCCC"
+              BorderThickness="0,1,0,1"
+              Padding="15,8">
+        <Grid Margin="5">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <!-- Row 0: 로그 폴더 -->
+            <Grid Grid.Row="0" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <TextBlock Grid.Column="0"
+                           Text="📁 로그 폴더" 
+                           FontSize="12" 
+                           FontWeight="SemiBold" 
+                           VerticalAlignment="Center" 
+                           Margin="0,0,10,0"/>
+                <Button Grid.Column="1"
+                        Content="기본폴더" 
+                        Width="75" 
+                        Height="28"
+                        FontSize="11"
+                        Margin="0,0,5,0"
+                        Click="BtnSetDefaultFolder_Click"
+                        ToolTip="년/월 구조 자동 검색"/>
+                <Button Grid.Column="2"
+                        Content="폴더 선택" 
+                        Width="75" 
+                        Height="28"
+                        FontSize="11"
+                        Margin="0,0,8,0"
+                        Click="BtnBrowse_Click"
+                        ToolTip="사용자 폴더 선택"/>
+                <TextBox x:Name="txtLogFolderPath" 
+                         Grid.Column="3"
+                         Height="28"
+                         IsReadOnly="True" 
+                         VerticalContentAlignment="Center"
+                         Padding="6"
+                         FontSize="11"
+                         FontFamily="Consolas"
+                         Background="#FAFAFA"/>
+            </Grid>
+            
+            <!-- Row 1: 프리셋, 날짜 -->
+            <Grid Grid.Row="1" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- 프리셋 (EVENT 로그 전용, DATA에서는 숨김) -->
+                <StackPanel x:Name="presetPanel" Grid.Column="0" Orientation="Horizontal" Margin="0,0,20,0">
+                    <TextBlock Text="🎨 프리셋" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox x:Name="cboPresets" 
+                              Width="200"
+                              Height="28"
+                              FontSize="11"
+                              SelectionChanged="CboPresets_SelectionChanged"
+                              ToolTip="저장된 설정 선택"/>
+                    <Button Content="⚙ 프리셋 설정" 
+                            Width="100" 
+                            Height="28"
+                            FontSize="12"
+                            Margin="8,0,0,0"
+                            Click="BtnColumnSettings_Click"
+                            Background="#1976D2"
+                            Foreground="White"
+                            FontWeight="Bold"
+                            Cursor="Hand"
+                            ToolTip="프리셋 편집 (컬럼, 탭 설정)"/>
+                </StackPanel>
+                
+                <!-- 날짜 -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <TextBlock Text="📅 날짜" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox x:Name="cboAvailableDates" 
+                              Width="160"
+                              Height="28"
+                              FontSize="11"
+                              DisplayMemberPath="DisplayText"
+                              SelectedValuePath="Date"/>
+                    <Button Content="새로고침" 
+                            Width="70" 
+                            Height="28"
+                            Margin="8,0,0,0"
+                            Click="BtnRefreshDates_Click"
+                            FontSize="11"/>
+                    <TextBlock x:Name="txtDateInfo"
+                               Text=""
+                               Foreground="#999"
+                               FontSize="10"
+                               VerticalAlignment="Center"
+                               Margin="20,0,0,0"/>
+                </StackPanel>
+            </Grid>
+            
+            <!-- Row 2: 로그 표시 옵션 -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10">
+                <TextBlock Text="⚙ 표시 옵션" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                
+                <RadioButton x:Name="rbNewOnly" 
+                             Content="실행 이후 로그만 (빠른 시작)"
+                             IsChecked="True"
+                             VerticalAlignment="Center"
+                             FontSize="11"
+                             Margin="0,0,20,0"/>
+                
+                <RadioButton x:Name="rbLoadRecent" 
+                             Content="최근 로그 로드"
+                             VerticalAlignment="Center"
+                             FontSize="11"
+                             Margin="0,0,8,0"/>
+                
+                <TextBox x:Name="txtRecentCount" 
+                         Width="70" 
+                         Height="26"
+                         FontSize="11"
+                         Text="1000" 
+                         VerticalContentAlignment="Center"
+                         HorizontalContentAlignment="Center"
+                         IsEnabled="{Binding IsChecked, ElementName=rbLoadRecent}"/>
+                
+                <TextBlock Text="개" 
+                           VerticalAlignment="Center" 
+                           FontSize="11"
+                           Margin="5,0,20,0"
+                           Foreground="#666"/>
+                
+                <RadioButton x:Name="rbLoadAll" 
+                             Content="전체 로그"
+                             VerticalAlignment="Center"
+                             FontSize="11"
+                             Margin="0,0,15,0"
+                             Foreground="#FF6B00"
+                             FontWeight="SemiBold"/>
+                
+                <!-- 시간대 필터 -->
+                <ComboBox x:Name="cboTimeRange" 
+                          Width="70"
+                          Height="26"
+                          FontSize="11"
+                          VerticalContentAlignment="Center"
+                          IsEnabled="{Binding IsChecked, ElementName=rbLoadAll}"
+                          SelectionChanged="CboTimeRange_SelectionChanged"
+                          ToolTip="시간대 필터 선택">
+                    <ComboBoxItem Content="종일" IsSelected="True"/>
+                    <ComboBoxItem Content="오전"/>
+                    <ComboBoxItem Content="오후"/>
+                    <ComboBoxItem Content="잔업"/>
+                    <ComboBoxItem Content="07시"/>
+                    <ComboBoxItem Content="08시"/>
+                    <ComboBoxItem Content="09시"/>
+                    <ComboBoxItem Content="10시"/>
+                    <ComboBoxItem Content="11시"/>
+                    <ComboBoxItem Content="12시"/>
+                    <ComboBoxItem Content="13시"/>
+                    <ComboBoxItem Content="14시"/>
+                    <ComboBoxItem Content="15시"/>
+                    <ComboBoxItem Content="16시"/>
+                    <ComboBoxItem Content="17시"/>
+                    <ComboBoxItem Content="18시"/>
+                    <ComboBoxItem Content="19시"/>
+                    <ComboBoxItem Content="20시"/>
+                    <ComboBoxItem Content="21시"/>
+                    <ComboBoxItem Content="22시"/>
+                    <ComboBoxItem Content="23시"/>
+                </ComboBox>
+                
+                <TextBox x:Name="txtStartTime" 
+                         Width="50" 
+                         Height="26"
+                         FontSize="11"
+                         Text="00:00" 
+                         VerticalContentAlignment="Center"
+                         HorizontalContentAlignment="Center"
+                         Margin="8,0,0,0"
+                         IsEnabled="{Binding IsChecked, ElementName=rbLoadAll}"/>
+                
+                <TextBlock Text="~" 
+                           VerticalAlignment="Center" 
+                           FontSize="11"
+                           Margin="5,0,5,0"
+                           Foreground="#666"/>
+                
+                <TextBox x:Name="txtEndTime" 
+                         Width="50" 
+                         Height="26"
+                         FontSize="11"
+                         Text="23:59" 
+                         VerticalContentAlignment="Center"
+                         HorizontalContentAlignment="Center"
+                         IsEnabled="{Binding IsChecked, ElementName=rbLoadAll}"/>
+                
+                <!-- DATA 로그 전용: 느린 쿼리 필터 -->
+                <CheckBox x:Name="chkSlowQueryOnly" 
+                          Content="느린 쿼리만 (100ms+)" 
+                          VerticalAlignment="Center" 
+                          FontSize="11" 
+                          Margin="20,0,0,0" 
+                          Foreground="#E65100"
+                          Visibility="Collapsed"/>
+                
+                <!-- 구분선 -->
+                <Border Width="1" Background="#DDD" Margin="20,4,15,4"/>
+                
+                <!-- 실시간 감지 옵션 -->
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="📡 실시간 감지:" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#1976D2"/>
+                    <CheckBox x:Name="chkWatchEvent" 
+                              Content="EVENT" 
+                              VerticalAlignment="Center" 
+                              FontSize="11" 
+                              Margin="0,0,10,0"
+                              ToolTip="EVENT 로그 실시간 감지"/>
+                    <CheckBox x:Name="chkWatchData" 
+                              Content="DATA" 
+                              VerticalAlignment="Center" 
+                              FontSize="11"
+                              Margin="0,0,10,0"
+                              ToolTip="DATA 로그 실시간 감지"/>
+                    <CheckBox x:Name="chkWatchException" 
+                              Content="EXCEPTION" 
+                              VerticalAlignment="Center" 
+                              FontSize="11"
+                              Foreground="#D32F2F"
+                              ToolTip="EXCEPTION 로그 실시간 감지"/>
+                </StackPanel>
+            </StackPanel>
+            
+            <!-- Row 3: 시작 버튼 -->
+            <Button x:Name="btnStartViewer"
+                    Grid.Row="3"
+                    Content="🚀 로그 뷰어 시작" 
+                    Width="160" 
+                    Height="34"
+                    FontSize="13"
+                    FontWeight="Bold"
+                    Background="#4CAF50"
+                    Foreground="White"
+                    BorderThickness="0"
+                    HorizontalAlignment="Left"
+                    Click="BtnStartViewer_Click"
+                    Cursor="Hand">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}"
+                                            CornerRadius="5"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" 
+                                                         VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#45A049"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+        </Grid>
+    </Expander>
+</UserControl>
