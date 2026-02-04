@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -296,32 +297,18 @@ namespace FACTOVA_MessageLogViewer
             // 현재 선택된 프리셋 이름 사용
             var presetName = cboPresets.SelectedItem?.ToString() ?? "Default";
 
-            System.Diagnostics.Debug.WriteLine($"💾 CreateSettingsFromAll - 설정 저장 시작:");
-            
             var settings = new ColumnSettings
             {
                 Name = presetName,
-                Fields = fieldItems.Select((item, index) => 
+                Fields = fieldItems.Select((item, index) => new FieldConfig
                 {
-                    System.Diagnostics.Debug.WriteLine($"  - {item.FieldName}: VisibleInTabs = {item.VisibleInTabs?.Count ?? 0}개");
-                    if (item.VisibleInTabs != null)
-                    {
-                        foreach (var tab in item.VisibleInTabs)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"      * {tab}");
-                        }
-                    }
-                    
-                    return new FieldConfig
-                    {
-                        FieldName = item.FieldName,
-                        DisplayName = item.DisplayName,
-                        DisplayType = item.DisplayType,
-                        ColumnWidth = item.ColumnWidth,
-                        ValueMapping = item.ValueMapping,
-                        Order = index,
-                        VisibleInTabs = item.VisibleInTabs  // 탭별 표시 설정 저장
-                    };
+                    FieldName = item.FieldName,
+                    DisplayName = item.DisplayName,
+                    DisplayType = item.DisplayType,
+                    ColumnWidth = item.ColumnWidth,
+                    ValueMapping = item.ValueMapping,
+                    Order = index,
+                    VisibleInTabs = item.VisibleInTabs
                 }).ToList(),
                 TabSettings = new TabSettings
                 {
@@ -331,7 +318,6 @@ namespace FACTOVA_MessageLogViewer
                 FontSize = ColumnSettingsManager.CurrentSettings.FontSize
             };
             
-            System.Diagnostics.Debug.WriteLine($"💾 CreateSettingsFromAll 완료");
             return settings;
         }
 
@@ -340,38 +326,22 @@ namespace FACTOVA_MessageLogViewer
         /// </summary>
         private void SyncDisplayNamesToValueMapping()
         {
-            System.Diagnostics.Debug.WriteLine("=== SyncDisplayNamesToValueMapping 시작 ===");
-            
             foreach (var tab in tabs)
             {
-                System.Diagnostics.Debug.WriteLine($"Tab: {tab.Name}");
-                
                 foreach (var group in tab.ConditionGroups)
                 {
-                    System.Diagnostics.Debug.WriteLine($"  Group: {group.Name}");
-                    
                     foreach (var condition in group.Conditions)
                     {
-                        System.Diagnostics.Debug.WriteLine($"    Condition - Field: {condition.FieldName}, Value: {condition.Value}, DisplayNames: {condition.DisplayNames}");
-                        
                         if (string.IsNullOrEmpty(condition.FieldName) || 
                             string.IsNullOrEmpty(condition.Value) || 
                             string.IsNullOrEmpty(condition.DisplayNames))
                         {
-                            System.Diagnostics.Debug.WriteLine($"      -> 스킵 (빈 값)");
                             continue;
                         }
 
-                        // 해당 필드 찾기
                         var fieldItem = fieldItems.FirstOrDefault(f => f.FieldName == condition.FieldName);
-                        if (fieldItem == null)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"      -> 필드를 찾을 수 없음: {condition.FieldName}");
-                            continue;
-                        }
+                        if (fieldItem == null) continue;
 
-                        // Value와 DisplayNames를 매핑 형식으로 변환
-                        // 예: Value="1,2", DisplayNames="장입,미장입" → "1:장입,2:미장입"
                         var values = condition.Value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                                                     .Select(v => v.Trim())
                                                     .ToList();
@@ -388,27 +358,15 @@ namespace FACTOVA_MessageLogViewer
                         if (mappings.Count > 0)
                         {
                             var newMapping = string.Join(",", mappings);
-                            
-                            System.Diagnostics.Debug.WriteLine($"      -> 기존 ValueMapping: '{fieldItem.ValueMapping}'");
-                            System.Diagnostics.Debug.WriteLine($"      -> 새 ValueMapping: '{newMapping}'");
-                            
-                            // 기존 매핑이 없거나, 새 매핑이 더 많은 항목을 포함하면 업데이트
                             if (string.IsNullOrEmpty(fieldItem.ValueMapping) || 
                                 mappings.Count > fieldItem.ValueMapping.Split(',').Length)
                             {
                                 fieldItem.ValueMapping = newMapping;
-                                System.Diagnostics.Debug.WriteLine($"      -> ValueMapping 업데이트됨!");
-                            }
-                            else
-                            {
-                                System.Diagnostics.Debug.WriteLine($"      -> ValueMapping 업데이트 안함 (기존 매핑이 더 많거나 같음)");
                             }
                         }
                     }
                 }
             }
-            
-            System.Diagnostics.Debug.WriteLine("=== SyncDisplayNamesToValueMapping 완료 ===");
         }
 
         private void BtnAllSummary_Click(object sender, RoutedEventArgs e)
@@ -961,6 +919,73 @@ namespace FACTOVA_MessageLogViewer
                     }
                 }
                 UpdateTabDetailPanel();
+            }
+        }
+
+        #endregion
+
+        #region 조건 필드 콤보박스
+
+        /// <summary>
+        /// 조건 필드 콤보박스 선택 변경 - 명시적으로 FieldName 업데이트
+        /// </summary>
+        private void ConditionFieldComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox comboBox && comboBox.DataContext is TabFilterCondition condition)
+            {
+                if (comboBox.SelectedItem is string selectedField)
+                {
+                    condition.FieldName = selectedField;
+                    System.Diagnostics.Debug.WriteLine($"🔧 필드 선택: {selectedField}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 조건 필드 콤보박스 포커스 잃을 때 - 텍스트 입력값 확정
+        /// </summary>
+        private void ConditionFieldComboBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is ComboBox comboBox && comboBox.DataContext is TabFilterCondition condition)
+            {
+                // 텍스트 입력값 확정
+                if (!string.IsNullOrWhiteSpace(comboBox.Text))
+                {
+                    condition.FieldName = comboBox.Text;
+                    System.Diagnostics.Debug.WriteLine($"🔧 필드 확정: {comboBox.Text}");
+                }
+            }
+        }
+
+        #endregion
+
+        #region 프리셋 폴더
+
+        /// <summary>
+        /// 프리셋 폴더 열기
+        /// </summary>
+        private void BtnOpenPresetFolder_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var presetFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Presets");
+                
+                // 폴더가 없으면 생성
+                if (!Directory.Exists(presetFolder))
+                {
+                    Directory.CreateDirectory(presetFolder);
+                }
+                
+                // 파일 탐색기로 열기
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = presetFolder,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"폴더를 열 수 없습니다:\n{ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

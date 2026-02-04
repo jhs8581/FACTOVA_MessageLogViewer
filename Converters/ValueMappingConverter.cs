@@ -56,5 +56,32 @@ namespace FACTOVA_MessageLogViewer.Converters
         {
             throw new NotImplementedException();
         }
+
+        /// <summary>
+        /// 값을 변환된 디스플레이 값으로 반환 (필터링용)
+        /// </summary>
+        public string GetDisplayValue(string? value)
+        {
+            if (value == null) return "";
+            
+            if (mappings.TryGetValue(value, out var mapped))
+            {
+                return mapped;
+            }
+            
+            return value;
+        }
+
+        /// <summary>
+        /// 매핑 문자열을 사용하여 값 변환 (정적 헬퍼)
+        /// </summary>
+        public static string ConvertValue(string? value, string? mappingString)
+        {
+            if (string.IsNullOrEmpty(value) || string.IsNullOrEmpty(mappingString)) 
+                return value ?? "";
+
+            var converter = new ValueMappingConverter(mappingString);
+            return converter.GetDisplayValue(value);
+        }
     }
 }

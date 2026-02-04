@@ -13,9 +13,9 @@ namespace FACTOVA_MessageLogViewer.Models
     public static class LogFieldAnalyzer
     {
         /// <summary>
-        /// 발견된 필드명 목록 (전역 캐시)
+        /// 발견된 필드명 목록 (전역 캐시) - 대소문자 무시
         /// </summary>
-        private static HashSet<string> _discoveredFields = new HashSet<string>();
+        private static HashSet<string> _discoveredFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static readonly object _lock = new object();
 
         /// <summary>
@@ -27,8 +27,8 @@ namespace FACTOVA_MessageLogViewer.Models
             {
                 lock (_lock)
                 {
-                    // 기본 필드 + 발견된 필드
-                    var allFields = new HashSet<string>(_discoveredFields);
+                    // 기본 필드 + 발견된 필드 (대소문자 무시)
+                    var allFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     
                     // 기본 필드 추가
                     allFields.Add("MSGID");
@@ -36,6 +36,12 @@ namespace FACTOVA_MessageLogViewer.Models
                     allFields.Add("RETURN_CODE");
                     allFields.Add("ERROR_CODE");
                     allFields.Add("DIRECTION");
+                    
+                    // 발견된 필드 추가
+                    foreach (var field in _discoveredFields)
+                    {
+                        allFields.Add(field);
+                    }
                     
                     return allFields.OrderBy(f => f).ToList();
                 }

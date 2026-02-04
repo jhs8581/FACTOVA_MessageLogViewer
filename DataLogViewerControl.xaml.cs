@@ -1223,11 +1223,52 @@ namespace FACTOVA_MessageLogViewer
         /// 예: "GetData+1234" → GetData AND 1234
         /// 예: "Insert,Update" → Insert OR Update
         /// 예: "GetData+1234,Update" → (GetData AND 1234) OR Update
+        /// ValueMapping이 적용된 디스플레이 값으로도 검색 가능
         /// </summary>
         private bool MatchesComplexSearch(DataLogEntry entry, string searchText)
         {
-            // 전체 검색 대상 텍스트 생성
-            string searchTarget = $"{entry.BizName} {entry.TxnId} {entry.ParameterXml} {entry.ExecTime}";
+            // 전체 검색 대상 텍스트 생성 (기본 필드)
+            var searchTargetBuilder = new StringBuilder();
+            searchTargetBuilder.Append($"{entry.BizName} {entry.TxnId} {entry.ParameterXml} {entry.ExecTime}");
+
+            // ValueMapping이 적용된 필드들의 변환된 값도 검색 대상에 추가
+            var dataSettings = UnifiedPresetManager.CurrentPreset?.DataSettings;
+            if (dataSettings?.ColumnFields != null)
+            {
+                foreach (var field in dataSettings.ColumnFields.Where(f => f.IsEnabled && !string.IsNullOrEmpty(f.ValueMapping)))
+                {
+                    string? originalValue = null;
+                    
+                    if (field.IsParameter && entry.Fields.TryGetValue(field.FieldName, out var paramValue))
+                    {
+                        originalValue = paramValue;
+                    }
+                    else if (!field.IsParameter)
+                    {
+                        // 기본 필드의 경우
+                        originalValue = field.FieldName switch
+                        {
+                            "BizName" => entry.BizName,
+                            "TxnId" => entry.TxnId,
+                            "ExecTime" => entry.ExecTime,
+                            "ClientId" => entry.ClientId,
+                            "ClientIp" => entry.ClientIp,
+                            _ => null
+                        };
+                    }
+                    
+                    if (!string.IsNullOrEmpty(originalValue))
+                    {
+                        var displayValue = ValueMappingConverter.ConvertValue(originalValue, field.ValueMapping);
+                        if (displayValue != originalValue)
+                        {
+                            searchTargetBuilder.Append($" {displayValue}");
+                        }
+                    }
+                }
+            }
+
+            string searchTarget = searchTargetBuilder.ToString();
 
             // 쉼표로 분리 (OR 조건)
             var orConditions = searchText.Split(',', StringSplitOptions.RemoveEmptyEntries);

@@ -1612,7 +1612,8 @@ namespace FACTOVA_MessageLogViewer
 
         private bool CheckKeywordMatch(LogEntry entry, string keyword)
         {
-            return entry.MessageId.ToLower().Contains(keyword) ||
+            // 기본 필드 검색
+            if (entry.MessageId.ToLower().Contains(keyword) ||
                    entry.Summary.ToLower().Contains(keyword) ||
                    entry.DirectionText.ToLower().Contains(keyword) ||
                    entry.TimeString.Contains(keyword) ||
@@ -1623,7 +1624,29 @@ namespace FACTOVA_MessageLogViewer
                    entry.PalletId.ToLower().Contains(keyword) ||
                    entry.Fields.Any(f =>
                        f.Key.ToLower().Contains(keyword) ||
-                       f.Value.ToLower().Contains(keyword));
+                       f.Value.ToLower().Contains(keyword)))
+            {
+                return true;
+            }
+
+            // ValueMapping이 적용된 필드들의 변환된 값도 검색 대상에 추가
+            var settings = ColumnSettingsManager.CurrentSettings;
+            if (settings?.Fields != null)
+            {
+                foreach (var field in settings.Fields.Where(f => !string.IsNullOrEmpty(f.ValueMapping)))
+                {
+                    if (entry.Fields.TryGetValue(field.FieldName, out var originalValue) && !string.IsNullOrEmpty(originalValue))
+                    {
+                        var displayValue = field.GetDisplayValue(originalValue);
+                        if (displayValue.ToLower().Contains(keyword))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
         }
 
         private void BtnClear_Click(object sender, RoutedEventArgs e)

@@ -36,6 +36,9 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                          VerticalContentAlignment="Center" FontSize="12"
                          ToolTip="새 프리셋 이름 입력"/>
                 <Button Content="다른이름저장" Width="80" Height="28" Margin="10,0,0,0" Click="BtnSaveAsPreset_Click"/>
+                <Border Width="1" Background="#CCC" Margin="15,2"/>
+                <Button Content="📂 폴더 열기" Width="90" Height="28" Click="BtnOpenPresetFolder_Click"
+                        ToolTip="프리셋 저장 폴더를 파일 탐색기로 열기"/>
             </StackPanel>
         </GroupBox>
 
@@ -293,9 +296,13 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                                                                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                                                                             <TextBlock Text="필드:" Width="50" VerticalAlignment="Center"/>
                                                                             <ComboBox Width="120" 
-                                                                                      Text="{Binding FieldName, UpdateSourceTrigger=PropertyChanged}"
+                                                                                      Text="{Binding FieldName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                                                       IsEditable="True"
-                                                                                      ItemsSource="{Binding FieldList, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                                                                      IsTextSearchEnabled="True"
+                                                                                      StaysOpenOnEdit="True"
+                                                                                      ItemsSource="{Binding FieldList, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                      SelectionChanged="ConditionFieldComboBox_SelectionChanged"
+                                                                                      LostFocus="ConditionFieldComboBox_LostFocus"/>
                                                                             <TextBlock Text="값:" Width="45" VerticalAlignment="Center" Margin="15,0,0,0"/>
                                                                             <TextBox Width="100" 
                                                                                      Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
