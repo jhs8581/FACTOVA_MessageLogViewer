@@ -10,7 +10,7 @@ using System.Windows.Controls;
 
 namespace FACTOVA_MessageLogViewer
 {
-    public partial class ColumnSettingsWindow : Window
+    public partial class EventColumnSettingsWindow : Window
     {
         private string logFilePath;
         private ObservableCollection<FieldSettingItem> fieldItems = new();
@@ -31,11 +31,11 @@ namespace FACTOVA_MessageLogViewer
         /// <summary>
         /// 기본 생성자 (로그 파일 없이 열기)
         /// </summary>
-        public ColumnSettingsWindow() : this("", null)
+        public EventColumnSettingsWindow() : this("", null)
         {
         }
 
-        public ColumnSettingsWindow(string logFilePath, string? selectedPresetName = null)
+        public EventColumnSettingsWindow(string logFilePath, string? selectedPresetName = null)
         {
             InitializeComponent();
             this.logFilePath = logFilePath;

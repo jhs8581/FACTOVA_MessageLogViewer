@@ -264,7 +264,7 @@ namespace FACTOVA_MessageLogViewer
             else // EVENT 탭 (기본)
             {
                 // EVENT 로그 컬럼 설정창 열기 (현재 선택된 프리셋 이름 전달)
-                var settingsWindow = new ColumnSettingsWindow("", currentPresetName);
+                var settingsWindow = new EventColumnSettingsWindow("", currentPresetName);
                 settingsWindow.Owner = this;
                 if (settingsWindow.ShowDialog() == true)
                 {

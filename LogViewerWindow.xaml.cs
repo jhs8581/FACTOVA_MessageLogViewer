@@ -2071,7 +2071,7 @@ namespace FACTOVA_MessageLogViewer
         {
             // 현재 선택된 프리셋 이름 전달
             var currentPreset = cboPresets.SelectedItem?.ToString();
-            var settingsWindow = new ColumnSettingsWindow(currentLogFile, currentPreset);
+            var settingsWindow = new EventColumnSettingsWindow(currentLogFile, currentPreset);
             settingsWindow.Owner = this;
             if (settingsWindow.ShowDialog() == true)
             {

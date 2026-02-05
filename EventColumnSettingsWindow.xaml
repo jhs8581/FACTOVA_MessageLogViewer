@@ -1,4 +1,4 @@
-﻿<Window x:Class="FACTOVA_MessageLogViewer.ColumnSettingsWindow"
+﻿<Window x:Class="FACTOVA_MessageLogViewer.EventColumnSettingsWindow"
 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 Title="EVENT 로그 프리셋 설정" 
