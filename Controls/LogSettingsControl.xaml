@@ -24,6 +24,7 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 
@@ -46,18 +47,29 @@
                         Width="75" 
                         Height="28"
                         FontSize="11"
-                        Margin="0,0,8,0"
+                        Margin="0,0,5,0"
                         Click="BtnBrowse_Click"
                         ToolTip="사용자 폴더 선택"/>
+                <Button Grid.Column="3"
+                        Content="📂" 
+                        Width="28" 
+                        Height="28"
+                        FontSize="14"
+                        Margin="0,0,8,0"
+                        Click="BtnOpenFolder_Click"
+                        ToolTip="폴더 열기"/>
                 <TextBox x:Name="txtLogFolderPath" 
-                         Grid.Column="3"
+                         Grid.Column="4"
                          Height="28"
                          IsReadOnly="True" 
                          VerticalContentAlignment="Center"
                          Padding="6"
                          FontSize="11"
                          FontFamily="Consolas"
-                         Background="#FAFAFA"/>
+                         Background="#FAFAFA"
+                         MouseDoubleClick="TxtLogFolderPath_MouseDoubleClick"
+                         Cursor="Hand"
+                         ToolTip="더블클릭하여 폴더 열기"/>
             </Grid>
             
             <!-- Row 1: 프리셋, 날짜 -->

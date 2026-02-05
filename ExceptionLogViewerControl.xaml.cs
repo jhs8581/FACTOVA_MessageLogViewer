@@ -37,7 +37,6 @@ namespace FACTOVA_MessageLogViewer
             RegexOptions.Compiled);
 
         private System.Threading.Timer? debounceTimer;
-        private System.Threading.Timer? searchDebounceTimer;
         private readonly object fileLock = new object();
         private bool isReading = false;
         private bool isLoadingBatch = false;
@@ -65,7 +64,6 @@ namespace FACTOVA_MessageLogViewer
         {
             StopFileWatcher();
             debounceTimer?.Dispose();
-            searchDebounceTimer?.Dispose();
         }
 
         /// <summary>
@@ -402,13 +400,9 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
-        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
+        private void BtnSearch_Click(object sender, RoutedEventArgs e)
         {
-            searchDebounceTimer?.Dispose();
-            searchDebounceTimer = new System.Threading.Timer(_ =>
-            {
-                Dispatcher.BeginInvoke(() => ApplySearch());
-            }, null, 300, System.Threading.Timeout.Infinite);
+            ApplySearch();
         }
 
         private void ApplySearch()

@@ -18,11 +18,7 @@ namespace FACTOVA_MessageLogViewer.Converters
                 return value ?? "";
 
             var stringValue = value.ToString() ?? "";
-            var result = Config.GetDisplayValue(stringValue);
-            
-            System.Diagnostics.Debug.WriteLine($"FieldValueConverter - Field: {Config.FieldName}, Input: '{stringValue}', Mapping: '{Config.ValueMapping}', Output: '{result}'");
-            
-            return result;
+            return Config.GetDisplayValue(stringValue);
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

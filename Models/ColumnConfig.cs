@@ -137,6 +137,54 @@ namespace FACTOVA_MessageLogViewer.Models
         public List<FieldConfig> DataFields { get; set; } = new();
 
         /// <summary>
+        /// 제외할 MSGID 목록 (쉼표로 구분, 예: "S6F1,S6F11,S1F3")
+        /// </summary>
+        public string ExcludedMsgIds { get; set; } = "";
+
+        /// <summary>
+        /// 제외할 MSGID 목록 (파싱된)
+        /// </summary>
+        [JsonIgnore]
+        public HashSet<string> ExcludedMsgIdSet
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(ExcludedMsgIds))
+                    return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    
+                return new HashSet<string>(
+                    ExcludedMsgIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                  .Select(s => s.Trim()),
+                    StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
+        /// <summary>
+        /// 포함할 키워드 목록 (줄바꿈으로 구분)
+        /// MSGID가 없는 로그도 해당 키워드가 포함되면 수집
+        /// </summary>
+        public string IncludeKeywords { get; set; } = "";
+
+        /// <summary>
+        /// 포함할 키워드 목록 (파싱된)
+        /// </summary>
+        [JsonIgnore]
+        public List<string> IncludeKeywordList
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(IncludeKeywords))
+                    return new List<string>();
+                    
+                return IncludeKeywords
+                    .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => s.Trim())
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .ToList();
+            }
+        }
+
+        /// <summary>
         /// 로그 뷰어 폰트 크기
         /// </summary>
         public int FontSize { get; set; } = 11;
@@ -230,6 +278,14 @@ namespace FACTOVA_MessageLogViewer.Models
         public static List<string> GetPresetNames()
         {
             return AppSettingsManager.GetPresetNames();
+        }
+
+        /// <summary>
+        /// 프리셋 삭제
+        /// </summary>
+        public static bool DeletePreset(string name)
+        {
+            return AppSettingsManager.DeletePreset(name);
         }
 
         /// <summary>

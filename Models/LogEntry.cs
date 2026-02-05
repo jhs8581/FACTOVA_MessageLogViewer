@@ -1,19 +1,78 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Media;
 
 namespace FACTOVA_MessageLogViewer.Models
 {
+    /// <summary>
+    /// WPF 바인딩 시 키가 없어도 예외를 발생시키지 않는 안전한 딕셔너리 래퍼
+    /// </summary>
+    public class SafeFieldsDictionary : IEnumerable<KeyValuePair<string, string>>
+    {
+        private readonly Dictionary<string, string> _inner;
+
+        public SafeFieldsDictionary(Dictionary<string, string>? dict = null)
+        {
+            _inner = dict ?? new Dictionary<string, string>();
+        }
+
+        /// <summary>
+        /// 안전한 인덱서 - 키가 없으면 빈 문자열 반환 (예외 없음)
+        /// </summary>
+        public string this[string key]
+        {
+            get => _inner.TryGetValue(key, out var value) ? value : "";
+            set => _inner[key] = value;
+        }
+
+        public int Count => _inner.Count;
+        
+        public bool ContainsKey(string key) => _inner.ContainsKey(key);
+        
+        public bool TryGetValue(string key, out string value) => _inner.TryGetValue(key, out value!);
+        
+        public ICollection<string> Keys => _inner.Keys;
+        
+        public ICollection<string> Values => _inner.Values;
+
+        public void Add(string key, string value) => _inner[key] = value;
+        
+        public Dictionary<string, string> ToDictionary() => new Dictionary<string, string>(_inner);
+
+        public string GetValueOrDefault(string key, string defaultValue = "") 
+            => _inner.TryGetValue(key, out var value) ? value : defaultValue;
+
+        public IEnumerator<KeyValuePair<string, string>> GetEnumerator() => _inner.GetEnumerator();
+        
+        IEnumerator IEnumerable.GetEnumerator() => _inner.GetEnumerator();
+
+        // Dictionary<string, string>에서 SafeFieldsDictionary로 암시적 변환
+        public static implicit operator SafeFieldsDictionary(Dictionary<string, string>? dict) 
+            => new SafeFieldsDictionary(dict);
+    }
+
     public class LogEntry
     {
         public int RowNumber { get; set; }  // ROW 번호 추가
         public DateTime Timestamp { get; set; }
         public string TimeString => Timestamp.ToString("HH:mm:ss.fff");
         public string Direction { get; set; } = "";
-        public string DirectionText => Direction == "SEND" ? "송신" : "수신";
+        public string DirectionText => Direction == "SEND" ? "송신" : (Direction == "INFO" ? "정보" : "수신");
         public string MessageId { get; set; } = "";
-        public Dictionary<string, string> Fields { get; set; } = new Dictionary<string, string>();
+        
+        private Dictionary<string, string> _fields = new Dictionary<string, string>();
+        
+        /// <summary>
+        /// 필드 딕셔너리 - 안전한 인덱서로 접근 가능
+        /// </summary>
+        public SafeFieldsDictionary Fields 
+        { 
+            get => new SafeFieldsDictionary(_fields);
+            set => _fields = value?.ToDictionary() ?? new Dictionary<string, string>();
+        }
+        
         public string RawData { get; set; } = "";
 
         /// <summary>
@@ -67,6 +126,14 @@ namespace FACTOVA_MessageLogViewer.Models
 
                 try
                 {
+                    // 키워드 기반 로그 (CONTENT 필드가 있고 MSGID가 없는 경우)
+                    // → 원본 텍스트 그대로 표시
+                    if (string.IsNullOrEmpty(MessageId) && Fields.TryGetValue("CONTENT", out var contentValue))
+                    {
+                        _cachedSummary = contentValue;
+                        return _cachedSummary;
+                    }
+
                     var settings = ColumnSettingsManager.CurrentSettings;
                     
                     // 컨럼으로 표시되거나 숨김인 필드는 제외
@@ -76,17 +143,13 @@ namespace FACTOVA_MessageLogViewer.Models
                             .Select(f => f.FieldName)
                     );
 
-                    // Summary로 설정된 필드 모두 표시 (알파벳 정렬, 길이 제한 적용)
+                    // Summary로 설정된 필드 모두 표시 (알파벳 정렬)
                     var summaryFields = Fields
                         .Where(f => !excludeFields.Contains(f.Key) && !string.IsNullOrWhiteSpace(f.Value))
                         .OrderBy(f => f.Key)
                         .Select(f => $"{f.Key}:{f.Value}");
 
                     var result = string.Join(" | ", summaryFields);
-                    
-                    // 최대 길이 제한 (150자로 축소)
-                    if (result.Length > 150)
-                        result = result.Substring(0, 150);
                     
                     _cachedSummary = string.IsNullOrEmpty(result) ? "-" : result;
                     return _cachedSummary;
@@ -100,8 +163,6 @@ namespace FACTOVA_MessageLogViewer.Models
                         .Select(f => $"{f.Key}:{f.Value}");
                     
                     var result = string.Join(" | ", otherFields);
-                    if (result.Length > 150)
-                        result = result.Substring(0, 150);
                     
                     _cachedSummary = result;
                     return _cachedSummary;

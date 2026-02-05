@@ -11,6 +11,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
@@ -46,10 +47,15 @@ namespace FACTOVA_MessageLogViewer
 
         // 멀티라인 파싱용 버퍼
         private StringBuilder multiLineBuffer = new StringBuilder();
-        // 로그 시작 패턴: [MM-DD-YYYY HH:mm:ss.fff][RECV|SENDDATA|RECVDATA] 형식만 매칭
-        // System : 같은 일반 로그는 무시
+        
+        // 로그 시작 패턴 1: [MM-DD-YYYY HH:mm:ss.fff][RECV|SENDDATA|RECVDATA] 형식
         private static readonly Regex LogStartPattern = new Regex(
             @"^\[(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\]\[([A-Z]+)\]",
+            RegexOptions.Compiled | RegexOptions.Multiline);
+        
+        // 로그 시작 패턴 2: [MM-DD-YYYY HH:mm:ss]UserID : 형식 (MSGID 없는 로그, 로그인 ID는 가변)
+        private static readonly Regex LogStartPattern2 = new Regex(
+            @"^\[(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\]([A-Za-z0-9_]+)\s*:",
             RegexOptions.Compiled | RegexOptions.Multiline);
 
         // 디바운싱용
@@ -88,53 +94,81 @@ namespace FACTOVA_MessageLogViewer
         /// <summary>
         /// 설정으로 초기화 (MainWindow에서 호출)
         /// </summary>
+        public async Task InitializeAsync(Models.LogViewerSettings settings)
+        {
+            // 가장 먼저 프로그레스바 표시
+            ShowLoadingOverlay(true);
+            UpdateLoadingStatus("초기화 중...");
+            
+            // UI 렌더링 강제 (프로그레스바가 즉시 보이도록)
+            await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Render);
+
+            try
+            {
+                if (isInitialized)
+                {
+                    // 이미 초기화된 경우 기존 데이터 클리어
+                    logManager?.Clear();
+                    fileWatcher?.Dispose();
+                }
+
+                currentLogFile = settings.LogFilePath;
+                logDirectory = settings.LogDirectory;
+                selectedDate = settings.SelectedDate;
+                loadMode = settings.LoadMode;
+                recentCount = settings.RecentCount;
+                filterStartTime = settings.FilterStartTime;
+                filterEndTime = settings.FilterEndTime;
+                currentLogDirectory = settings.LogDirectory;
+                isDefaultFolder = settings.IsDefaultFolder;
+                enableRealTimeWatch = settings.EnableRealTimeWatch;
+
+                txtLogFolder.Text = $"({Path.GetFileName(currentLogFile)})";
+
+                UpdateLoadingStatus("필드 분석 중...");
+                
+                // 로그 파일에서 필드 목록 미리 추출 (백그라운드)
+                var discoveredFields = await Task.Run(() => LogFieldAnalyzer.ExtractFieldNames(currentLogFile));
+                LogFieldAnalyzer.AddDiscoveredFields(discoveredFields);
+
+                UpdateLoadingStatus("UI 초기화 중...");
+                
+                InitializeLogManager();
+                InitializeTabs();
+                LoadSavedFontSize();
+                
+                // 실시간 감지가 활성화된 경우에만 파일 감시 시작
+                if (enableRealTimeWatch)
+                {
+                    StartFileWatcher();
+                }
+                
+                
+                await LoadLogsAsync();
+
+                UpdateModeText();
+                UpdateStatus();
+                isInitialized = true;
+
+                // Auto Fit 자동 적용
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    ApplyAutoFit();
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
+            }
+            finally
+            {
+                // 프로그레스바 숨김
+                ShowLoadingOverlay(false);
+            }
+        }
+
+        /// <summary>
+        /// 설정으로 초기화 (동기 버전 - 호환성 유지)
+        /// </summary>
         public void Initialize(Models.LogViewerSettings settings)
         {
-            if (isInitialized)
-            {
-                // 이미 초기화된 경우 기존 데이터 클리어
-                logManager?.Clear();
-                fileWatcher?.Dispose();
-            }
-
-            currentLogFile = settings.LogFilePath;
-            logDirectory = settings.LogDirectory;
-            selectedDate = settings.SelectedDate;
-            loadMode = settings.LoadMode;
-            recentCount = settings.RecentCount;
-            filterStartTime = settings.FilterStartTime;
-            filterEndTime = settings.FilterEndTime;
-            currentLogDirectory = settings.LogDirectory;
-            isDefaultFolder = settings.IsDefaultFolder;
-            enableRealTimeWatch = settings.EnableRealTimeWatch;
-
-            txtLogFolder.Text = $"({Path.GetFileName(currentLogFile)})";
-
-            // 로그 파일에서 필드 목록 미리 추출
-            var discoveredFields = LogFieldAnalyzer.ExtractFieldNames(currentLogFile);
-            LogFieldAnalyzer.AddDiscoveredFields(discoveredFields);
-
-            InitializeLogManager();
-            InitializeTabs();
-            LoadSavedFontSize();
-            
-            // 실시간 감지가 활성화된 경우에만 파일 감시 시작
-            if (enableRealTimeWatch)
-            {
-                StartFileWatcher();
-            }
-            
-            LoadLogs();
-
-            UpdateModeText();
-            UpdateStatus();
-            isInitialized = true;
-
-            // Auto Fit 자동 적용
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                ApplyAutoFit();
-            }), System.Windows.Threading.DispatcherPriority.Loaded);
+            _ = InitializeAsync(settings);
         }
 
         /// <summary>
@@ -625,7 +659,7 @@ namespace FACTOVA_MessageLogViewer
             txtMode.Text = modeText;
         }
 
-        private async void LoadLogs()
+        private async Task LoadLogsAsync()
         {
             // 파일 존재 확인
             if (!File.Exists(currentLogFile))
@@ -643,7 +677,7 @@ namespace FACTOVA_MessageLogViewer
                     break;
 
                 case LogLoadMode.Recent:
-                    LoadRecentLogs();
+                    await LoadRecentLogsAsync();
                     break;
 
                 case LogLoadMode.All:
@@ -667,19 +701,27 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
-        private void LoadRecentLogs()
+        private async Task LoadRecentLogsAsync()
         {
             try
             {
                 isLoadingBatch = true;  // 일괄 로드 시작
                 
-                var content = File.ReadAllText(currentLogFile, Encoding.UTF8);
-                var entries = ParseLogEntries(content);
+                UpdateLoadingStatus("파일을 읽는 중...");
+
+                // 백그라운드 스레드에서 파일 읽기
+                string content = await Task.Run(() => File.ReadAllText(currentLogFile, Encoding.UTF8));
+                
+                UpdateLoadingStatus("로그 파싱 중...");
+                
+                // 백그라운드 스레드에서 파싱
+                var entries = await Task.Run(() => ParseLogEntries(content));
 
                 // 최근 N개만
                 var recentEntries = entries.TakeLast(recentCount).ToList();
 
                 System.Diagnostics.Debug.WriteLine($"📖 최근 {recentEntries.Count}개 로그 로드 중...");
+                UpdateLoadingStatus($"최근 {recentEntries.Count}개 로그 추가 중...");
 
                 // 일괄 추가로 UI 갱신 최소화
                 logManager.AddLogEntries(recentEntries);
@@ -699,6 +741,10 @@ namespace FACTOVA_MessageLogViewer
                 isLoadingBatch = false;
                 System.Diagnostics.Debug.WriteLine($"❌ 최근 로그 로드 실패: {ex.Message}");
             }
+            finally
+            {
+                isLoadingBatch = false;
+            }
         }
 
         private async Task LoadAllLogsAsync()
@@ -707,8 +753,6 @@ namespace FACTOVA_MessageLogViewer
             {
                 isLoadingBatch = true;  // 일괄 로드 시작
                 
-                // 프로그레스바 표시
-                ShowLoadingOverlay(true);
                 UpdateLoadingStatus("파일을 읽는 중...");
 
                 // 백그라운드 스레드에서 파일 읽기
@@ -749,15 +793,6 @@ namespace FACTOVA_MessageLogViewer
             finally
             {
                 isLoadingBatch = false;  // 일괄 로드 완료
-                
-                // 프로그레스바 숨김
-                ShowLoadingOverlay(false);
-
-                // 전체 로그 로드 완료 후 Auto Fit 자동 적용
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    ApplyAutoFit();
-                }), System.Windows.Threading.DispatcherPriority.Loaded);
             }
         }
 
@@ -904,34 +939,48 @@ namespace FACTOVA_MessageLogViewer
 
             System.Diagnostics.Debug.WriteLine($"🔍 파싱 시작: 내용 길이 = {content.Length}");
 
-            // 각 로그 엔트리 시작 위치 찾기
-            var matches = LogStartPattern.Matches(content);
+            // 포함할 키워드 목록 가져오기
+            var includeKeywords = ColumnSettingsManager.CurrentSettings.IncludeKeywordList;
 
-            System.Diagnostics.Debug.WriteLine($"🔍 정규식 매칭 결과: {matches.Count}개 발견");
+            // 두 패턴 모두 매칭하여 병합
+            var matches1 = LogStartPattern.Matches(content);
+            var matches2 = LogStartPattern2.Matches(content);
+            
+            // 모든 매칭 결과를 위치순으로 정렬
+            var allMatches = new List<(int Index, Match Match, int PatternType)>();
+            foreach (Match m in matches1)
+                allMatches.Add((m.Index, m, 1));
+            foreach (Match m in matches2)
+                allMatches.Add((m.Index, m, 2));
+            
+            allMatches = allMatches.OrderBy(x => x.Index).ToList();
+
+            System.Diagnostics.Debug.WriteLine($"🔍 정규식 매칭 결과: 패턴1={matches1.Count}개, 패턴2={matches2.Count}개, 총={allMatches.Count}개");
 
             // 매칭 안되면 첫 100자 출력
-            if (matches.Count == 0 && content.Length > 0)
+            if (allMatches.Count == 0 && content.Length > 0)
             {
                 var sample = content.Substring(0, Math.Min(200, content.Length));
                 System.Diagnostics.Debug.WriteLine($"⚠️ 매칭 실패! 샘플:\n{sample}");
             }
 
-            for (int i = 0; i < matches.Count; i++)
+            for (int i = 0; i < allMatches.Count; i++)
             {
-                int startIndex = matches[i].Index;
-                int endIndex = (i + 1 < matches.Count) ? matches[i + 1].Index : content.Length;
+                int startIndex = allMatches[i].Index;
+                int endIndex = (i + 1 < allMatches.Count) ? allMatches[i + 1].Index : content.Length;
+                int patternType = allMatches[i].PatternType;
 
                 // 마지막 엔트리이고 완전하지 않으면 버퍼에 보관 (실시간 감시용)
-                // 초기 로드 시에는 remainingContent가 무시되므로 상관없음
-                if (i == matches.Count - 1 && remainingContent != null)
+                if (i == allMatches.Count - 1 && remainingContent != null)
                 {
                     string lastEntry = content.Substring(startIndex);
                     string trimmed = lastEntry.TrimEnd();
 
-                    // 완료 조건: } 또는 : 로 끝나면 완료된 것으로 판단
+                    // 완료 조건: } 또는 줄 끝으로 끝나면 완료된 것으로 판단
                     bool isComplete = trimmed.EndsWith("}") ||
                                       trimmed.EndsWith(":") ||
-                                      trimmed.EndsWith(": ");
+                                      trimmed.EndsWith(": ") ||
+                                      (patternType == 2 && trimmed.Contains("\n") == false);
 
                     if (!isComplete)
                     {
@@ -941,7 +990,61 @@ namespace FACTOVA_MessageLogViewer
                 }
 
                 string entryText = content.Substring(startIndex, endIndex - startIndex);
-                var entry = ParseSingleEntry(entryText);
+                
+                LogEntry? entry = null;
+                
+                if (patternType == 1)
+                {
+                    // 표준 MSGID 로그
+                    entry = ParseSingleEntry(entryText);
+                }
+                else if (patternType == 2)
+                {
+                    // 키워드 기반 로그 (LGEKC 형식 등)
+                    // 1. 프리셋의 포함 키워드 체크
+                    bool matchByPresetKeyword = includeKeywords.Count > 0 && 
+                        includeKeywords.Any(kw => entryText.Contains(kw, StringComparison.OrdinalIgnoreCase));
+                    
+                    // 2. 탭 설정의 키워드 조건 체크
+                    bool matchByTabKeyword = false;
+                    var tabSettings = ColumnSettingsManager.CurrentSettings.TabSettings;
+                    if (tabSettings?.EnabledTabs != null)
+                    {
+                        foreach (var tab in tabSettings.EnabledTabs)
+                        {
+                            if (tab.ConditionGroups == null) continue;
+                            
+                            foreach (var group in tab.ConditionGroups)
+                            {
+                                if (group.Conditions == null) continue;
+                                
+                                foreach (var condition in group.Conditions)
+                                {
+                                    if (condition.IsKeywordSearch && !string.IsNullOrEmpty(condition.Value))
+                                    {
+                                        // 키워드 검색 조건이 있고, 해당 키워드가 로그에 포함되어 있으면 파싱
+                                        var keywords = condition.Value.Split(new[] { '\r', '\n', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                                                      .Select(v => v.Trim())
+                                                                      .Where(v => !string.IsNullOrEmpty(v));
+                                        
+                                        if (keywords.Any(kw => entryText.Contains(kw, StringComparison.OrdinalIgnoreCase)))
+                                        {
+                                            matchByTabKeyword = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (matchByTabKeyword) break;
+                            }
+                            if (matchByTabKeyword) break;
+                        }
+                    }
+                    
+                    if (matchByPresetKeyword || matchByTabKeyword)
+                    {
+                        entry = ParseKeywordBasedEntry(entryText, allMatches[i].Match);
+                    }
+                }
 
                 if (entry != null)
                 {
@@ -993,6 +1096,14 @@ namespace FACTOVA_MessageLogViewer
                 if (msgIdMatch.Success)
                 {
                     msgId = msgIdMatch.Groups[1].Value;
+                }
+
+                // 제외할 MSGID 체크
+                var excludedMsgIds = ColumnSettingsManager.CurrentSettings.ExcludedMsgIdSet;
+                if (!string.IsNullOrEmpty(msgId) && excludedMsgIds.Contains(msgId))
+                {
+                    // 제외 대상 MSGID면 스킵
+                    return null;
                 }
 
                 // PROCID 추출
@@ -1065,6 +1176,60 @@ namespace FACTOVA_MessageLogViewer
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"⚠️ 파싱 실패: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 키워드 기반 로그 파싱 (MSGID 없는 로그)
+        /// 형식이 다양하므로 파싱하지 않고 원본 텍스트를 그대로 표시
+        /// </summary>
+        private LogEntry? ParseKeywordBasedEntry(string entryText, Match headerMatch)
+        {
+            try
+            {
+                string timestampStr = headerMatch.Groups[1].Value;
+                string userId = headerMatch.Groups[2].Value; // 로그인 ID (LGEKC, LGEWP 등)
+
+                // 타임스탬프 파싱
+                DateTime timestamp;
+                string[] formats = { "MM-dd-yyyy HH:mm:ss.fff", "MM-dd-yyyy HH:mm:ss" };
+                if (!DateTime.TryParseExact(timestampStr, formats,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out timestamp))
+                {
+                    timestamp = DateTime.Now;
+                }
+
+                // 헤더 이후의 내용 추출 (원본 그대로)
+                string contentPart = entryText.Substring(headerMatch.Length).Trim();
+                
+                // : 로 시작하면 제거
+                if (contentPart.StartsWith(":"))
+                    contentPart = contentPart.Substring(1).Trim();
+
+                // 필드에는 원본 내용만 저장 (파싱하지 않음)
+                var fields = new Dictionary<string, string>
+                {
+                    ["USER_ID"] = userId,
+                    ["CONTENT"] = contentPart  // 원본 텍스트 그대로
+                };
+
+                return new LogEntry
+                {
+                    Timestamp = timestamp,
+                    Direction = "INFO",  // 키워드 로그는 INFO로 표시
+                    MessageId = "",      // MSGID 없음
+                    WorkType = "",
+                    ReturnCode = "",
+                    ErrorCode = "",
+                    RawData = entryText.Trim(),
+                    Fields = fields
+                };
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"⚠️ 키워드 로그 파싱 실패: {ex.Message}");
                 return null;
             }
         }
@@ -1715,21 +1880,21 @@ namespace FACTOVA_MessageLogViewer
             UpdateStatus();
         }
 
-        private void TxtSearch_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        private void TxtSearch_KeyDown(object sender, KeyEventArgs e)
         {
-            // 디바운싱: 300ms 후에 검색 실행
-            searchDebounceTimer?.Dispose();
-            searchDebounceTimer = new System.Threading.Timer(_ =>
+            if (e.Key == Key.Enter)
             {
-                Dispatcher.BeginInvoke(() =>
-                {
-                    RefreshAllTabViews();
-                    UpdateStatus();
-                });
-            }, null, 300, System.Threading.Timeout.Infinite);
+                RefreshAllTabViews();
+                UpdateStatus();
+                e.Handled = true;
+            }
         }
 
-        private System.Threading.Timer? searchDebounceTimer;
+        private void BtnSearch_Click(object sender, RoutedEventArgs e)
+        {
+            RefreshAllTabViews();
+            UpdateStatus();
+        }
 
         private void Filter_Changed(object sender, RoutedEventArgs e)
         {
@@ -1899,7 +2064,6 @@ namespace FACTOVA_MessageLogViewer
             debounceTimer?.Dispose();
             scrollDebounceTimer?.Dispose();
             statusUpdateTimer?.Dispose();
-            searchDebounceTimer?.Dispose();
         }
 
         /// <summary>

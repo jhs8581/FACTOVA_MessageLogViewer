@@ -12,12 +12,14 @@ namespace FACTOVA_MessageLogViewer.Models
         /// <summary>
         /// 조건 대상 필드명 (예: MSGID, WORK_TYPE, RETURN_CODE 등)
         /// "MSGID"는 특수 처리 (LogEntry.MessageId 참조)
+        /// IsKeywordSearch가 true면 무시됨
         /// </summary>
         public string FieldName { get; set; } = "";
 
         /// <summary>
         /// 필터 값 (해당 필드가 이 값과 일치해야 함)
         /// 여러 값 허용 시 쉼표로 구분 (OR 조건)
+        /// IsKeywordSearch가 true면 전체 로그에서 검색할 키워드
         /// </summary>
         public string Value { get; set; } = "";
 
@@ -25,6 +27,12 @@ namespace FACTOVA_MessageLogViewer.Models
         /// 값이 정확히 일치해야 하는지, 포함되면 되는지
         /// </summary>
         public bool ExactMatch { get; set; } = true;
+
+        /// <summary>
+        /// 키워드 검색 모드 (필드 무시하고 전체 로그에서 검색)
+        /// true면 FieldName 무시, Value를 RawData에서 Contains 검색
+        /// </summary>
+        public bool IsKeywordSearch { get; set; } = false;
 
         /// <summary>
         /// 디스플레이 명칭 (쉼표 구분, Value와 순서 매핑)
@@ -86,7 +94,36 @@ namespace FACTOVA_MessageLogViewer.Models
         /// </summary>
         public bool IsMatch(LogEntry entry)
         {
-            if (entry == null || string.IsNullOrEmpty(FieldName))
+            if (entry == null)
+                return true;
+
+            // 키워드 검색 모드: 전체 RawData에서 검색
+            if (IsKeywordSearch)
+            {
+                if (string.IsNullOrEmpty(Value))
+                    return true;
+
+                // 키워드들 (줄바꿈 또는 쉼표로 구분)
+                var keywords = Value.Split(new[] { '\r', '\n', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                    .Select(v => v.Trim())
+                                    .Where(v => !string.IsNullOrEmpty(v))
+                                    .ToList();
+
+                if (keywords.Count == 0)
+                    return true;
+
+                // 하나라도 포함되면 매칭 (OR)
+                foreach (var keyword in keywords)
+                {
+                    if (entry.RawData.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+
+                return false;
+            }
+
+            // 기존 필드 기반 검색
+            if (string.IsNullOrEmpty(FieldName))
                 return true;
 
             // 여러 값이 있으면 OR 조건으로 처리

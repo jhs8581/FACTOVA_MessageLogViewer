@@ -182,7 +182,7 @@ Loaded="UserControl_Loaded">
                          VerticalContentAlignment="Center"
                          Padding="8,0"
                          FontSize="12"
-                         TextChanged="TxtSearch_TextChanged">
+                         KeyDown="TxtSearch_KeyDown">
                     <TextBox.ToolTip>
                         <ToolTip MaxWidth="450">
                             <StackPanel>
@@ -224,6 +224,16 @@ Loaded="UserControl_Loaded">
                         </ToolTip>
                     </TextBox.ToolTip>
                 </TextBox>
+
+                <Button Content="🔍" 
+                        Width="32" Height="28"
+                        Margin="5,0,0,0"
+                        Click="BtnSearch_Click"
+                        Background="#2196F3"
+                        Foreground="White"
+                        FontSize="14"
+                        Cursor="Hand"
+                        ToolTip="검색 (Enter)"/>
 
                 <TextBlock Text="ⓘ" 
                            Foreground="#1976D2" 

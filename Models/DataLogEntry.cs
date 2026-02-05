@@ -91,9 +91,6 @@ namespace FACTOVA_MessageLogViewer.Models
 
                     var result = string.Join(" | ", summaryFields);
                     
-                    if (result.Length > 150)
-                        result = result.Substring(0, 150);
-                    
                     _cachedSummary = string.IsNullOrEmpty(result) ? "-" : result;
                     return _cachedSummary;
                 }
@@ -105,8 +102,6 @@ namespace FACTOVA_MessageLogViewer.Models
                         .Select(f => $"{f.Key}:{f.Value}");
                     
                     var result = string.Join(" | ", otherFields);
-                    if (result.Length > 150)
-                        result = result.Substring(0, 150);
                     
                     _cachedSummary = result;
                     return _cachedSummary;

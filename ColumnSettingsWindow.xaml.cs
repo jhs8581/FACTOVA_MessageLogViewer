@@ -120,6 +120,11 @@ namespace FACTOVA_MessageLogViewer
                 System.Diagnostics.Debug.WriteLine($"   ⚠️ 프리셋 필드 없음 (settings={settings != null}, Fields={settings?.Fields?.Count ?? 0})");
                 System.Diagnostics.Debug.WriteLine($"   로그 파일 분석 시도: '{logFilePath}'");
                 AnalyzeAndLoadFields();
+                
+                // 필터 설정은 현재 설정에서 로드
+                var currentSettings = ColumnSettingsManager.CurrentSettings;
+                txtExcludedMsgIds.Text = currentSettings.ExcludedMsgIds ?? "";
+                txtIncludeKeywords.Text = currentSettings.IncludeKeywords ?? "";
             }
         }
 
@@ -206,7 +211,8 @@ namespace FACTOVA_MessageLogViewer
             ColumnSettings? settings;
             if (selected == "Default")
             {
-                settings = ColumnSettingsManager.CreateDefaultSettings();
+                // Default는 현재 설정 사용 (ExcludedMsgIds 유지)
+                settings = ColumnSettingsManager.CurrentSettings;
             }
             else
             {
@@ -245,6 +251,10 @@ namespace FACTOVA_MessageLogViewer
             
             System.Diagnostics.Debug.WriteLine($"📂 ApplySettingsToGrid 완료 - {fieldItems.Count}개 필드 로드됨");
             
+            // 필터 설정 로드
+            txtExcludedMsgIds.Text = settings.ExcludedMsgIds ?? "";
+            txtIncludeKeywords.Text = settings.IncludeKeywords ?? "";
+            
             // DataGrid 갱신
             dgFields.ItemsSource = null;
             dgFields.ItemsSource = fieldItems;
@@ -264,8 +274,10 @@ namespace FACTOVA_MessageLogViewer
             }
             else
             {
-                // 선택한 프리셋에 저장
-                ColumnSettingsManager.SaveSettingsAsPreset(settings, selected);
+                // 선택한 프리셋에 통합 프리셋으로 저장
+                var unifiedPreset = UnifiedPresetManager.LoadPreset(selected) ?? new UnifiedPreset { Name = selected };
+                unifiedPreset.EventSettings = settings;
+                UnifiedPresetManager.SavePreset(unifiedPreset);
                 MessageBox.Show($"'{selected}' 프리셋에 저장되었습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
@@ -280,7 +292,15 @@ namespace FACTOVA_MessageLogViewer
             }
 
             var settings = CreateSettingsFromAll();
-            ColumnSettingsManager.SaveSettingsAsPreset(settings, name);
+            settings.Name = name;
+            
+            // 새 통합 프리셋 생성하여 저장
+            var unifiedPreset = new UnifiedPreset 
+            { 
+                Name = name,
+                EventSettings = settings
+            };
+            UnifiedPresetManager.SavePreset(unifiedPreset);
             
             LoadPresetList();
             MessageBox.Show($"'{name}'으로 저장되었습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -315,7 +335,9 @@ namespace FACTOVA_MessageLogViewer
                     Tabs = tabs.ToList(),
                     LastSelectedTabIndex = 0
                 },
-                FontSize = ColumnSettingsManager.CurrentSettings.FontSize
+                FontSize = ColumnSettingsManager.CurrentSettings.FontSize,
+                ExcludedMsgIds = txtExcludedMsgIds.Text.Trim(),
+                IncludeKeywords = txtIncludeKeywords.Text
             };
             
             return settings;
@@ -666,7 +688,8 @@ namespace FACTOVA_MessageLogViewer
                             FieldName = c.FieldName,
                             Value = c.Value,
                             ExactMatch = c.ExactMatch,
-                            DisplayNames = c.DisplayNames
+                            DisplayNames = c.DisplayNames,
+                            IsKeywordSearch = c.IsKeywordSearch
                         }).ToList() ?? new List<TabFilterCondition>(),
                         ConditionGroups = tab.ConditionGroups?.Select(g => new ConditionGroup
                         {
@@ -676,7 +699,8 @@ namespace FACTOVA_MessageLogViewer
                                 FieldName = c.FieldName,
                                 Value = c.Value,
                                 ExactMatch = c.ExactMatch,
-                                DisplayNames = c.DisplayNames
+                                DisplayNames = c.DisplayNames,
+                                IsKeywordSearch = c.IsKeywordSearch
                             }).ToList() ?? new List<TabFilterCondition>()
                         }).ToList() ?? new List<ConditionGroup>()
                     };
@@ -959,7 +983,56 @@ namespace FACTOVA_MessageLogViewer
 
         #endregion
 
-        #region 프리셋 폴더
+        #region 프리셋 폴더/삭제
+
+        /// <summary>
+        /// 프리셋 삭제
+        /// </summary>
+        private void BtnDeletePreset_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedPreset = cboPresets.SelectedItem?.ToString();
+            
+            if (string.IsNullOrEmpty(selectedPreset) || selectedPreset == "Default")
+            {
+                MessageBox.Show("Default 프리셋은 삭제할 수 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            
+            var result = MessageBox.Show($"'{selectedPreset}' 프리셋을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.", 
+                "프리셋 삭제 확인", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            
+            if (result != MessageBoxResult.Yes)
+                return;
+            
+            try
+            {
+                // 통합 프리셋 삭제 시도
+                bool deleted = UnifiedPresetManager.DeletePreset(selectedPreset);
+                
+                // 기존 프리셋도 삭제 시도
+                if (!deleted)
+                {
+                    deleted = ColumnSettingsManager.DeletePreset(selectedPreset);
+                }
+                
+                if (deleted)
+                {
+                    MessageBox.Show($"'{selectedPreset}' 프리셋이 삭제되었습니다.", "삭제 완료", MessageBoxButton.OK, MessageBoxImage.Information);
+                    
+                    // 프리셋 목록 새로고침 후 Default 선택
+                    LoadPresetList();
+                    cboPresets.SelectedIndex = 0;
+                }
+                else
+                {
+                    MessageBox.Show("프리셋 파일을 찾을 수 없습니다.", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"프리셋 삭제 중 오류가 발생했습니다:\n{ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
 
         /// <summary>
         /// 프리셋 폴더 열기
@@ -1013,6 +1086,22 @@ namespace FACTOVA_MessageLogViewer
         private void BtnApply_Click(object sender, RoutedEventArgs e)
         {
             var settings = CreateSettingsFromAll();
+            
+            // 선택된 프리셋에 저장 (적용 시 자동 저장)
+            var selected = cboPresets.SelectedItem?.ToString();
+            if (string.IsNullOrEmpty(selected) || selected == "Default")
+            {
+                // Default 선택 시 현재 설정에 저장
+                ColumnSettingsManager.SaveCurrentSettings(settings);
+            }
+            else
+            {
+                // 선택한 프리셋에 통합 프리셋으로 저장
+                var unifiedPreset = UnifiedPresetManager.LoadPreset(selected) ?? new UnifiedPreset { Name = selected };
+                unifiedPreset.EventSettings = settings;
+                UnifiedPresetManager.SavePreset(unifiedPreset);
+            }
+            
             ColumnSettingsManager.CurrentSettings = settings;
             
             SettingsApplied = true;

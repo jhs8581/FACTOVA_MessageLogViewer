@@ -422,6 +422,43 @@ namespace FACTOVA_MessageLogViewer.Controls
             }
         }
 
+        private void BtnOpenFolder_Click(object sender, RoutedEventArgs e)
+        {
+            OpenCurrentFolder();
+        }
+
+        private void TxtLogFolderPath_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            OpenCurrentFolder();
+        }
+
+        private void OpenCurrentFolder()
+        {
+            var folderPath = txtLogFolderPath.Text;
+            if (string.IsNullOrEmpty(folderPath))
+                return;
+
+            try
+            {
+                if (Directory.Exists(folderPath))
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = folderPath,
+                        UseShellExecute = true
+                    });
+                }
+                else
+                {
+                    MessageBox.Show($"폴더가 존재하지 않습니다:\n{folderPath}", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"폴더를 열 수 없습니다:\n{ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void BtnRefreshDates_Click(object sender, RoutedEventArgs e)
         {
             RefreshAvailableDates();

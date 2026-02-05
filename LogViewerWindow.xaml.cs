@@ -11,6 +11,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
@@ -1060,7 +1061,7 @@ namespace FACTOVA_MessageLogViewer
                     break;
 
                 case LogLoadMode.Recent:
-                    LoadRecentLogs();
+                    await LoadRecentLogsAsync();
                     break;
 
                 case LogLoadMode.All:
@@ -1084,17 +1085,30 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
-        private void LoadRecentLogs()
+        private async Task LoadRecentLogsAsync()
         {
             try
             {
-                var content = File.ReadAllText(currentLogFile, Encoding.UTF8);
-                var entries = ParseLogEntries(content);
+                // 프로그레스바 표시
+                ShowLoadingOverlay(true);
+                UpdateLoadingStatus("파일을 읽는 중...");
+                
+                // UI 렌더링 시간 확보
+                await Task.Delay(50);
+
+                // 백그라운드 스레드에서 파일 읽기
+                string content = await Task.Run(() => File.ReadAllText(currentLogFile, Encoding.UTF8));
+                
+                UpdateLoadingStatus("로그 파싱 중...");
+                
+                // 백그라운드 스레드에서 파싱
+                var entries = await Task.Run(() => ParseLogEntries(content));
 
                 // 최근 N개만
                 var recentEntries = entries.TakeLast(recentCount).ToList();
 
                 System.Diagnostics.Debug.WriteLine($"📖 최근 {recentEntries.Count}개 로그 로드 중...");
+                UpdateLoadingStatus($"최근 {recentEntries.Count}개 로그 추가 중...");
 
                 // 일괄 추가로 UI 갱신 최소화
                 logManager.AddLogEntries(recentEntries);
@@ -1107,6 +1121,10 @@ namespace FACTOVA_MessageLogViewer
             {
                 System.Diagnostics.Debug.WriteLine($"❌ 최근 로그 로드 실패: {ex.Message}");
             }
+            finally
+            {
+                ShowLoadingOverlay(false);
+            }
         }
 
         private async Task LoadAllLogsAsync()
@@ -1116,6 +1134,9 @@ namespace FACTOVA_MessageLogViewer
                 // 프로그레스바 표시
                 ShowLoadingOverlay(true);
                 UpdateLoadingStatus("파일을 읽는 중...");
+                
+                // UI 렌더링 시간 확보
+                await Task.Delay(50);
 
                 // 백그라운드 스레드에서 파일 읽기
                 string content = await Task.Run(() => File.ReadAllText(currentLogFile, Encoding.UTF8));
@@ -2107,21 +2128,21 @@ namespace FACTOVA_MessageLogViewer
             UpdateStatus();
         }
 
-        private void TxtSearch_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        private void TxtSearch_KeyDown(object sender, KeyEventArgs e)
         {
-            // 디바운싱: 300ms 후에 검색 실행
-            searchDebounceTimer?.Dispose();
-            searchDebounceTimer = new System.Threading.Timer(_ =>
+            if (e.Key == Key.Enter)
             {
-                Dispatcher.BeginInvoke(() =>
-                {
-                    RefreshAllTabViews();
-                    UpdateStatus();
-                });
-            }, null, 300, System.Threading.Timeout.Infinite);
+                RefreshAllTabViews();
+                UpdateStatus();
+                e.Handled = true;
+            }
         }
 
-        private System.Threading.Timer? searchDebounceTimer;
+        private void BtnSearch_Click(object sender, RoutedEventArgs e)
+        {
+            RefreshAllTabViews();
+            UpdateStatus();
+        }
 
         private void Filter_Changed(object sender, RoutedEventArgs e)
         {

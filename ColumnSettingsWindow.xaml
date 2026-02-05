@@ -37,7 +37,10 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                          ToolTip="새 프리셋 이름 입력"/>
                 <Button Content="다른이름저장" Width="80" Height="28" Margin="10,0,0,0" Click="BtnSaveAsPreset_Click"/>
                 <Border Width="1" Background="#CCC" Margin="15,2"/>
-                <Button Content="📂 폴더 열기" Width="90" Height="28" Click="BtnOpenPresetFolder_Click"
+                <Button Content="🗑 삭제" Width="60" Height="28" Click="BtnDeletePreset_Click"
+                        Background="#FFEBEE" Foreground="#C62828" BorderBrush="#EF9A9A"
+                        ToolTip="현재 선택된 프리셋 삭제 (Default는 삭제 불가)"/>
+                <Button Content="📂 폴더" Width="60" Height="28" Margin="5,0,0,0" Click="BtnOpenPresetFolder_Click"
                         ToolTip="프리셋 저장 폴더를 파일 탐색기로 열기"/>
             </StackPanel>
         </GroupBox>
@@ -287,14 +290,55 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                                                                  <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" 
                                                                         CornerRadius="3" Padding="8" Margin="0,0,0,8">
                                                                     <Grid>
+                                                                        <Grid.RowDefinitions>
+                                                                            <RowDefinition Height="Auto"/>
+                                                                            <RowDefinition Height="Auto"/>
+                                                                        </Grid.RowDefinitions>
                                                                         <Grid.ColumnDefinitions>
                                                                             <ColumnDefinition Width="*"/>
                                                                             <ColumnDefinition Width="Auto"/>
                                                                         </Grid.ColumnDefinitions>
 
+                                                                        <!-- 키워드 검색 체크박스 -->
+                                                                        <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="0,0,0,5">
+                                                                            <CheckBox x:Name="chkKeywordSearch"
+                                                                                      Content="🔍 키워드 검색" 
+                                                                                      IsChecked="{Binding IsKeywordSearch, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                                      VerticalAlignment="Center"
+                                                                                      FontWeight="SemiBold"
+                                                                                      Foreground="#1976D2"
+                                                                                      ToolTip="체크하면 필드 무시하고 전체 로그에서 키워드 포함 검색"/>
+                                                                            <TextBlock Text="(로그에 키워드가 포함되면 매칭)" 
+                                                                                       Foreground="#888" FontSize="10" 
+                                                                                       VerticalAlignment="Center" Margin="10,0,0,0">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsKeywordSearch}" Value="True">
+                                                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
+                                                                        </StackPanel>
+
                                                                         <!-- Field, Value, Exact -->
-                                                                        <StackPanel Grid.Column="0" Orientation="Horizontal">
-                                                                            <TextBlock Text="필드:" Width="50" VerticalAlignment="Center"/>
+                                                                        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal">
+                                                                            <!-- 필드 라벨 (키워드 검색 시 숨김) -->
+                                                                            <TextBlock Text="필드:" Width="50" VerticalAlignment="Center">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsKeywordSearch}" Value="True">
+                                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
+                                                                            <!-- 필드 콤보박스 (키워드 검색 시 숨김) -->
                                                                             <ComboBox Width="120" 
                                                                                       Text="{Binding FieldName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                                                       IsEditable="True"
@@ -302,18 +346,63 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                                                                                       StaysOpenOnEdit="True"
                                                                                       ItemsSource="{Binding FieldList, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                                       SelectionChanged="ConditionFieldComboBox_SelectionChanged"
-                                                                                      LostFocus="ConditionFieldComboBox_LostFocus"/>
-                                                                            <TextBlock Text="값:" Width="45" VerticalAlignment="Center" Margin="15,0,0,0"/>
-                                                                            <TextBox Width="100" 
+                                                                                      LostFocus="ConditionFieldComboBox_LostFocus">
+                                                                                <ComboBox.Style>
+                                                                                    <Style TargetType="ComboBox">
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsKeywordSearch}" Value="True">
+                                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </ComboBox.Style>
+                                                                            </ComboBox>
+                                                                            <!-- 키워드 라벨 (키워드 검색 시 표시) -->
+                                                                            <TextBlock Text="키워드:" Width="55" VerticalAlignment="Center">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsKeywordSearch}" Value="True">
+                                                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
+                                                                            <!-- 값 라벨 (키워드 검색 시 숨김) -->
+                                                                            <TextBlock Text="값:" Width="45" VerticalAlignment="Center" Margin="15,0,0,0">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsKeywordSearch}" Value="True">
+                                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
+                                                                            <TextBox Width="180" 
                                                                                      Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
-                                                                                     ToolTip="여러 값은 쉼표로 구분 (예: 2,3)"/>
+                                                                                     ToolTip="키워드 검색: 포함할 키워드&#x0a;필드 검색: 여러 값은 쉼표로 구분"/>
+                                                                            <!-- 정확히 일치 (키워드 검색 시 숨김) -->
                                                                             <CheckBox Content="정확히 일치" 
                                                                                       IsChecked="{Binding ExactMatch}"
-                                                                                      VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                                                                      VerticalAlignment="Center" Margin="10,0,0,0">
+                                                                                <CheckBox.Style>
+                                                                                    <Style TargetType="CheckBox">
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsKeywordSearch}" Value="True">
+                                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </CheckBox.Style>
+                                                                            </CheckBox>
                                                                         </StackPanel>
 
                                                                         <!-- X Button -->
-                                                                        <Button Grid.Column="1" Content="X" 
+                                                                        <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Content="X" 
                                                                                 Width="22" Height="22"
                                                                                 VerticalAlignment="Center"
                                                                                 Click="BtnRemoveConditionInGroup_Click"
@@ -347,6 +436,80 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                         </ScrollViewer>
                     </Border>
                 </Grid>
+            </TabItem>
+
+            <!-- Filter Settings Tab -->
+            <TabItem Header="필터 설정">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10">
+                        <!-- Excluded MSGID Section -->
+                        <GroupBox Header="🚫 제외할 MSGID" Padding="15" Margin="0,0,0,15">
+                            <StackPanel>
+                                <TextBlock Text="파싱에서 제외할 MSGID를 쉼표로 구분하여 입력하세요." 
+                                           Foreground="#666" FontSize="12" Margin="0,0,0,5"/>
+                                <TextBlock Text="예: S6F1,S6F11,S1F3" 
+                                           Foreground="#999" FontSize="11" Margin="0,0,0,10"/>
+                                <TextBox x:Name="txtExcludedMsgIds" 
+                                         Height="60" 
+                                         TextWrapping="Wrap"
+                                         AcceptsReturn="True"
+                                         VerticalScrollBarVisibility="Auto"
+                                         FontSize="12"
+                                         FontFamily="Consolas"
+                                         Padding="8"
+                                         ToolTip="제외할 MSGID를 쉼표로 구분하여 입력"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Include Keywords Section -->
+                        <GroupBox Header="✅ 포함할 키워드 (MSGID 없는 로그 수집)" Padding="15" Margin="0,0,0,15">
+                            <StackPanel>
+                                <TextBlock TextWrapping="Wrap" Foreground="#666" FontSize="12" Margin="0,0,0,5">
+                                    <Run Text="MSGID가 없는 로그 중 수집할 키워드를 "/>
+                                    <Run Text="한 줄에 하나씩" FontWeight="Bold" Foreground="#1976D2"/>
+                                    <Run Text=" 입력하세요."/>
+                                </TextBlock>
+                                <TextBlock Text="해당 키워드가 포함된 로그는 MSGID가 없어도 수집됩니다." 
+                                           Foreground="#666" FontSize="12" Margin="0,0,0,5"/>
+                                <Border Background="#FFF3E0" BorderBrush="#FFB74D" BorderThickness="1" 
+                                        CornerRadius="3" Padding="8" Margin="0,0,0,10">
+                                    <TextBlock FontSize="11" Foreground="#E65100" TextWrapping="Wrap">
+                                        <Run Text="예시:"/>
+                                        <LineBreak/>
+                                        <Run Text="SFC2_PalletDoor_Auto_Buffer" FontFamily="Consolas"/>
+                                        <LineBreak/>
+                                        <Run Text="GetDoorLoading" FontFamily="Consolas"/>
+                                        <LineBreak/>
+                                        <Run Text="PALLET_ID" FontFamily="Consolas"/>
+                                    </TextBlock>
+                                </Border>
+                                <TextBox x:Name="txtIncludeKeywords" 
+                                         Height="120" 
+                                         TextWrapping="Wrap"
+                                         AcceptsReturn="True"
+                                         VerticalScrollBarVisibility="Auto"
+                                         FontSize="12"
+                                         FontFamily="Consolas"
+                                         Padding="8"
+                                         ToolTip="포함할 키워드를 한 줄에 하나씩 입력"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Tips -->
+                        <Border Background="#E8F5E9" BorderBrush="#81C784" BorderThickness="1" 
+                                CornerRadius="5" Padding="15">
+                            <StackPanel>
+                                <TextBlock Text="💡 팁" FontWeight="Bold" Foreground="#2E7D32" Margin="0,0,0,8"/>
+                                <TextBlock Text="• 불필요한 로그를 제외하면 파싱 속도가 향상됩니다." 
+                                           Foreground="#388E3C" FontSize="11" Margin="0,0,0,3"/>
+                                <TextBlock Text="• 포함 키워드는 대소문자를 구분하지 않습니다." 
+                                           Foreground="#388E3C" FontSize="11" Margin="0,0,0,3"/>
+                                <TextBlock Text="• 변경 후 로그를 다시 로드해야 적용됩니다." 
+                                           Foreground="#F57C00" FontSize="11" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
 

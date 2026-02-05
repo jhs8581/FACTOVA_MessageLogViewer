@@ -877,20 +877,10 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
-        /// <summary>
-        /// 검색 텍스트 변경 시 실시간 필터링 (디바운스 적용)
-        /// </summary>
-        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
+        private void BtnSearch_Click(object sender, RoutedEventArgs e)
         {
-            // 디바운싱으로 타이핑 중 과도한 필터링 방지
-            searchDebounceTimer?.Dispose();
-            searchDebounceTimer = new System.Threading.Timer(_ =>
-            {
-                Dispatcher.BeginInvoke(() => ApplyAllFilters());
-            }, null, 300, System.Threading.Timeout.Infinite);
+            ApplyAllFilters();
         }
-        
-        private System.Threading.Timer? searchDebounceTimer;
 
         private void ApplySearch()
         {

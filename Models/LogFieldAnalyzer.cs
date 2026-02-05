@@ -78,7 +78,7 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// 로그 파일에서 모든 필드명 추출 (샘플링)
+        /// 로그 파일에서 모든 필드명 추출 (샘플링) - 제외 MSGID 적용
         /// </summary>
         public static List<string> ExtractFieldNames(string logFilePath, int sampleSize = 100)
         {
@@ -89,6 +89,9 @@ namespace FACTOVA_MessageLogViewer.Models
 
             try
             {
+                // 제외할 MSGID 목록 가져오기
+                var excludedMsgIds = ColumnSettingsManager.CurrentSettings.ExcludedMsgIdSet;
+
                 // 파일 읽기 (최대 1MB만)
                 string content;
                 using (var stream = new FileStream(logFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
@@ -99,29 +102,45 @@ namespace FACTOVA_MessageLogViewer.Models
                     content = new string(buffer, 0, read);
                 }
 
-                // NAME=xxx 패턴 추출
-                var namePattern = new Regex(@"<NAME=([^>]+)>", RegexOptions.Compiled);
-                var matches = namePattern.Matches(content);
+                // 로그 엔트리 단위로 분리
+                var entryPattern = new Regex(@"^\[(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\]\[([A-Z]+)\]", 
+                    RegexOptions.Compiled | RegexOptions.Multiline);
+                var entryMatches = entryPattern.Matches(content);
 
-                foreach (Match match in matches)
+                for (int i = 0; i < entryMatches.Count; i++)
                 {
-                    var fieldName = match.Groups[1].Value.Trim();
-                    if (!string.IsNullOrEmpty(fieldName))
+                    int startIndex = entryMatches[i].Index;
+                    int endIndex = (i + 1 < entryMatches.Count) ? entryMatches[i + 1].Index : content.Length;
+                    string entryText = content.Substring(startIndex, endIndex - startIndex);
+
+                    // MSGID 추출하여 제외 목록 체크
+                    var msgIdMatch = Regex.Match(entryText, @"<MSGID=([^>]*)>");
+                    if (msgIdMatch.Success)
                     {
-                        fieldNames.Add(fieldName);
+                        string msgId = msgIdMatch.Groups[1].Value;
+                        if (excludedMsgIds.Contains(msgId))
+                        {
+                            continue; // 제외 MSGID면 스킵
+                        }
+                    }
+
+                    // NAME=xxx 패턴 추출
+                    var namePattern = new Regex(@"<NAME=([^>]+)>", RegexOptions.Compiled);
+                    var matches = namePattern.Matches(entryText);
+
+                    foreach (Match match in matches)
+                    {
+                        var fieldName = match.Groups[1].Value.Trim();
+                        if (!string.IsNullOrEmpty(fieldName))
+                        {
+                            fieldNames.Add(fieldName);
+                        }
                     }
                 }
 
-                // 추가로 ELEMENT 섹션의 필드들도 추출
-                var elementFields = new[] { "PROCID", "MSGID" };
-                foreach (var field in elementFields)
-                {
-                    var pattern = new Regex($@"<{field}=([^>]+)>", RegexOptions.Compiled);
-                    if (pattern.IsMatch(content))
-                    {
-                        fieldNames.Add(field);
-                    }
-                }
+                // 추가로 ELEMENT 섹션의 필드들도 추가 (기본 필드)
+                fieldNames.Add("PROCID");
+                fieldNames.Add("MSGID");
             }
             catch (Exception ex)
             {
@@ -132,7 +151,7 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// 필드별 샘플 값 추출
+        /// 필드별 샘플 값 추출 - 제외 MSGID 적용
         /// </summary>
         public static Dictionary<string, List<string>> ExtractFieldSamples(string logFilePath, int maxSamples = 5)
         {
@@ -143,6 +162,9 @@ namespace FACTOVA_MessageLogViewer.Models
 
             try
             {
+                // 제외할 MSGID 목록 가져오기
+                var excludedMsgIds = ColumnSettingsManager.CurrentSettings.ExcludedMsgIdSet;
+
                 string content;
                 using (var stream = new FileStream(logFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                 using (var reader = new StreamReader(stream, Encoding.UTF8))
@@ -152,26 +174,49 @@ namespace FACTOVA_MessageLogViewer.Models
                     content = new string(buffer, 0, read);
                 }
 
-                // NAME/VALUE 쌍 추출
-                var pattern = new Regex(@"<NAME=([^>]+)>\s*<VALUE=([^>]*)>", RegexOptions.Compiled);
-                var matches = pattern.Matches(content);
+                // 로그 엔트리 단위로 분리
+                var entryPattern = new Regex(@"^\[(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\]\[([A-Z]+)\]", 
+                    RegexOptions.Compiled | RegexOptions.Multiline);
+                var entryMatches = entryPattern.Matches(content);
 
-                foreach (Match match in matches)
+                for (int i = 0; i < entryMatches.Count; i++)
                 {
-                    var fieldName = match.Groups[1].Value.Trim();
-                    var value = match.Groups[2].Value.Trim();
+                    int startIndex = entryMatches[i].Index;
+                    int endIndex = (i + 1 < entryMatches.Count) ? entryMatches[i + 1].Index : content.Length;
+                    string entryText = content.Substring(startIndex, endIndex - startIndex);
 
-                    if (string.IsNullOrEmpty(fieldName))
-                        continue;
-
-                    if (!samples.ContainsKey(fieldName))
-                        samples[fieldName] = new List<string>();
-
-                    // 중복 아니고 maxSamples 이하면 추가
-                    if (!samples[fieldName].Contains(value) && samples[fieldName].Count < maxSamples)
+                    // MSGID 추출하여 제외 목록 체크
+                    var msgIdMatch = Regex.Match(entryText, @"<MSGID=([^>]*)>");
+                    if (msgIdMatch.Success)
                     {
-                        if (!string.IsNullOrEmpty(value))
-                            samples[fieldName].Add(value);
+                        string msgId = msgIdMatch.Groups[1].Value;
+                        if (excludedMsgIds.Contains(msgId))
+                        {
+                            continue; // 제외 MSGID면 스킵
+                        }
+                    }
+
+                    // NAME/VALUE 쌍 추출
+                    var pattern = new Regex(@"<NAME=([^>]+)>\s*<VALUE=([^>]*)>", RegexOptions.Compiled);
+                    var matches = pattern.Matches(entryText);
+
+                    foreach (Match match in matches)
+                    {
+                        var fieldName = match.Groups[1].Value.Trim();
+                        var value = match.Groups[2].Value.Trim();
+
+                        if (string.IsNullOrEmpty(fieldName))
+                            continue;
+
+                        if (!samples.ContainsKey(fieldName))
+                            samples[fieldName] = new List<string>();
+
+                        // 중복 아니고 maxSamples 이하면 추가
+                        if (!samples[fieldName].Contains(value) && samples[fieldName].Count < maxSamples)
+                        {
+                            if (!string.IsNullOrEmpty(value))
+                                samples[fieldName].Add(value);
+                        }
                     }
                 }
             }

@@ -42,7 +42,7 @@ namespace FACTOVA_MessageLogViewer
         /// <summary>
         /// 시작 버튼 클릭 시 호출
         /// </summary>
-        private void LogSettings_StartViewerRequested(object? sender, System.EventArgs e)
+        private async void LogSettings_StartViewerRequested(object? sender, System.EventArgs e)
         {
             var selectedDate = logSettings.SelectedDate;
             if (selectedDate == null)
@@ -78,7 +78,7 @@ namespace FACTOVA_MessageLogViewer
                     LogType = LogType.EVENT,
                     EnableRealTimeWatch = logSettings.WatchEventLog
                 };
-                eventLogViewer.Initialize(eventSettings);
+                await eventLogViewer.InitializeAsync(eventSettings);
             }
 
             // DATA 로그 파일 경로 찾기

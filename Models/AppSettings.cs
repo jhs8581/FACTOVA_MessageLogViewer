@@ -282,18 +282,22 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// 저장된 프리셋 목록 조회
+        /// 저장된 프리셋 목록 조회 (기존 EVENT 프리셋만, unified 제외)
         /// </summary>
         public static List<string> GetPresetNames()
         {
             var presets = new List<string>();
             try
             {
-                // 새 경로
+                // 새 경로 (unified 제외)
                 if (Directory.Exists(PresetsFolder))
                 {
                     foreach (var file in Directory.GetFiles(PresetsFolder, "*.json"))
                     {
+                        // .unified.json 파일은 제외
+                        if (file.EndsWith(".unified.json", StringComparison.OrdinalIgnoreCase))
+                            continue;
+                            
                         presets.Add(Path.GetFileNameWithoutExtension(file));
                     }
                 }
@@ -314,6 +318,27 @@ namespace FACTOVA_MessageLogViewer.Models
             }
             catch { }
             return presets;
+        }
+
+        /// <summary>
+        /// 프리셋 삭제
+        /// </summary>
+        public static bool DeletePreset(string name)
+        {
+            try
+            {
+                var fileName = SanitizeFileName(name) + ".json";
+                var filePath = Path.Combine(PresetsFolder, fileName);
+                
+                if (File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                    return true;
+                }
+            }
+            catch { }
+            
+            return false;
         }
 
         private static string SanitizeFileName(string name)
