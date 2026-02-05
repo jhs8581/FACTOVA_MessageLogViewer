@@ -107,27 +107,11 @@ namespace FACTOVA_MessageLogViewer
         }
 
         /// <summary>
-        /// 탭 변경 시 프리셋 영역 색상 변경
+        /// 탭 변경 이벤트 (프리셋 영역 색상 변경 제거 - 보라색 테마 통일)
         /// </summary>
         private void MainTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (e.Source != mainTabControl) return;
-
-            try
-            {
-                // 탭별 테마 색상
-                var (bgColor, borderColor) = mainTabControl.SelectedIndex switch
-                {
-                    0 => ("#F3E5F5", "#CE93D8"),  // 태그 설정 - 보라색
-                    1 => ("#FFF3E0", "#FFB74D"),  // 필드 설정 - 주황색
-                    2 => ("#E3F2FD", "#64B5F6"),  // 탭 설정 - 파란색
-                    _ => ("#F3E5F5", "#CE93D8")
-                };
-
-                grpPreset.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(bgColor));
-                grpPreset.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(borderColor));
-            }
-            catch { }
+            // 프리셋 영역은 항상 보라색 테마 유지
         }
 
         private void LoadPresetToUI(UnifiedPreset preset)
@@ -156,13 +140,18 @@ namespace FACTOVA_MessageLogViewer
             dgTags.ItemsSource = null;
             dgTags.ItemsSource = tagConfigs;
 
-            // 필드 설정 로드
+            // 필드 설정 로드 (Order로 정렬)
             fieldConfigs.Clear();
             if (flSettings.FieldConfigs != null)
             {
-                foreach (var config in flSettings.FieldConfigs)
+                foreach (var config in flSettings.FieldConfigs.OrderBy(f => f.Order))
                 {
                     fieldConfigs.Add(config);
+                }
+                // Order 재정렬 (1부터 연속)
+                for (int i = 0; i < fieldConfigs.Count; i++)
+                {
+                    fieldConfigs[i].Order = i + 1;
                 }
             }
             
@@ -196,10 +185,24 @@ namespace FACTOVA_MessageLogViewer
 
         private void SaveUIToPreset()
         {
+            // 필드를 Order로 정렬하고 Order를 연속적으로 재할당
+            var sortedFields = fieldConfigs.OrderBy(f => f.Order).ToList();
+            for (int i = 0; i < sortedFields.Count; i++)
+            {
+                sortedFields[i].Order = i + 1;
+            }
+
+            // 태그도 Order로 정렬
+            var sortedTags = tagConfigs.OrderBy(t => t.Order).ToList();
+            for (int i = 0; i < sortedTags.Count; i++)
+            {
+                sortedTags[i].Order = i + 1;
+            }
+
             currentPreset.FLSettings = new FLPresetSettings
             {
-                TagConfigs = tagConfigs.ToList(),
-                FieldConfigs = fieldConfigs.ToList(),
+                TagConfigs = sortedTags,
+                FieldConfigs = sortedFields,
                 TabSettings = new FLTabSettings
                 {
                     Tabs = tabConfigs.ToList(),
@@ -207,7 +210,7 @@ namespace FACTOVA_MessageLogViewer
                 }
             };
             
-            System.Diagnostics.Debug.WriteLine($"💾 FL SaveUIToPreset: 태그={tagConfigs.Count}개, 필드={fieldConfigs.Count}개, 탭={tabConfigs.Count}개");
+            System.Diagnostics.Debug.WriteLine($"💾 FL SaveUIToPreset: 태그={sortedTags.Count}개, 필드={sortedFields.Count}개, 탭={tabConfigs.Count}개");
         }
 
         private void BtnSavePreset_Click(object sender, RoutedEventArgs e)
@@ -628,6 +631,34 @@ namespace FACTOVA_MessageLogViewer
             {
                 dgFields.ItemsSource = fieldConfigs;
             }
+        }
+
+        private void BtnFieldBulkChange_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedType = (cboFieldBulkChange.SelectedItem as ComboBoxItem)?.Content?.ToString();
+            if (string.IsNullOrEmpty(selectedType))
+            {
+                MessageBox.Show("변경할 타입을 선택해주세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var checkedItems = fieldConfigs.Where(f => f.IsSelected).ToList();
+            if (checkedItems.Count == 0)
+            {
+                MessageBox.Show("변경할 항목을 체크해주세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            bool showAsColumn = selectedType == "Column";
+
+            foreach (var item in checkedItems)
+            {
+                item.ShowAsColumn = showAsColumn;
+                item.IsSelected = false;
+            }
+
+            dgFields.Items.Refresh();
+            MessageBox.Show($"{checkedItems.Count}개 항목이 '{selectedType}'(으)로 변경되었습니다.", "완료", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void BtnEditValueMapping_Click(object sender, RoutedEventArgs e)

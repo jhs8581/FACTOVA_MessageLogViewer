@@ -102,57 +102,70 @@
             </Border>
 
             <!-- 오른쪽: 파라미터 필드 -->
-            <Border Grid.Column="2" Background="White" CornerRadius="5" Padding="10" BorderBrush="#DDD" BorderThickness="1">
+            <Border Grid.Column="2" Background="#FFF3E0" CornerRadius="5" Padding="10" BorderBrush="#FFB74D" BorderThickness="1">
                 <Grid>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Text="🔧 파라미터 컬럼" FontSize="14" FontWeight="SemiBold" Foreground="#555" VerticalAlignment="Center"/>
-                        <TextBlock Text="(XML에서 추출)" FontSize="11" Foreground="#888" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                        <Button Content="🔄 로그분석" Width="80" Height="26" Margin="15,0,0,0" Click="BtnAnalyzeParams_Click" 
-                                Background="#FF9800" Foreground="White" FontSize="11" FontWeight="SemiBold"
-                                ToolTip="로드된 로그에서 파라미터 목록을 추출합니다"/>
+                    <!-- 헤더 및 설명 -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,8">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔧 파라미터 컬럼" FontSize="14" FontWeight="SemiBold" Foreground="#E65100" VerticalAlignment="Center"/>
+                            <TextBlock Text="(XML에서 추출)" FontSize="11" Foreground="#888" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        </StackPanel>
+                        <TextBlock Text="Column: 컬럼으로 표시 | Hidden: 숨김"
+                                   Foreground="#666" FontSize="11" Margin="0,5,0,0"/>
                     </StackPanel>
 
-                    <!-- 파라미터 추가 -->
-                    <Border Grid.Row="1" Background="#FFE0B2" BorderBrush="#FF9800" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,0,0,10">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            
-                            <TextBlock Grid.Column="0" Text="📋 로그에서 선택:" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
-                            <ComboBox Grid.Column="1" x:Name="cboAvailableParams" Height="26" FontSize="11" MinWidth="150"
-                                      ToolTip="로그에서 발견된 파라미터 목록" Margin="0,0,10,0"/>
-                            <TextBlock Grid.Column="2" Text="표시명:" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
-                            <TextBox Grid.Column="3" x:Name="txtParamDisplayFromCombo" Width="100" Height="26" FontSize="11" VerticalContentAlignment="Center"
-                                     ToolTip="선택한 파라미터의 표시 이름" Margin="0,0,10,0"/>
-                            <Button Grid.Column="4" Content="➕ 추가" Width="70" Height="26" Click="BtnAddParamFromCombo_Click"
-                                    Background="#4CAF50" Foreground="White" FontWeight="Bold" FontSize="11"
-                                    ToolTip="선택한 파라미터를 컬럼으로 추가"/>
-                        </Grid>
+                    <!-- 이동 버튼 및 필터 -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+                        <Button Content="▲" Width="26" Height="26" Click="BtnParamMoveUp_Click" FontSize="11" ToolTip="위로 이동"/>
+                        <Button Content="▼" Width="26" Height="26" Margin="3,0,0,0" Click="BtnParamMoveDown_Click" FontSize="11" ToolTip="아래로 이동"/>
+                        <Border Width="1" Background="#CCC" Margin="15,2"/>
+                        <CheckBox x:Name="chkColumnOnly" Content="컬럼 표시만" 
+                                  VerticalAlignment="Center" FontSize="11"
+                                  Checked="ChkColumnOnly_CheckedChanged" 
+                                  Unchecked="ChkColumnOnly_CheckedChanged"
+                                  ToolTip="Column 타입 필드만 표시"/>
+                    </StackPanel>
+
+                    <!-- 일괄 변경 영역 -->
+                    <Border Grid.Row="2" Background="#FFE0B2" BorderBrush="#FF9800" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,0,0,8">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="체크한 항목 일괄 변경:" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11" Margin="0,0,10,0"/>
+                            <ComboBox x:Name="cboBulkChange" Width="90" Height="26" FontSize="11">
+                                <ComboBoxItem Content="Column"/>
+                                <ComboBoxItem Content="Hidden"/>
+                            </ComboBox>
+                            <Button Content="적용" Width="55" Height="26" Margin="8,0,0,0" Click="BtnBulkChange_Click" FontSize="11"
+                                    Background="#FF9800" Foreground="White" FontWeight="Bold"/>
+                            <Border Width="1" Background="#FFB74D" Margin="15,2"/>
+                            <Button Content="선택 삭제" Width="65" Height="26" Click="BtnBulkDelete_Click" FontSize="11"
+                                    Background="#FFEBEE" Foreground="#C62828" FontWeight="Bold"
+                                    ToolTip="체크된 항목 삭제"/>
+                            <Border Width="1" Background="#FFB74D" Margin="15,2"/>
+                            <Button Content="🔄 재분석" Width="70" Height="26" Click="BtnAnalyzeParams_Click" FontSize="11"
+                                    Background="#FF9800" Foreground="White" FontWeight="SemiBold"
+                                    ToolTip="로드된 로그에서 새 파라미터 검색 후 추가"/>
+                        </StackPanel>
                     </Border>
 
-                    <DataGrid Grid.Row="2" x:Name="dgParamFields"
+                    <DataGrid Grid.Row="3" x:Name="dgParamFields"
                               AutoGenerateColumns="False"
                               CanUserAddRows="False"
                               CanUserDeleteRows="False"
-                              SelectionMode="Single"
+                              SelectionMode="Extended"
                               GridLinesVisibility="Horizontal"
                               HeadersVisibility="Column"
                               Background="White"
-                              RowHeight="30"
+                              RowHeight="32"
                               FontSize="12">
                         <DataGrid.Columns>
-                            <DataGridCheckBoxColumn Header="표시" Binding="{Binding IsEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="50">
+                            <DataGridCheckBoxColumn Header="선택" Binding="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="45">
                                 <DataGridCheckBoxColumn.ElementStyle>
                                     <Style TargetType="CheckBox">
                                         <Setter Property="HorizontalAlignment" Value="Center"/>
@@ -160,17 +173,49 @@
                                     </Style>
                                 </DataGridCheckBoxColumn.ElementStyle>
                             </DataGridCheckBoxColumn>
-                            <DataGridTextColumn Header="필드명" Binding="{Binding FieldName, Mode=TwoWay}" Width="180"/>
-                            <DataGridTextColumn Header="표시 이름" Binding="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="130"/>
-                            <DataGridTextColumn Header="값 변환" Binding="{Binding ValueMapping, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="*">
+                            <DataGridTextColumn Header="#" Binding="{Binding Order, UpdateSourceTrigger=PropertyChanged}" Width="35" IsReadOnly="True">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="ToolTip" Value="예: 1=ON,0=OFF,Y=사용,N=미사용"/>
-                                        <Setter Property="Foreground" Value="#666"/>
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="Foreground" Value="#888"/>
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTemplateColumn Header="" Width="40">
+                            <DataGridTextColumn Header="필드명" Binding="{Binding FieldName, Mode=TwoWay}" Width="140"/>
+                            <DataGridTextColumn Header="표시명" Binding="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="100"/>
+                            <DataGridComboBoxColumn Header="표시타입" 
+                                                     SelectedItemBinding="{Binding DisplayTypeString, UpdateSourceTrigger=PropertyChanged}" 
+                                                     Width="80">
+                                <DataGridComboBoxColumn.ItemsSource>
+                                    <x:Array Type="{x:Type sys:String}" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                                        <sys:String>Column</sys:String>
+                                        <sys:String>Hidden</sys:String>
+                                    </x:Array>
+                                </DataGridComboBoxColumn.ItemsSource>
+                            </DataGridComboBoxColumn>
+                            <DataGridTemplateColumn Header="값 매핑" Width="110">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding ValueMappingDisplayText}" 
+                                                Click="BtnEditValueMapping_Click"
+                                                Tag="{Binding}"
+                                                HorizontalAlignment="Stretch"
+                                                Padding="4,2"
+                                                ToolTip="클릭하여 값 매핑 편집&#x0a;예: 1=ON, 0=OFF"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="샘플 값" Binding="{Binding SampleValue}" Width="*" IsReadOnly="True">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#666"/>
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTemplateColumn Header="" Width="35">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Button Content="✕" Click="BtnRemoveParam_Click"

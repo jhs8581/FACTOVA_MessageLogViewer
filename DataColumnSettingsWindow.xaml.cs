@@ -197,7 +197,7 @@ namespace FACTOVA_MessageLogViewer
         #region 파라미터 필드 관리
 
         /// <summary>
-        /// 로그에서 파라미터 분석
+        /// 로그에서 파라미터 분석 후 그리드에 바로 추가
         /// </summary>
         private void BtnAnalyzeParams_Click(object sender, RoutedEventArgs e)
         {
@@ -236,92 +236,76 @@ namespace FACTOVA_MessageLogViewer
                     return;
                 }
 
-                // 모든 로그에서 파라미터 필드 추출
-                var parameterSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                // 모든 로그에서 파라미터 필드 및 샘플 값 추출
+                var parameterSamples = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var log in logEntries)
                 {
                     if (log.Fields != null)
                     {
-                        foreach (var key in log.Fields.Keys)
+                        foreach (var kvp in log.Fields)
                         {
-                            parameterSet.Add(key);
+                            if (!parameterSamples.ContainsKey(kvp.Key))
+                            {
+                                parameterSamples[kvp.Key] = kvp.Value?.ToString() ?? "";
+                            }
+                            else if (string.IsNullOrEmpty(parameterSamples[kvp.Key]) && !string.IsNullOrEmpty(kvp.Value?.ToString()))
+                            {
+                                parameterSamples[kvp.Key] = kvp.Value?.ToString() ?? "";
+                            }
                         }
                     }
                 }
 
-                if (!parameterSet.Any())
+                if (!parameterSamples.Any())
                 {
                     MessageBox.Show("파라미터를 찾을 수 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
 
-                // 콤보박스에 추가
-                cboAvailableParams.Items.Clear();
-                foreach (var param in parameterSet.OrderBy(p => p))
+                // 이미 추가된 파라미터 목록
+                var existingParams = new HashSet<string>(paramFields.Select(f => f.FieldName), StringComparer.OrdinalIgnoreCase);
+
+                // 새로 발견된 파라미터들을 그리드에 바로 추가
+                int addedCount = 0;
+                int order = paramFields.Any() ? paramFields.Max(f => f.Order) + 1 : 100;
+
+                foreach (var param in parameterSamples.OrderBy(p => p.Key))
                 {
-                    cboAvailableParams.Items.Add(param);
+                    // 이미 추가된 파라미터는 건너뛰기
+                    if (existingParams.Contains(param.Key))
+                        continue;
+
+                    if (order >= 900) order = 899;
+
+                    paramFields.Add(new DataFieldConfig
+                    {
+                        Order = order++,
+                        FieldName = param.Key,
+                        DisplayName = param.Key,
+                        ColumnWidth = 100,
+                        IsEnabled = false,  // 기본값: Hidden
+                        IsParameter = true,
+                        SampleValue = string.IsNullOrEmpty(param.Value) ? "(no value)" : param.Value
+                    });
+                    addedCount++;
                 }
 
-                if (cboAvailableParams.Items.Count > 0)
-                {
-                    cboAvailableParams.SelectedIndex = 0;
-                }
+                UpdateParamOrders();
 
-                MessageBox.Show($"{parameterSet.Count}개의 파라미터를 발견했습니다.", "분석 완료", MessageBoxButton.OK, MessageBoxImage.Information);
+                if (addedCount > 0)
+                {
+                    MessageBox.Show($"{addedCount}개의 새 파라미터가 추가되었습니다. (기본: Hidden)\n(총 {parameterSamples.Count}개 발견, {existingParams.Count}개는 이미 존재)", 
+                        "분석 완료", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    MessageBox.Show($"모든 파라미터가 이미 추가되어 있습니다.\n(총 {parameterSamples.Count}개 발견)", 
+                        "분석 완료", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"파라미터 분석 중 오류가 발생했습니다:\n{ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        /// <summary>
-        /// 콤보박스에서 선택한 파라미터 추가
-        /// </summary>
-        private void BtnAddParamFromCombo_Click(object sender, RoutedEventArgs e)
-        {
-            var fieldName = cboAvailableParams.SelectedItem?.ToString();
-            if (string.IsNullOrEmpty(fieldName))
-            {
-                MessageBox.Show("파라미터를 선택하세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            var displayName = txtParamDisplayFromCombo.Text.Trim();
-            if (string.IsNullOrEmpty(displayName))
-                displayName = fieldName;
-
-            // 중복 체크
-            if (paramFields.Any(f => f.FieldName.Equals(fieldName, StringComparison.OrdinalIgnoreCase)))
-            {
-                MessageBox.Show("이미 추가된 파라미터입니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            // 기본 Order: 비즈명(10) 뒤, 실행시간(900) 앞 = 100~899 범위
-            int order = 100;
-            if (paramFields.Any())
-            {
-                order = paramFields.Max(f => f.Order) + 1;
-                if (order >= 900) order = 899; // 실행시간 앞까지만
-            }
-
-            paramFields.Add(new DataFieldConfig
-            {
-                Order = order,
-                FieldName = fieldName,
-                DisplayName = displayName,
-                ColumnWidth = 100,
-                IsEnabled = true,
-                IsParameter = true
-            });
-
-            txtParamDisplayFromCombo.Text = "";
-
-            // 다음 항목 선택
-            if (cboAvailableParams.SelectedIndex < cboAvailableParams.Items.Count - 1)
-            {
-                cboAvailableParams.SelectedIndex++;
             }
         }
 
@@ -330,7 +314,162 @@ namespace FACTOVA_MessageLogViewer
             if (sender is Button btn && btn.DataContext is DataFieldConfig field)
             {
                 paramFields.Remove(field);
+                UpdateParamOrders();
             }
+        }
+
+        /// <summary>
+        /// 파라미터 필드 위로 이동
+        /// </summary>
+        private void BtnParamMoveUp_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedItem = dgParamFields.SelectedItem as DataFieldConfig;
+            if (selectedItem == null) return;
+
+            var index = paramFields.IndexOf(selectedItem);
+            if (index > 0)
+            {
+                paramFields.Move(index, index - 1);
+                UpdateParamOrders();
+                dgParamFields.SelectedItem = selectedItem;
+            }
+        }
+
+        /// <summary>
+        /// 파라미터 필드 아래로 이동
+        /// </summary>
+        private void BtnParamMoveDown_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedItem = dgParamFields.SelectedItem as DataFieldConfig;
+            if (selectedItem == null) return;
+
+            var index = paramFields.IndexOf(selectedItem);
+            if (index < paramFields.Count - 1)
+            {
+                paramFields.Move(index, index + 1);
+                UpdateParamOrders();
+                dgParamFields.SelectedItem = selectedItem;
+            }
+        }
+
+        /// <summary>
+        /// 파라미터 순서 번호 갱신
+        /// </summary>
+        private void UpdateParamOrders()
+        {
+            int order = 100;
+            foreach (var field in paramFields)
+            {
+                field.Order = order++;
+            }
+            dgParamFields.Items.Refresh();
+        }
+
+        /// <summary>
+        /// 체크한 항목 일괄 변경 (콤보박스 선택값으로)
+        /// </summary>
+        private void BtnBulkChange_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedItems = paramFields.Where(f => f.IsSelected).ToList();
+            if (!selectedItems.Any())
+            {
+                MessageBox.Show("선택된 항목이 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var selectedType = (cboBulkChange.SelectedItem as ComboBoxItem)?.Content?.ToString();
+            if (string.IsNullOrEmpty(selectedType))
+            {
+                MessageBox.Show("변경할 표시타입을 선택하세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            foreach (var item in selectedItems)
+            {
+                item.DisplayTypeString = selectedType;
+            }
+            dgParamFields.Items.Refresh();
+            MessageBox.Show($"{selectedItems.Count}개 항목이 '{selectedType}'으로 변경되었습니다.", "완료", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        /// <summary>
+        /// 컬럼 표시만 필터
+        /// </summary>
+        private void ChkColumnOnly_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            if (dgParamFields == null) return;
+            
+            if (chkColumnOnly.IsChecked == true)
+            {
+                // Column 타입만 필터링하여 표시
+                dgParamFields.ItemsSource = paramFields.Where(f => f.IsEnabled).ToList();
+            }
+            else
+            {
+                // 전체 표시
+                dgParamFields.ItemsSource = paramFields;
+            }
+        }
+
+        /// <summary>
+        /// 선택된 항목 일괄 삭제
+        /// </summary>
+        private void BtnBulkDelete_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedItems = paramFields.Where(f => f.IsSelected).ToList();
+            if (!selectedItems.Any())
+            {
+                MessageBox.Show("선택된 항목이 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (MessageBox.Show($"{selectedItems.Count}개 항목을 삭제하시겠습니까?", "확인",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            {
+                foreach (var item in selectedItems)
+                {
+                    paramFields.Remove(item);
+                }
+                UpdateParamOrders();
+            }
+        }
+
+        /// <summary>
+        /// 값 매핑 편집
+        /// </summary>
+        private void BtnEditValueMapping_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is DataFieldConfig field)
+            {
+                var dialog = new InputDialog("값 매핑 설정", $"'{field.FieldName}'의 값 매핑을 입력하세요:\n예: 1=ON,0=OFF,Y=사용,N=미사용");
+                dialog.Owner = this;
+                
+                // 기존 값 설정
+                var textBox = FindTextBox(dialog);
+                if (textBox != null)
+                {
+                    textBox.Text = field.ValueMapping;
+                }
+
+                if (dialog.ShowDialog() == true)
+                {
+                    field.ValueMapping = dialog.InputText.Trim();
+                    dgParamFields.Items.Refresh();
+                }
+            }
+        }
+
+        private TextBox? FindTextBox(Window window)
+        {
+            if (window.Content is Grid grid)
+            {
+                foreach (var child in grid.Children)
+                {
+                    if (child is TextBox tb)
+                        return tb;
+                }
+            }
+            return null;
         }
 
         #endregion

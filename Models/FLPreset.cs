@@ -181,7 +181,26 @@ namespace FACTOVA_MessageLogViewer.Models
         public bool ShowAsColumn
         {
             get => showAsColumn;
-            set { showAsColumn = value; OnPropertyChanged(nameof(ShowAsColumn)); }
+            set 
+            { 
+                showAsColumn = value; 
+                OnPropertyChanged(nameof(ShowAsColumn)); 
+                OnPropertyChanged(nameof(DisplayTypeString)); 
+            }
+        }
+
+        /// <summary>
+        /// 표시 타입 문자열 (Column/Hidden) - UI 바인딩용
+        /// </summary>
+        [JsonIgnore]
+        public string DisplayTypeString
+        {
+            get => ShowAsColumn ? "Column" : "Hidden";
+            set
+            {
+                ShowAsColumn = value == "Column";
+                OnPropertyChanged(nameof(DisplayTypeString));
+            }
         }
 
         /// <summary>

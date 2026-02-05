@@ -137,7 +137,7 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
 
             <!-- Field Settings Tab (Structure 필드 컬럼/값 매핑) -->
             <TabItem Header="필드 설정">
-                <Grid Margin="10">
+                <Grid Margin="10" Background="#F3E5F5">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
@@ -147,16 +147,27 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                         <TextBlock Text="Structure 타입의 필드를 개별 컬럼으로 표시하거나 값을 매핑합니다."
                                    Foreground="#666" FontSize="11" Margin="0,0,0,8"/>
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="현재 로그에서 필드 추출" Width="150" Height="26" Click="BtnExtractFields_Click"
-                                    Background="#FF9800" Foreground="White" FontWeight="SemiBold" FontSize="11"
-                                    ToolTip="현재 로드된 F/L 로그의 Structure에서 필드를 추출합니다."/>
-                            <Border Width="1" Background="#CCC" Margin="15,2"/>
                             <Button Content="▲" Width="26" Height="26" Click="BtnFieldMoveUp_Click" FontSize="11" ToolTip="위로 이동"/>
                             <Button Content="▼" Width="26" Height="26" Margin="3,0,0,0" Click="BtnFieldMoveDown_Click" FontSize="11" ToolTip="아래로 이동"/>
                             <Border Width="1" Background="#CCC" Margin="15,2"/>
-                            <CheckBox x:Name="chkShowOnlyColumnFields" Content="컬럼 표시만" VerticalAlignment="Center" Margin="0,0,10,0"
-                                      Checked="ChkShowOnlyColumnFields_Changed" Unchecked="ChkShowOnlyColumnFields_Changed"/>
+                            <CheckBox x:Name="chkShowOnlyColumnFields" Content="컬럼 표시만" VerticalAlignment="Center"
+                                      Checked="ChkShowOnlyColumnFields_Changed" Unchecked="ChkShowOnlyColumnFields_Changed"
+                                      ToolTip="컬럼 표시 체크된 필드만 표시"/>
                         </StackPanel>
+                        <Border Background="#E1BEE7" BorderBrush="#9C27B0" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,8,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="체크한 항목 일괄 변경:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                                <ComboBox x:Name="cboFieldBulkChange" Width="100" Height="26" FontSize="11">
+                                    <ComboBoxItem Content="Column"/>
+                                    <ComboBoxItem Content="Hidden"/>
+                                </ComboBox>
+                                <Button Content="적용" Width="60" Height="26" Margin="10,0,0,0" Click="BtnFieldBulkChange_Click" FontSize="11"
+                                        Background="#9C27B0" Foreground="White" FontWeight="Bold"/>
+                                <Border Width="1" Background="#CE93D8" Margin="15,2"/>
+                                <Button Content="재분석" Width="60" Height="26" Click="BtnExtractFields_Click" FontSize="11"
+                                        ToolTip="로드된 로그에서 새 필드 검색" Background="#9C27B0" Foreground="White" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
 
                     <DataGrid Grid.Row="1"
@@ -171,8 +182,8 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                               RowHeight="30"
                               FontSize="12">
                         <DataGrid.Columns>
-                            <DataGridCheckBoxColumn Header="컬럼"
-                                                     Binding="{Binding ShowAsColumn, UpdateSourceTrigger=PropertyChanged}"
+                            <DataGridCheckBoxColumn Header="선택"
+                                                     Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
                                                      Width="50">
                                 <DataGridCheckBoxColumn.ElementStyle>
                                     <Style TargetType="CheckBox">
@@ -181,13 +192,18 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                                     </Style>
                                 </DataGridCheckBoxColumn.ElementStyle>
                             </DataGridCheckBoxColumn>
-                            <DataGridTextColumn Header="#" Binding="{Binding Order}" Width="40" IsReadOnly="True">
+                            <DataGridTextColumn Header="#" Binding="{Binding Order, UpdateSourceTrigger=PropertyChanged}" Width="40">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="HorizontalAlignment" Value="Center"/>
                                         <Setter Property="Foreground" Value="#666"/>
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
+                                <DataGridTextColumn.EditingElementStyle>
+                                    <Style TargetType="TextBox">
+                                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.EditingElementStyle>
                             </DataGridTextColumn>
                             <DataGridTextColumn Header="필드명" Binding="{Binding FieldName}" Width="200" IsReadOnly="True">
                                 <DataGridTextColumn.ElementStyle>
@@ -197,14 +213,24 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
                             <DataGridTextColumn Header="표시명 (컬럼 헤더)" Binding="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" Width="150"/>
+                            <DataGridComboBoxColumn Header="표시타입" 
+                                                     SelectedItemBinding="{Binding DisplayTypeString, UpdateSourceTrigger=PropertyChanged}" 
+                                                     Width="90">
+                                <DataGridComboBoxColumn.ItemsSource>
+                                    <x:Array Type="{x:Type sys:String}">
+                                        <sys:String>Column</sys:String>
+                                        <sys:String>Hidden</sys:String>
+                                    </x:Array>
+                                </DataGridComboBoxColumn.ItemsSource>
+                            </DataGridComboBoxColumn>
                             <DataGridTemplateColumn Header="값 매핑" Width="150">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Button Content="{Binding ValueMappingDisplayText}"
                                                 Click="BtnEditValueMapping_Click"
                                                 Tag="{Binding}"
-                                                Background="#FFF3E0"
-                                                BorderBrush="#FF9800"
+                                                Background="#F3E5F5"
+                                                BorderBrush="#9C27B0"
                                                 Padding="5,2"
                                                 Cursor="Hand"
                                                 ToolTip="클릭하여 값 매핑 설정"/>
@@ -226,7 +252,7 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
 
             <!-- Tab Settings Tab -->
             <TabItem Header="📂 탭 설정">
-                <Grid Margin="10" Background="#E3F2FD">
+                <Grid Margin="10" Background="#F3E5F5">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="250"/>
                         <ColumnDefinition Width="*"/>

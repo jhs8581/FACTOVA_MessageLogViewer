@@ -70,24 +70,14 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                         <TextBlock Text="Column: 컬럼으로 표시 | Summary: 요약에 표시 | Hidden: 숨김"
                                    Foreground="#666" FontSize="11" Margin="0,0,0,8"/>
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="전체 요약" Width="80" Height="26" Click="BtnAllSummary_Click" FontSize="11"/>
-                            <Button Content="전체 숨김" Width="80" Height="26" Margin="5,0,0,0" Click="BtnAllHidden_Click" FontSize="11"/>
-                            <TextBlock Text="  |  " VerticalAlignment="Center" Foreground="#999"/>
-                            <Button Content="▲" Width="26" Height="26" Margin="5,0,0,0" Click="BtnMoveUp_Click" FontSize="11" ToolTip="위로 이동"/>
+                            <Button Content="▲" Width="26" Height="26" Click="BtnMoveUp_Click" FontSize="11" ToolTip="위로 이동"/>
                             <Button Content="▼" Width="26" Height="26" Margin="3,0,0,0" Click="BtnMoveDown_Click" FontSize="11" ToolTip="아래로 이동"/>
-                            <Button Content="순번 적용" Width="70" Height="26" Margin="5,0,0,0" Click="BtnApplyOrder_Click" FontSize="11" 
-                                    ToolTip="입력한 순번대로 정렬" Background="#1976D2" Foreground="White" FontWeight="Bold"/>
-                            <TextBlock Text="  |  " VerticalAlignment="Center" Foreground="#999"/>
-                            <ComboBox x:Name="cboSortType" Width="80" Height="26" FontSize="11" SelectedIndex="0">
-                                <ComboBoxItem Content="Column"/>
-                                <ComboBoxItem Content="Summary"/>
-                                <ComboBoxItem Content="Hidden"/>
-                            </ComboBox>
-                            <Button Content="정렬" Width="40" Height="26" Margin="3,0,0,0" Click="BtnSortByType_Click" FontSize="11" 
-                                    ToolTip="선택한 타입을 맨 위로 정렬"/>
-                            <TextBlock Text="  |  " VerticalAlignment="Center" Foreground="#999"/>
-                            <Button Content="재분석" Width="60" Height="26" Margin="5,0,0,0" Click="BtnReanalyze_Click" FontSize="11"
-                                    ToolTip="로그 파일에서 새 필드 검색" Background="#1976D2" Foreground="White" FontWeight="SemiBold"/>
+                            <Border Width="1" Background="#CCC" Margin="15,2"/>
+                            <CheckBox x:Name="chkColumnOnly" Content="컬럼 표시만" 
+                                      VerticalAlignment="Center" FontSize="11"
+                                      Checked="ChkColumnOnly_CheckedChanged" 
+                                      Unchecked="ChkColumnOnly_CheckedChanged"
+                                      ToolTip="Column 타입 필드만 표시"/>
                         </StackPanel>
                         <Border Background="#BBDEFB" BorderBrush="#1976D2" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,8,0,0">
                             <StackPanel Orientation="Horizontal">
@@ -104,6 +94,9 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                                 <Button Content="일괄 설정" Width="80" Height="26" Click="BtnBulkSetTabs_Click" FontSize="11"
                                         Background="#4CAF50" Foreground="White" FontWeight="Bold"
                                         ToolTip="체크한 항목들의 표시할 탭을 일괄 설정"/>
+                                <Border Width="1" Background="#64B5F6" Margin="15,2"/>
+                                <Button Content="재분석" Width="60" Height="26" Click="BtnReanalyze_Click" FontSize="11"
+                                        ToolTip="로드된 로그에서 새 필드 검색" Background="#1976D2" Foreground="White" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>

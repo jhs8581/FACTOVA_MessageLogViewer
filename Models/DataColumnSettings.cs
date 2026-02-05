@@ -123,5 +123,33 @@ namespace FACTOVA_MessageLogViewer.Models
         /// 값 변환 매핑 (예: "1=ON,0=OFF")
         /// </summary>
         public string ValueMapping { get; set; } = "";
+
+        /// <summary>
+        /// UI 선택 여부 (일괄 작업용, JSON 저장 안함)
+        /// </summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public bool IsSelected { get; set; } = false;
+
+        /// <summary>
+        /// 샘플 값 (UI 표시용, JSON 저장 안함)
+        /// </summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string SampleValue { get; set; } = "";
+
+        /// <summary>
+        /// 값 매핑 표시 텍스트
+        /// </summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string ValueMappingDisplayText => string.IsNullOrEmpty(ValueMapping) ? "(없음)" : $"{ValueMapping.Split(',').Length}개 매핑";
+
+        /// <summary>
+        /// 표시타입 문자열 (Column/Hidden) - UI 바인딩용
+        /// </summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string DisplayTypeString
+        {
+            get => IsEnabled ? "Column" : "Hidden";
+            set => IsEnabled = (value == "Column");
+        }
     }
 }

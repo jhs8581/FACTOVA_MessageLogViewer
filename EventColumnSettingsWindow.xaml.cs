@@ -391,22 +391,45 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
-        private void BtnAllSummary_Click(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// 컬럼 표시만 체크박스 - Column 타입만 필터링
+        /// </summary>
+        private ObservableCollection<FieldSettingItem> allFieldItems = new();
+        
+        private void ChkColumnOnly_CheckedChanged(object sender, RoutedEventArgs e)
         {
-            foreach (var item in fieldItems)
+            if (chkColumnOnly.IsChecked == true)
             {
-                item.DisplayType = FieldDisplayType.Summary;
+                // 전체 목록 백업
+                if (allFieldItems.Count == 0)
+                {
+                    allFieldItems = new ObservableCollection<FieldSettingItem>(fieldItems);
+                }
+                
+                // Column 타입만 필터링
+                var columnOnly = allFieldItems.Where(f => f.DisplayType == FieldDisplayType.Column).ToList();
+                fieldItems.Clear();
+                foreach (var item in columnOnly)
+                {
+                    fieldItems.Add(item);
+                }
             }
-            UpdateFieldOrders();
-        }
-
-        private void BtnAllHidden_Click(object sender, RoutedEventArgs e)
-        {
-            foreach (var item in fieldItems)
+            else
             {
-                item.DisplayType = FieldDisplayType.Hidden;
+                // 전체 목록 복원
+                if (allFieldItems.Count > 0)
+                {
+                    fieldItems.Clear();
+                    foreach (var item in allFieldItems)
+                    {
+                        fieldItems.Add(item);
+                    }
+                    allFieldItems.Clear();
+                }
             }
-            UpdateFieldOrders();
+            
+            dgFields.ItemsSource = null;
+            dgFields.ItemsSource = fieldItems;
         }
 
         /// <summary>
@@ -533,123 +556,116 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
-        /// <summary>
-        /// 입력한 순번대로 정렬
-        /// </summary>
-        private void BtnApplyOrder_Click(object sender, RoutedEventArgs e)
-        {
-            // 입력된 순번대로 정렬
-            var sortedItems = fieldItems.OrderBy(f => f.Order).ToList();
-
-            fieldItems.Clear();
-            foreach (var item in sortedItems)
-            {
-                fieldItems.Add(item);
-            }
-
-            // 순번 재정렬 (1부터 연속으로)
-            UpdateFieldOrders();
-
-            MessageBox.Show("순번대로 정렬되었습니다.", "완료", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-
-        /// <summary>
-        /// 표시타입으로 정렬 (선택한 타입을 맨 위로)
-        /// </summary>
-        private void BtnSortByType_Click(object sender, RoutedEventArgs e)
-        {
-            var selectedType = (cboSortType.SelectedItem as ComboBoxItem)?.Content?.ToString();
-            if (string.IsNullOrEmpty(selectedType))
-            {
-                MessageBox.Show("정렬할 타입을 선택해주세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
-
-            // 선택한 타입을 맨 위로, 나머지는 기존 순서 유지
-            var sortedItems = fieldItems
-                .OrderByDescending(f => f.DisplayTypeString == selectedType)  // 선택한 타입 먼저
-                .ThenBy(f => f.DisplayTypeString switch  // Column > Summary > Hidden 순
-                {
-                    "Column" => 0,
-                    "Summary" => 1,
-                    "Hidden" => 2,
-                    _ => 3
-                })
-                .ThenBy(f => f.Order)  // 기존 순서 유지
-                .ToList();
-
-            fieldItems.Clear();
-            foreach (var item in sortedItems)
-            {
-                fieldItems.Add(item);
-            }
-
-            UpdateFieldOrders();
-        }
-
         private void BtnReanalyze_Click(object sender, RoutedEventArgs e)
         {
-            // 로그 파일 경로가 없으면 파일 선택 다이얼로그 표시
-            var targetPath = logFilePath;
-
-            if (string.IsNullOrEmpty(targetPath) || !System.IO.File.Exists(targetPath))
+            try
             {
-                var dialog = new Microsoft.Win32.OpenFileDialog
+                // MainWindow 찾기
+                var mainWindow = Application.Current.MainWindow as MainWindow;
+                if (mainWindow == null)
                 {
-                    Title = "분석할 로그 파일 선택",
-                    Filter = "로그 파일 (*.log)|*.log|모든 파일 (*.*)|*.*",
-                    DefaultExt = ".log"
-                };
-
-                if (dialog.ShowDialog() == true)
-                {
-                    targetPath = dialog.FileName;
-                    logFilePath = targetPath;
-                }
-                else
-                {
+                    MessageBox.Show("메인 윈도우를 찾을 수 없습니다.", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
-            }
 
-            System.Diagnostics.Debug.WriteLine($"🔍 재분석: {targetPath}");
-
-            // 분석 실행
-            var analysisResults = LogFieldAnalyzer.AnalyzeFields(targetPath);
-            System.Diagnostics.Debug.WriteLine($"   발견된 필드: {analysisResults.Count}개");
-
-            // 기존 필드에 없는 새 필드만 추가
-            int newCount = 0;
-            int order = fieldItems.Count + 1;
-
-            foreach (var result in analysisResults)
-            {
-                if (!fieldItems.Any(f => f.FieldName == result.FieldName))
+                // EventLogViewerControl 찾기
+                var eventControl = mainWindow.FindName("eventLogViewer") as EventLogViewerControl;
+                if (eventControl == null)
                 {
-                    fieldItems.Add(new FieldSettingItem
+                    MessageBox.Show("EVENT 로그 컨트롤을 찾을 수 없습니다.", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                // Reflection을 사용하여 logEntries에 접근
+                var logEntriesField = typeof(EventLogViewerControl).GetField("logEntries", 
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                
+                if (logEntriesField == null)
+                {
+                    MessageBox.Show("로그 데이터에 접근할 수 없습니다.", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                var logEntries = logEntriesField.GetValue(eventControl) as System.Collections.IEnumerable;
+                if (logEntries == null)
+                {
+                    MessageBox.Show("로드된 EVENT 로그가 없습니다.\n먼저 로그를 로드해주세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                // 모든 로그에서 필드 추출
+                var fieldSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var sampleValues = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+                int count = 0;
+
+                foreach (var entry in logEntries)
+                {
+                    count++;
+                    var type = entry.GetType();
+                    
+                    // ExpandoFields 속성에서 필드 추출
+                    var expandoFieldsProp = type.GetProperty("ExpandoFields");
+                    if (expandoFieldsProp != null)
                     {
-                        Order = order++,
-                        FieldName = result.FieldName,
-                        DisplayName = result.FieldName,
-                        DisplayType = FieldDisplayType.Summary,
-                        ColumnWidth = 100,
-                        VisibleInTabs = null,
-                        SampleValues = result.SampleValues
-                    });
-                    newCount++;
+                        var expandoFields = expandoFieldsProp.GetValue(entry) as IDictionary<string, object>;
+                        if (expandoFields != null)
+                        {
+                            foreach (var kvp in expandoFields)
+                            {
+                                fieldSet.Add(kvp.Key);
+                                if (!sampleValues.ContainsKey(kvp.Key))
+                                    sampleValues[kvp.Key] = new List<string>();
+                                if (sampleValues[kvp.Key].Count < 3 && kvp.Value != null)
+                                    sampleValues[kvp.Key].Add(kvp.Value.ToString() ?? "");
+                            }
+                        }
+                    }
                 }
-                else
+
+                if (count == 0)
                 {
-                    // 기존 필드 샘플 값 업데이트
-                    var existing = fieldItems.First(f => f.FieldName == result.FieldName);
-                    existing.SampleValues = result.SampleValues;
+                    MessageBox.Show("로드된 EVENT 로그가 없습니다.\n먼저 로그를 로드해주세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
                 }
+
+                // 기존 필드에 없는 새 필드만 추가
+                int newCount = 0;
+                int order = fieldItems.Count + 1;
+
+                foreach (var field in fieldSet.OrderBy(f => f))
+                {
+                    if (!fieldItems.Any(f => f.FieldName.Equals(field, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        fieldItems.Add(new FieldSettingItem
+                        {
+                            Order = order++,
+                            FieldName = field,
+                            DisplayName = field,
+                            DisplayType = FieldDisplayType.Summary,
+                            ColumnWidth = 100,
+                            VisibleInTabs = null,
+                            SampleValues = sampleValues.ContainsKey(field) ? sampleValues[field] : new List<string>()
+                        });
+                        newCount++;
+                    }
+                    else
+                    {
+                        // 기존 필드 샘플 값 업데이트
+                        var existing = fieldItems.First(f => f.FieldName.Equals(field, StringComparison.OrdinalIgnoreCase));
+                        if (sampleValues.ContainsKey(field))
+                            existing.SampleValues = sampleValues[field];
+                    }
+                }
+
+                dgFields.Items.Refresh();
+
+                MessageBox.Show($"분석 완료!\n- 로그 수: {count}개\n- 새 필드: {newCount}개\n- 전체 필드: {fieldItems.Count}개",
+                    "재분석", MessageBoxButton.OK, MessageBoxImage.Information);
             }
-
-            dgFields.Items.Refresh();
-
-            MessageBox.Show($"분석 완료!\n- 새 필드: {newCount}개\n- 전체 필드: {fieldItems.Count}개",
-                "재분석", MessageBoxButton.OK, MessageBoxImage.Information);
+            catch (Exception ex)
+            {
+                MessageBox.Show($"필드 분석 중 오류가 발생했습니다:\n{ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
 
