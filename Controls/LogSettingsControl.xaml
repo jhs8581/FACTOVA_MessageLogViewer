@@ -148,7 +148,7 @@
                             FontSize="12"
                             Margin="8,0,0,0"
                             Click="BtnColumnSettings_Click"
-                            Background="#1976D2"
+                            Background="#2196F3"
                             Foreground="White"
                             FontWeight="Bold"
                             Cursor="Hand"
@@ -320,7 +320,7 @@
                     Height="34"
                     FontSize="13"
                     FontWeight="Bold"
-                    Background="#4CAF50"
+                    Background="#2196F3"
                     Foreground="White"
                     BorderThickness="0"
                     HorizontalAlignment="Left"
@@ -342,7 +342,7 @@
                         </Setter>
                         <Style.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#45A049"/>
+                                <Setter Property="Background" Value="#1976D2"/>
                             </Trigger>
                         </Style.Triggers>
                     </Style>

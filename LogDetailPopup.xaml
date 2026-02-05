@@ -31,17 +31,27 @@ MinHeight="600" MinWidth="800"
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="시간:" FontWeight="SemiBold" Margin="0,0,10,5"/>
-                <TextBlock Grid.Row="0" Grid.Column="1" x:Name="txtTime" FontFamily="Consolas" Foreground="#1565C0"/>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="시간:" FontWeight="SemiBold" Margin="0,0,10,5" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="1" x:Name="txtTime" 
+                         FontFamily="Consolas" Foreground="#1565C0"
+                         IsReadOnly="True" BorderThickness="0" Background="Transparent"
+                         VerticalAlignment="Center" Margin="0,0,0,5"/>
                 
-                <TextBlock Grid.Row="0" Grid.Column="2" Text="구분:" FontWeight="SemiBold" Margin="20,0,10,5"/>
-                <TextBlock Grid.Row="0" Grid.Column="3" x:Name="txtDirection" FontWeight="Bold"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="구분:" FontWeight="SemiBold" Margin="20,0,10,5" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="3" x:Name="txtDirection" FontWeight="Bold"
+                         IsReadOnly="True" BorderThickness="0" Background="Transparent"
+                         VerticalAlignment="Center" Margin="0,0,0,5"/>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="MsgId:" FontWeight="SemiBold" Margin="0,0,10,0"/>
-                <TextBlock Grid.Row="1" Grid.Column="1" x:Name="txtMsgId" FontFamily="Consolas" Foreground="#1565C0"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="MsgId:" FontWeight="SemiBold" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="1" x:Name="txtMsgId" 
+                         FontFamily="Consolas" Foreground="#1565C0"
+                         IsReadOnly="True" BorderThickness="0" Background="Transparent"
+                         VerticalAlignment="Center"/>
                 
-                <TextBlock Grid.Row="1" Grid.Column="2" Text="분류:" FontWeight="SemiBold" Margin="20,0,10,0"/>
-                <TextBlock Grid.Row="1" Grid.Column="3" x:Name="txtMatchedTab" Foreground="#666"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="분류:" FontWeight="SemiBold" Margin="20,0,10,0" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="3" x:Name="txtMatchedTab" Foreground="#666"
+                         IsReadOnly="True" BorderThickness="0" Background="Transparent"
+                         VerticalAlignment="Center"/>
             </Grid>
         </Border>
 
@@ -56,7 +66,10 @@ MinHeight="600" MinWidth="800"
                           HeadersVisibility="Column"
                           GridLinesVisibility="Horizontal"
                           Background="White"
-                          Margin="0,10,0,0">
+                          Margin="0,10,0,0"
+                          ClipboardCopyMode="IncludeHeader"
+                          SelectionMode="Extended"
+                          SelectionUnit="Cell">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="필드명" Binding="{Binding Key}" Width="150">
                             <DataGridTextColumn.ElementStyle>

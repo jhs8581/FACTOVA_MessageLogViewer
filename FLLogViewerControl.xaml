@@ -214,10 +214,10 @@ Loaded="UserControl_Loaded">
                     <Border Width="1" Background="#CE93D8" Margin="0,6,20,6"/>
                     
                     <!-- 타입 필터 -->
-                    <Border Background="White" CornerRadius="4" Padding="8,2" BorderBrush="#4CAF50" BorderThickness="1">
+                    <Border Background="White" CornerRadius="4" Padding="8,2" BorderBrush="#9C27B0" BorderThickness="1">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="타입:" 
-                                       Foreground="#2E7D32" 
+                                       Foreground="#7B1FA2" 
                                        VerticalAlignment="Center" 
                                        Margin="0,0,8,0"
                                        FontSize="11"
@@ -264,10 +264,10 @@ Loaded="UserControl_Loaded">
                     <Border Width="1" Background="#CE93D8" Margin="20,6,20,6"/>
 
                     <!-- 시간대 필터 -->
-                    <Border Background="White" CornerRadius="4" Padding="8,2" BorderBrush="#FF9800" BorderThickness="1">
+                    <Border Background="White" CornerRadius="4" Padding="8,2" BorderBrush="#9C27B0" BorderThickness="1">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="⏰ 시간대:" 
-                                       Foreground="#E65100" 
+                                       Foreground="#7B1FA2" 
                                        VerticalAlignment="Center" 
                                        Margin="0,0,8,0"
                                        FontSize="11"
@@ -298,10 +298,10 @@ Loaded="UserControl_Loaded">
                     <Border Width="1" Background="#CE93D8" Margin="20,6,20,6"/>
                     
                     <!-- 시간 이동 -->
-                    <Border Background="White" CornerRadius="4" Padding="10,4" BorderBrush="#FF9800" BorderThickness="1">
+                    <Border Background="White" CornerRadius="4" Padding="10,4" BorderBrush="#9C27B0" BorderThickness="1">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="⏰ 이동:" 
-                                       Foreground="#E65100" 
+                                       Foreground="#7B1FA2" 
                                        VerticalAlignment="Center" 
                                        Margin="0,0,8,0"
                                        FontSize="12"
@@ -319,7 +319,7 @@ Loaded="UserControl_Loaded">
                                     Width="28" Height="24" 
                                     Margin="5,0,0,0"
                                     Click="BtnJumpToTime_Click"
-                                    Background="#FF9800"
+                                    Background="#9C27B0"
                                     Foreground="White"
                                     BorderThickness="0"
                                     FontSize="10"

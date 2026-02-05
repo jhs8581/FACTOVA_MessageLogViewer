@@ -19,6 +19,7 @@ namespace FACTOVA_MessageLogViewer
         private ObservableCollection<FLTabConfig> tabConfigs = new();
         private FLTabConfig? selectedTab;
         private UnifiedPreset currentPreset = UnifiedPreset.CreateDefault();
+        private bool isInitializing = true; // 초기화 중 플래그
 
         // 현재 로드된 F/L 로그에서 태그 추출을 위한 콜백
         public Func<IEnumerable<FLLogEntry>>? GetCurrentLogEntries { get; set; }
@@ -26,8 +27,11 @@ namespace FACTOVA_MessageLogViewer
         public FLColumnSettingsWindow(string presetName = "Default")
         {
             InitializeComponent();
+            
+            isInitializing = true;
             LoadPresetList();
             SelectPreset(presetName);
+            isInitializing = false;
         }
 
         #region 프리셋 관리
@@ -47,28 +51,59 @@ namespace FACTOVA_MessageLogViewer
 
         private void SelectPreset(string name)
         {
+            int selectedIndex = -1;
+            
             for (int i = 0; i < cboPresets.Items.Count; i++)
             {
                 if (cboPresets.Items[i].ToString() == name)
                 {
-                    cboPresets.SelectedIndex = i;
-                    return;
+                    selectedIndex = i;
+                    break;
                 }
             }
 
-            if (cboPresets.Items.Count > 0)
-                cboPresets.SelectedIndex = 0;
+            if (selectedIndex < 0 && cboPresets.Items.Count > 0)
+                selectedIndex = 0;
+
+            // 프리셋 로드 (이벤트 핸들러가 아직 동작하지 않으므로 명시적으로 로드)
+            if (selectedIndex >= 0)
+            {
+                cboPresets.SelectedIndex = selectedIndex;
+                
+                var presetName = cboPresets.Items[selectedIndex].ToString() ?? "Default";
+                var preset = UnifiedPresetManager.LoadPreset(presetName);
+                
+                if (preset == null)
+                {
+                    preset = UnifiedPreset.CreateDefault();
+                    preset.Name = presetName; // 프리셋 이름 보존
+                }
+                
+                currentPreset = preset;
+                LoadPresetToUI(preset);
+                
+                System.Diagnostics.Debug.WriteLine($"🎨 FL 프리셋 초기 로드: {presetName} (태그: {tagConfigs.Count}개, 탭: {tabConfigs.Count}개)");
+            }
         }
 
         private void CboPresets_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (cboPresets.SelectedItem == null) return;
+            // 초기화 중이거나 선택된 항목이 없으면 무시
+            if (isInitializing || cboPresets.SelectedItem == null) return;
 
             var presetName = cboPresets.SelectedItem.ToString() ?? "Default";
-            var preset = UnifiedPresetManager.LoadPreset(presetName) ?? UnifiedPreset.CreateDefault();
+            var preset = UnifiedPresetManager.LoadPreset(presetName);
+            
+            if (preset == null)
+            {
+                preset = UnifiedPreset.CreateDefault();
+                preset.Name = presetName; // 프리셋 이름 보존
+            }
 
             currentPreset = preset;
             LoadPresetToUI(preset);
+            
+            System.Diagnostics.Debug.WriteLine($"🎨 FL 프리셋 로드됨: {presetName}");
         }
 
         /// <summary>
@@ -98,12 +133,23 @@ namespace FACTOVA_MessageLogViewer
         private void LoadPresetToUI(UnifiedPreset preset)
         {
             var flSettings = preset.FLSettings ?? FLPresetSettings.CreateDefault();
+            
+            System.Diagnostics.Debug.WriteLine($"📂 FL LoadPresetToUI: 태그={flSettings.TagConfigs?.Count ?? 0}개, 필드={flSettings.FieldConfigs?.Count ?? 0}개, 탭={flSettings.TabSettings?.Tabs?.Count ?? 0}개");
 
             // 태그 설정 로드
             tagConfigs.Clear();
-            foreach (var config in flSettings.TagConfigs)
+            if (flSettings.TagConfigs != null)
             {
-                tagConfigs.Add(config);
+                foreach (var config in flSettings.TagConfigs)
+                {
+                    tagConfigs.Add(config);
+                }
+            }
+            
+            // 필터 체크박스 초기화 (전체 표시)
+            if (chkShowOnlyEnabled != null)
+            {
+                chkShowOnlyEnabled.IsChecked = false;
             }
             
             // ItemsSource 재설정으로 필터 초기화
@@ -112,9 +158,18 @@ namespace FACTOVA_MessageLogViewer
 
             // 필드 설정 로드
             fieldConfigs.Clear();
-            foreach (var config in flSettings.FieldConfigs)
+            if (flSettings.FieldConfigs != null)
             {
-                fieldConfigs.Add(config);
+                foreach (var config in flSettings.FieldConfigs)
+                {
+                    fieldConfigs.Add(config);
+                }
+            }
+            
+            // 필터 체크박스 초기화 (전체 표시)
+            if (chkShowOnlyColumnFields != null)
+            {
+                chkShowOnlyColumnFields.IsChecked = false;
             }
             
             // ItemsSource 재설정으로 필터 초기화
@@ -123,7 +178,8 @@ namespace FACTOVA_MessageLogViewer
 
             // 탭 설정 로드
             tabConfigs.Clear();
-            foreach (var tab in flSettings.TabSettings?.Tabs ?? new List<FLTabConfig>())
+            var tabs = flSettings.TabSettings?.Tabs ?? new List<FLTabConfig>();
+            foreach (var tab in tabs)
             {
                 tabConfigs.Add(tab);
             }
@@ -134,6 +190,8 @@ namespace FACTOVA_MessageLogViewer
 
             if (tabConfigs.Count > 0)
                 listBoxTabs.SelectedIndex = 0;
+                
+            System.Diagnostics.Debug.WriteLine($"✅ FL LoadPresetToUI 완료: tagConfigs={tagConfigs.Count}, fieldConfigs={fieldConfigs.Count}, tabConfigs={tabConfigs.Count}");
         }
 
         private void SaveUIToPreset()
@@ -148,12 +206,15 @@ namespace FACTOVA_MessageLogViewer
                     LastSelectedTabIndex = listBoxTabs.SelectedIndex >= 0 ? listBoxTabs.SelectedIndex : 0
                 }
             };
+            
+            System.Diagnostics.Debug.WriteLine($"💾 FL SaveUIToPreset: 태그={tagConfigs.Count}개, 필드={fieldConfigs.Count}개, 탭={tabConfigs.Count}개");
         }
 
         private void BtnSavePreset_Click(object sender, RoutedEventArgs e)
         {
             SaveUIToPreset();
             UnifiedPresetManager.SavePreset(currentPreset);
+            System.Diagnostics.Debug.WriteLine($"💾 FL 프리셋 저장 완료: {currentPreset.Name}");
             MessageBox.Show($"프리셋 '{currentPreset.Name}'이(가) 저장되었습니다.", "저장 완료", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 

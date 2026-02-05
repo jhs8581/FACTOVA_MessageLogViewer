@@ -47,6 +47,19 @@ namespace FACTOVA_MessageLogViewer
             @"\[(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?)\]\s*ExecuteService\(\):\[\s*(\S+)\s*\]", 
             RegexOptions.Compiled);
 
+        // 제외할 비즈명 목록 (하드코딩)
+        private static readonly HashSet<string> ExcludedBizNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "BR_SFC_REG_MAINFRAME_CONFIG",
+            "DA_COM_SEL_MULTILANG_DATA",
+            "BR_CUS_CHK_USER_AUTO_LOGIN",
+            "DA_COM_SEL_SERVERTIME",
+            "DA_CUS_SEL_SFC_PROGRAM_CONFIG_INFO",
+            "DA_CUS_SEL_SFC_PROGRAM_MENU",
+            "DA_CUS_SEL_FCTRY_AREA_CBO2",
+            "BR_SFC_GetScanItemList"
+        };
+
         private System.Threading.Timer? debounceTimer;
         private readonly object fileLock = new object();
         private bool isReading = false;
@@ -473,7 +486,7 @@ namespace FACTOVA_MessageLogViewer
 
         #region 로그 파싱
 
-        private void LoadLogs()
+        private async void LoadLogs()
         {
             System.Diagnostics.Debug.WriteLine($"📂 LoadLogs 시작: {currentLogFile}");
             
@@ -494,11 +507,17 @@ namespace FACTOVA_MessageLogViewer
                 case LogLoadMode.Recent:
                 case LogLoadMode.All:
                     isLoadingBatch = true;  // 일괄 로드 시작
+                    ShowLoadingOverlay(true);
+                    UpdateLoadingStatus("파일을 읽는 중...");
                     
-                    var content = File.ReadAllText(currentLogFile, Encoding.UTF8);
+                    // 백그라운드에서 파일 읽기
+                    var content = await Task.Run(() => File.ReadAllText(currentLogFile, Encoding.UTF8));
                     System.Diagnostics.Debug.WriteLine($"📄 파일 읽기 완료: {content.Length} 문자");
                     
-                    var entries = ParseDataLogEntries(content);
+                    UpdateLoadingStatus("로그 파싱 중...");
+                    
+                    // 백그라운드에서 파싱
+                    var entries = await Task.Run(() => ParseDataLogEntries(content));
                     
                     if (loadMode == LogLoadMode.Recent)
                     {
@@ -518,6 +537,8 @@ namespace FACTOVA_MessageLogViewer
                         System.Diagnostics.Debug.WriteLine($"📊 All: 시간필터 후 {entries.Count}개 로드");
                     }
 
+                    UpdateLoadingStatus($"{entries.Count}개 로그 추가 중...");
+
                     foreach (var entry in entries)
                         logEntries.Add(entry);
 
@@ -526,15 +547,7 @@ namespace FACTOVA_MessageLogViewer
                     lastPosition = new FileInfo(currentLogFile).Length;
                     
                     isLoadingBatch = false;  // 일괄 로드 완료
-                    
-                    // 로드 완료 후 마지막으로 스크롤
-                    if (isAutoScrollEnabled && currentDataGrid?.Items.Count > 0)
-                    {
-                        Dispatcher.BeginInvoke(() =>
-                        {
-                            currentDataGrid?.ScrollIntoView(currentDataGrid.Items[^1]);
-                        }, System.Windows.Threading.DispatcherPriority.Background);
-                    }
+                    ShowLoadingOverlay(false);
                     break;
             }
         }
@@ -570,6 +583,10 @@ namespace FACTOVA_MessageLogViewer
             {
                 string timestampStr = headerMatch.Groups[1].Value;
                 string bizName = headerMatch.Groups[2].Value;
+
+                // 제외할 비즈명 필터링
+                if (ExcludedBizNames.Contains(bizName))
+                    return null;
 
                 // 밀리초 없음, 3자리, 7자리 모두 지원
                 DateTime.TryParseExact(timestampStr, new[] { 
@@ -1424,6 +1441,32 @@ namespace FACTOVA_MessageLogViewer
             }
 
             return false;
+        }
+
+        #endregion
+
+        #region 로딩 오버레이
+
+        /// <summary>
+        /// 로딩 오버레이 표시/숨김
+        /// </summary>
+        private void ShowLoadingOverlay(bool show)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                loadingOverlay.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            });
+        }
+
+        /// <summary>
+        /// 로딩 상태 텍스트 업데이트
+        /// </summary>
+        private void UpdateLoadingStatus(string message)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                txtLoadingStatus.Text = message;
+            });
         }
 
         #endregion

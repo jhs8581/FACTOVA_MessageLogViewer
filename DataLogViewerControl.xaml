@@ -74,8 +74,8 @@
                     
                 <Button x:Name="btnPause" Content="⏸ 일시정지" Width="90" Height="28" Margin="0,0,8,0" Click="BtnPause_Click" Background="#40FFFFFF" Foreground="White" BorderBrush="White" BorderThickness="1" FontSize="12" Cursor="Hand"/>
                 <Button Content="Clear" Width="60" Height="28" Margin="0,0,8,0" Click="BtnClear_Click" Background="#40FFFFFF" Foreground="White" BorderBrush="White" BorderThickness="1" FontSize="12" Cursor="Hand"/>
-                <Button x:Name="btnAutoScroll" Content="⬇ 자동스크롤" Width="100" Height="28" Margin="0,0,8,0" Click="BtnAutoScroll_Click" Background="#4CAF50" Foreground="White" BorderBrush="White" BorderThickness="1" FontSize="11" Cursor="Hand"/>
-                <Button Content="📊 Excel" Width="70" Height="28" Click="BtnExportExcel_Click" Background="#4CAF50" Foreground="White" BorderBrush="White" BorderThickness="1" FontSize="12" Cursor="Hand"/>
+                <Button x:Name="btnAutoScroll" Content="⬇ 자동스크롤" Width="100" Height="28" Margin="0,0,8,0" Click="BtnAutoScroll_Click" Background="#2196F3" Foreground="White" BorderBrush="White" BorderThickness="1" FontSize="11" Cursor="Hand"/>
+                <Button Content="📊 Excel" Width="70" Height="28" Click="BtnExportExcel_Click" Background="#2196F3" Foreground="White" BorderBrush="White" BorderThickness="1" FontSize="12" Cursor="Hand"/>
             </StackPanel>
         </Grid>
     </Border>
@@ -264,6 +264,35 @@
         <!-- 탭들은 코드에서 동적으로 생성됨 -->
         
     </TabControl>
+
+    <!-- 로딩 프로그레스바 (오버레이) -->
+    <Border x:Name="loadingOverlay" 
+            Grid.Row="2" 
+            Background="#CC000000"
+            Visibility="Collapsed">
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+            <TextBlock x:Name="txtLoadingMessage"
+                       Text="📂 로그 파일을 읽는 중..."
+                       Foreground="White"
+                       FontSize="18"
+                       FontWeight="Bold"
+                       HorizontalAlignment="Center"
+                       Margin="0,0,0,15"/>
+            
+            <ProgressBar x:Name="progressBar"
+                         Width="400"
+                         Height="30"
+                         IsIndeterminate="True"
+                         Foreground="#FF6B00"/>
+            
+            <TextBlock x:Name="txtLoadingStatus"
+                       Text=""
+                       Foreground="#CCCCCC"
+                       FontSize="12"
+                       HorizontalAlignment="Center"
+                       Margin="0,10,0,0"/>
+        </StackPanel>
+    </Border>
 
     <!-- 상태 표시줄 -->
     <Border Grid.Row="3" Background="#EEEEEE" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Padding="15,0">

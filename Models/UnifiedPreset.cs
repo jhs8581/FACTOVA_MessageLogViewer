@@ -69,17 +69,17 @@ namespace FACTOVA_MessageLogViewer.Models
         /// <summary>
         /// 태그 설정 목록 (태그명 → 표시명)
         /// </summary>
-        public List<FLTagConfig> TagConfigs { get; set; } = new();
+        public List<FLTagConfig> TagConfigs { get; set; } = null!;
 
         /// <summary>
         /// Structure 필드 설정 (필드명 → 컬럼 설정)
         /// </summary>
-        public List<FLFieldConfig> FieldConfigs { get; set; } = new();
+        public List<FLFieldConfig> FieldConfigs { get; set; } = null!;
 
         /// <summary>
         /// 탭 설정
         /// </summary>
-        public FLTabSettings TabSettings { get; set; } = new();
+        public FLTabSettings TabSettings { get; set; } = null!;
 
         /// <summary>
         /// 기본 설정 생성
@@ -156,23 +156,36 @@ namespace FACTOVA_MessageLogViewer.Models
                 EnsurePresetFolder();
                 preset.ModifiedAt = DateTime.Now;
                 
-                var fileName = SanitizeFileName(preset.Name) + ".unified.json";
+                var fileName = SanitizeFileName(preset.Name) + ".json";
                 var filePath = Path.Combine(PresetFolder, fileName);
                 
-                var json = JsonSerializer.Serialize(preset, new JsonSerializerOptions { WriteIndented = true });
+                System.Diagnostics.Debug.WriteLine($"💾 프리셋 저장 시도:");
+                System.Diagnostics.Debug.WriteLine($"   원본 이름: '{preset.Name}'");
+                System.Diagnostics.Debug.WriteLine($"   파일명: '{fileName}'");
+                System.Diagnostics.Debug.WriteLine($"   전체 경로: '{filePath}'");
+                
+                var options = new JsonSerializerOptions 
+                { 
+                    WriteIndented = true,
+                    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never,
+                    IncludeFields = false
+                };
+                
+                var json = JsonSerializer.Serialize(preset, options);
                 File.WriteAllText(filePath, json);
                 
-                
-                System.Diagnostics.Debug.WriteLine($"💾 통합 프리셋 저장: {preset.Name}");
+                System.Diagnostics.Debug.WriteLine($"✅ 통합 프리셋 저장 완료: {preset.Name}");
+                System.Diagnostics.Debug.WriteLine($"   JSON 길이: {json.Length} bytes");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"프리셋 저장 실패: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"❌ 프리셋 저장 실패: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"   {ex.StackTrace}");
             }
         }
 
         /// <summary>
-        /// 프리셋 로드 (통합 프리셋 우선, 없으면 기존 EVENT 프리셋 자동 변환)
+        /// 프리셋 로드
         /// </summary>
         public static UnifiedPreset? LoadPreset(string name)
         {
@@ -182,47 +195,49 @@ namespace FACTOVA_MessageLogViewer.Models
                 System.Diagnostics.Debug.WriteLine($"📂 UnifiedPresetManager.LoadPreset('{name}')");
                 System.Diagnostics.Debug.WriteLine($"   폴더: {PresetFolder}");
                 
-                // 1. 먼저 통합 프리셋 찾기
-                var unifiedFileName = SanitizeFileName(name) + ".unified.json";
-                var unifiedFilePath = Path.Combine(PresetFolder, unifiedFileName);
-                System.Diagnostics.Debug.WriteLine($"   통합 프리셋 경로: {unifiedFilePath}");
-                System.Diagnostics.Debug.WriteLine($"   파일 존재: {File.Exists(unifiedFilePath)}");
+                var fileName = SanitizeFileName(name) + ".json";
+                var filePath = Path.Combine(PresetFolder, fileName);
+                System.Diagnostics.Debug.WriteLine($"   프리셋 경로: {filePath}");
+                System.Diagnostics.Debug.WriteLine($"   파일 존재: {File.Exists(filePath)}");
                 
-                if (File.Exists(unifiedFilePath))
+                if (File.Exists(filePath))
                 {
-                    var json = File.ReadAllText(unifiedFilePath);
-                    var preset = JsonSerializer.Deserialize<UnifiedPreset>(json);
+                    var json = File.ReadAllText(filePath);
+                    System.Diagnostics.Debug.WriteLine($"   JSON 길이: {json.Length} bytes");
+                    
+                    var options = new JsonSerializerOptions 
+                    { 
+                        PropertyNameCaseInsensitive = true,
+                        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never,
+                        IncludeFields = false
+                    };
+                    
+                    var preset = JsonSerializer.Deserialize<UnifiedPreset>(json, options);
+                    
+                    if (preset != null)
+                    {
+                        // 프리셋 이름 정리 (.unified 제거 - 하위 호환성)
+                        if (preset.Name.EndsWith(".unified"))
+                        {
+                            preset.Name = preset.Name.Substring(0, preset.Name.Length - 8);
+                            System.Diagnostics.Debug.WriteLine($"   ⚠️ 프리셋 이름에서 .unified 제거: '{preset.Name}'");
+                        }
+                    }
+                    
                     System.Diagnostics.Debug.WriteLine($"   ✅ 통합 프리셋 로드 성공");
                     System.Diagnostics.Debug.WriteLine($"      EventSettings: {preset?.EventSettings != null}");
-                    System.Diagnostics.Debug.WriteLine($"      Fields: {preset?.EventSettings?.Fields?.Count ?? 0}개");
-                    return preset;
-                }
-                
-                // 2. 통합 프리셋 없으면 기존 EVENT 프리셋 찾아서 변환
-                var legacyFileName = SanitizeFileName(name) + ".json";
-                var legacyFilePath = Path.Combine(PresetFolder, legacyFileName);
-                System.Diagnostics.Debug.WriteLine($"   기존 프리셋 경로: {legacyFilePath}");
-                System.Diagnostics.Debug.WriteLine($"   파일 존재: {File.Exists(legacyFilePath)}");
-                
-                if (File.Exists(legacyFilePath))
-                {
-                    var json = File.ReadAllText(legacyFilePath);
-                    var eventSettings = JsonSerializer.Deserialize<ColumnSettings>(json);
+                    System.Diagnostics.Debug.WriteLine($"      DataSettings: {preset?.DataSettings != null}");
+                    System.Diagnostics.Debug.WriteLine($"      ExceptionSettings: {preset?.ExceptionSettings != null}");
+                    System.Diagnostics.Debug.WriteLine($"      FLSettings: {preset?.FLSettings != null}");
                     
-                    if (eventSettings != null)
+                    if (preset?.FLSettings != null)
                     {
-                        System.Diagnostics.Debug.WriteLine($"   🔄 기존 프리셋 변환 성공");
-                        System.Diagnostics.Debug.WriteLine($"      Fields: {eventSettings.Fields?.Count ?? 0}개");
-                        
-                        return new UnifiedPreset
-                        {
-                            Name = name,
-                            EventSettings = eventSettings,
-                            DataSettings = null,
-                            CreatedAt = eventSettings.CreatedAt,
-                            ModifiedAt = eventSettings.ModifiedAt
-                        };
+                        System.Diagnostics.Debug.WriteLine($"      FL TagConfigs: {preset.FLSettings.TagConfigs?.Count ?? 0}개");
+                        System.Diagnostics.Debug.WriteLine($"      FL FieldConfigs: {preset.FLSettings.FieldConfigs?.Count ?? 0}개");
+                        System.Diagnostics.Debug.WriteLine($"      FL Tabs: {preset.FLSettings.TabSettings?.Tabs?.Count ?? 0}개");
                     }
+                    
+                    return preset;
                 }
                 
                 System.Diagnostics.Debug.WriteLine($"   ❌ 프리셋을 찾을 수 없음");
@@ -237,7 +252,7 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// 모든 프리셋 이름 목록 (통합 프리셋 + 기존 EVENT 프리셋)
+        /// 모든 프리셋 이름 목록
         /// </summary>
         public static List<string> GetPresetNames()
         {
@@ -249,28 +264,24 @@ namespace FACTOVA_MessageLogViewer.Models
                 
                 System.Diagnostics.Debug.WriteLine($"📂 프리셋 폴더: {PresetFolder}");
                 
-                // 통합 프리셋 (*.unified.json)
-                var unifiedFiles = Directory.GetFiles(PresetFolder, "*.unified.json");
-                System.Diagnostics.Debug.WriteLine($"   통합 프리셋: {unifiedFiles.Length}개");
-                foreach (var file in unifiedFiles)
-                {
-                    var name = Path.GetFileNameWithoutExtension(file).Replace(".unified", "");
-                    System.Diagnostics.Debug.WriteLine($"     - {name} (unified)");
-                    names.Add(name);
-                }
+                // 모든 *.json 프리셋 파일 (*.unified.json 포함)
+                var jsonFiles = Directory.GetFiles(PresetFolder, "*.json");
+                System.Diagnostics.Debug.WriteLine($"   프리셋: {jsonFiles.Length}개");
                 
-                // 기존 EVENT 프리셋 (*.json, unified 제외)
-                var legacyFiles = Directory.GetFiles(PresetFolder, "*.json")
-                    .Where(f => !f.EndsWith(".unified.json")).ToArray();
-                System.Diagnostics.Debug.WriteLine($"   기존 프리셋: {legacyFiles.Length}개");
-                foreach (var file in legacyFiles)
+                foreach (var file in jsonFiles)
                 {
+                    var fullFileName = Path.GetFileName(file);
                     var name = Path.GetFileNameWithoutExtension(file);
-                    if (!names.Contains(name))
+                    
+                    // .unified.json 파일에서 .unified 제거 (하위 호환성)
+                    if (name.EndsWith(".unified"))
                     {
-                        System.Diagnostics.Debug.WriteLine($"     - {name} (legacy)");
-                        names.Add(name);
+                        name = name.Substring(0, name.Length - 8); // ".unified" 제거
                     }
+                    
+                    var fileInfo = new FileInfo(file);
+                    System.Diagnostics.Debug.WriteLine($"     - 파일: '{fullFileName}' → 이름: '{name}' ({fileInfo.Length} bytes)");
+                    names.Add(name);
                 }
             }
             catch (Exception ex)
@@ -290,16 +301,20 @@ namespace FACTOVA_MessageLogViewer.Models
         {
             try
             {
-                var fileName = SanitizeFileName(name) + ".unified.json";
+                var fileName = SanitizeFileName(name) + ".json";
                 var filePath = Path.Combine(PresetFolder, fileName);
                 
                 if (File.Exists(filePath))
                 {
                     File.Delete(filePath);
+                    System.Diagnostics.Debug.WriteLine($"🗑️ 프리셋 삭제: {name}");
                     return true;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ 프리셋 삭제 실패: {ex.Message}");
+            }
             
             return false;
         }

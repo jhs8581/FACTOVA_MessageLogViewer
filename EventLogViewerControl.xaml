@@ -284,10 +284,10 @@ Loaded="UserControl_Loaded">
                 <Border Width="1" Background="#90CAF9" Margin="20,8,20,8"/>
                 
                 <!-- OK/NG 필터 -->
-                <Border Background="White" CornerRadius="4" Padding="10,4" BorderBrush="#4CAF50" BorderThickness="1">
+                <Border Background="White" CornerRadius="4" Padding="10,4" BorderBrush="#90CAF9" BorderThickness="1">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="결과:" 
-                                   Foreground="#2E7D32" 
+                                   Foreground="#1565C0" 
                                    VerticalAlignment="Center" 
                                    Margin="0,0,8,0"
                                    FontSize="12"
@@ -309,10 +309,10 @@ Loaded="UserControl_Loaded">
                 <Border Width="1" Background="#90CAF9" Margin="20,8,20,8"/>
                 
                 <!-- 시간 이동 -->
-                <Border Background="White" CornerRadius="4" Padding="10,4" BorderBrush="#FF9800" BorderThickness="1">
+                <Border Background="White" CornerRadius="4" Padding="10,4" BorderBrush="#90CAF9" BorderThickness="1">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="⏰ 이동:" 
-                                   Foreground="#E65100" 
+                                   Foreground="#1565C0" 
                                    VerticalAlignment="Center" 
                                    Margin="0,0,8,0"
                                    FontSize="12"
@@ -330,7 +330,7 @@ Loaded="UserControl_Loaded">
                                 Width="28" Height="24" 
                                 Margin="5,0,0,0"
                                 Click="BtnJumpToTime_Click"
-                                Background="#FF9800"
+                                Background="#2196F3"
                                 Foreground="White"
                                 BorderThickness="0"
                                 FontSize="10"

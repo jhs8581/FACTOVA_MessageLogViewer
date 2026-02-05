@@ -274,7 +274,7 @@ namespace FACTOVA_MessageLogViewer.Controls
         {
             if (d is LogSettingsControl ctrl)
             {
-                ctrl.chkSlowQueryOnly.Visibility = (bool)e.NewValue ? Visibility.Visible : Visibility.Collapsed;
+                //ctrl.chkSlowQueryOnly.Visibility = (bool)e.NewValue ? Visibility.Visible : Visibility.Collapsed;
             }
         }
 
@@ -304,7 +304,7 @@ namespace FACTOVA_MessageLogViewer.Controls
             else
             {
                 ShowSlowQueryFilter = false;
-                AccentColor = "#4CAF50";
+                AccentColor = "#1976D2"; // 파란색 (EVENT 기본)
                 UpdatePresetButtonColor("#1976D2"); // 파란색 (EVENT 기본)
             }
         }

@@ -729,10 +729,6 @@ namespace FACTOVA_MessageLogViewer
                 System.Diagnostics.Debug.WriteLine($"✅ 로드 완료: {logManager.LogEntries.Count}개");
                 
                 isLoadingBatch = false;  // 일괄 로드 완료
-                
-                // 로드 완료 후 마지막으로 스크롤
-                if (isAutoScrollEnabled)
-                    AutoScrollToBottom();
             }
             catch (Exception ex)
             {

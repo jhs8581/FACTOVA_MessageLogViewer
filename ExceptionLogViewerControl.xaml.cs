@@ -150,14 +150,6 @@ namespace FACTOVA_MessageLogViewer
 
                     lastPosition = new FileInfo(currentLogFile).Length;
                     isLoadingBatch = false;
-                    
-                    if (isAutoScrollEnabled && logEntries.Count > 0)
-                    {
-                        Dispatcher.BeginInvoke(() =>
-                        {
-                            dataGrid.ScrollIntoView(logEntries[^1]);
-                        }, System.Windows.Threading.DispatcherPriority.Background);
-                    }
                     break;
             }
         }
