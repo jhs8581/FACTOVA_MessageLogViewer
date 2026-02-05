@@ -310,9 +310,36 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// 조건 그룹 (그룹 간 OR)
+        /// 선택된 태그명 목록 (이 태그 중 하나라도 포함되면 표시 - OR 조건)
         /// </summary>
-        public List<FLConditionGroup> ConditionGroups { get; set; } = new();
+        public List<string> SelectedTagNames { get; set; } = new();
+
+        /// <summary>
+        /// 조건 그룹 (레거시 호환용 - 저장 시 SelectedTagNames로 변환)
+        /// </summary>
+        [JsonIgnore]
+        public List<FLConditionGroup> ConditionGroups 
+        { 
+            get
+            {
+                // SelectedTagNames를 하나의 그룹으로 반환 (하위 호환)
+                if (SelectedTagNames.Count == 0) return new List<FLConditionGroup>();
+                return new List<FLConditionGroup> 
+                { 
+                    new FLConditionGroup { Name = "태그", TagNames = SelectedTagNames.ToList() }
+                };
+            }
+            set
+            {
+                // 기존 그룹 데이터를 SelectedTagNames로 변환
+                SelectedTagNames.Clear();
+                foreach (var group in value ?? new List<FLConditionGroup>())
+                {
+                    SelectedTagNames.AddRange(group.TagNames);
+                }
+                SelectedTagNames = SelectedTagNames.Distinct().ToList();
+            }
+        }
 
         /// <summary>
         /// 조건 요약
@@ -323,13 +350,11 @@ namespace FACTOVA_MessageLogViewer.Models
             get
             {
                 if (IsIntegrated) return "모든 로그";
-                if (ConditionGroups.Count == 0) return "조건 없음";
-
-                var summaries = ConditionGroups
-                    .Where(g => g.TagNames.Count > 0)
-                    .Select(g => string.Join(" AND ", g.TagNames.Take(3)) + (g.TagNames.Count > 3 ? "..." : ""));
-
-                return string.Join(" OR ", summaries.Take(2)) + (ConditionGroups.Count > 2 ? " ..." : "");
+                if (SelectedTagNames.Count == 0) return "조건 없음";
+                
+                var display = string.Join(", ", SelectedTagNames.Take(3));
+                if (SelectedTagNames.Count > 3) display += $" 외 {SelectedTagNames.Count - 3}개";
+                return display;
             }
         }
 
