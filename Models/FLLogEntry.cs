@@ -132,6 +132,39 @@ namespace FACTOVA_MessageLogViewer.Models
         /// </summary>
         public string DisplayValue => IsStructure ? FieldsSummary : Value;
 
+        /// <summary>
+        /// 송신 여부 (I_로 시작하는 태그)
+        /// </summary>
+        public bool IsSend => TagName.StartsWith("I_", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// 수신 여부 (O_로 시작하는 태그)
+        /// </summary>
+        public bool IsRecv => TagName.StartsWith("O_", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// 행 배경색 (I_=송신 연파란색, O_=수신 연녹색, 이벤트뷰어와 동일)
+        /// </summary>
+        private System.Windows.Media.Brush? _cachedBackgroundBrush = null;
+        public System.Windows.Media.Brush BackgroundBrush
+        {
+            get
+            {
+                if (_cachedBackgroundBrush != null)
+                    return _cachedBackgroundBrush;
+
+                if (IsSend)
+                    _cachedBackgroundBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(230, 240, 255)); // 송신: 연파란색
+                else if (IsRecv)
+                    _cachedBackgroundBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(230, 255, 230)); // 수신: 연녹색
+                else
+                    _cachedBackgroundBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 255, 255)); // 기타: 흰색
+
+                _cachedBackgroundBrush.Freeze();
+                return _cachedBackgroundBrush;
+            }
+        }
+
         public override string ToString()
         {
             return $"[{TimeString}] [{Level}] [{TagName}] = {Value}";

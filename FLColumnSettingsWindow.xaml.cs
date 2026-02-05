@@ -572,94 +572,19 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
-        private void BtnBulkShowColumn_Click(object sender, RoutedEventArgs e)
-        {
-            foreach (var field in fieldConfigs.Where(f => f.IsSelected))
-            {
-                field.ShowAsColumn = true;
-            }
-            dgFields.Items.Refresh();
-        }
-
-        private void BtnBulkHideColumn_Click(object sender, RoutedEventArgs e)
-        {
-            foreach (var field in fieldConfigs.Where(f => f.IsSelected))
-            {
-                field.ShowAsColumn = false;
-            }
-            dgFields.Items.Refresh();
-        }
-
         private void BtnEditValueMapping_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is FLFieldConfig field)
             {
-                // 값 매핑 편집 다이얼로그
-                var inputWindow = new Window
+                // ValueMappingPopup 사용 (이벤트뷰어와 동일)
+                var popup = new ValueMappingPopup(field.ValueMapping);
+                popup.Owner = this;
+                
+                if (popup.ShowDialog() == true)
                 {
-                    Title = $"값 매핑 - {field.FieldName}",
-                    Width = 400,
-                    Height = 300,
-                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                    Owner = this
-                };
-
-                var grid = new Grid { Margin = new Thickness(15) };
-                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-                var label = new TextBlock
-                {
-                    Text = "값 매핑 (형식: 원본값:표시값, 구분자 쉼표)\n예: 1:장입,2:미장입,True:ON,False:OFF",
-                    Margin = new Thickness(0, 0, 0, 10),
-                    TextWrapping = TextWrapping.Wrap,
-                    Foreground = new SolidColorBrush(Colors.Gray)
-                };
-                Grid.SetRow(label, 0);
-                grid.Children.Add(label);
-
-                var textBox = new TextBox
-                {
-                    Text = field.ValueMapping,
-                    TextWrapping = TextWrapping.Wrap,
-                    AcceptsReturn = true,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-                };
-                Grid.SetRow(textBox, 1);
-                grid.Children.Add(textBox);
-
-                var buttonPanel = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    HorizontalAlignment = HorizontalAlignment.Right,
-                    Margin = new Thickness(0, 10, 0, 0)
-                };
-                Grid.SetRow(buttonPanel, 2);
-
-                var okButton = new Button { Content = "확인", Width = 80, Height = 28, Margin = new Thickness(0, 0, 10, 0) };
-                var cancelButton = new Button { Content = "취소", Width = 80, Height = 28 };
-
-                okButton.Click += (s, args) =>
-                {
-                    field.ValueMapping = textBox.Text.Trim();
+                    field.ValueMapping = popup.ResultMapping;
                     dgFields.Items.Refresh();
-                    inputWindow.DialogResult = true;
-                    inputWindow.Close();
-                };
-
-                cancelButton.Click += (s, args) =>
-                {
-                    inputWindow.DialogResult = false;
-                    inputWindow.Close();
-                };
-
-                buttonPanel.Children.Add(okButton);
-                buttonPanel.Children.Add(cancelButton);
-                grid.Children.Add(buttonPanel);
-
-                inputWindow.Content = grid;
-                inputWindow.ShowDialog();
+                }
             }
         }
 

@@ -167,6 +167,7 @@
                 <Setter Property="Padding" Value="10,4"/>
                 <Setter Property="BorderThickness" Value="0"/>
                 <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
             </Style>
         </DataGrid.Resources>
         <DataGrid.HorizontalGridLinesBrush>

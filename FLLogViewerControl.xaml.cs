@@ -40,6 +40,11 @@ namespace FACTOVA_MessageLogViewer
         private System.Timers.Timer? watcherDebounceTimer;
         private HashSet<string> pendingWatcherFiles = new();
 
+        // 태그 필터 관련
+        private ObservableCollection<BizFilterItem> tagFilterItems = new();
+        private HashSet<string> discoveredTagNames = new();
+        private HashSet<string> selectedTagNames = new();
+
         // 로그 파싱 패턴: 2026-01-28 07:16:54.214 [Debug] [Module.Name] [TagName] (Type) : Value
         private static readonly Regex LogLinePattern = new Regex(
             @"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+\[(\w+)\]\s+\[([^\]]+)\]\s+\[([^\]]+)\]\s+\(([^)]+)\)\s*:\s*(.*)$",
@@ -53,6 +58,7 @@ namespace FACTOVA_MessageLogViewer
         public FLLogViewerControl()
         {
             InitializeComponent();
+            cboTagFilter.ItemsSource = tagFilterItems;
         }
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
@@ -256,6 +262,12 @@ namespace FACTOVA_MessageLogViewer
 
             dataGrid.MouseDoubleClick += DataGrid_MouseDoubleClick;
 
+            // DataGrid Row 스타일 (배경색)
+            var rowStyle = new Style(typeof(DataGridRow));
+            rowStyle.Setters.Add(new Setter(DataGridRow.BackgroundProperty, new Binding("BackgroundBrush") { Mode = BindingMode.OneTime }));
+            rowStyle.Setters.Add(new Setter(DataGridRow.MinHeightProperty, 26.0));
+            dataGrid.RowStyle = rowStyle;
+
             return dataGrid;
         }
 
@@ -279,6 +291,7 @@ namespace FACTOVA_MessageLogViewer
 
             var style = new Style(typeof(TextBlock));
             style.Setters.Add(new Setter(TextBlock.HorizontalAlignmentProperty, HorizontalAlignment.Center));
+            style.Setters.Add(new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center));
             style.Setters.Add(new Setter(TextBlock.FontWeightProperty, FontWeights.Bold));
             style.Setters.Add(new Setter(TextBlock.MarginProperty, new Thickness(5, 0, 5, 0)));
 
@@ -304,6 +317,7 @@ namespace FACTOVA_MessageLogViewer
             column.Binding = binding;
 
             var style = new Style(typeof(TextBlock));
+            style.Setters.Add(new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center));
             style.Setters.Add(new Setter(TextBlock.MarginProperty, new Thickness(5, 0, 5, 0)));
             style.Setters.Add(new Setter(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0x1A, 0x23, 0x7E)))); // 진한 파란색
 
@@ -316,9 +330,13 @@ namespace FACTOVA_MessageLogViewer
         /// </summary>
         private DataGridTextColumn CreateFieldColumn(FLFieldConfig fieldConfig)
         {
+            // 헤더에서 언더스코어를 두 개로 변경 (WPF AccessKey 문제 해결)
+            var headerText = (string.IsNullOrEmpty(fieldConfig.DisplayName) ? fieldConfig.FieldName : fieldConfig.DisplayName)
+                .Replace("_", "__");
+            
             var column = new DataGridTextColumn
             {
-                Header = string.IsNullOrEmpty(fieldConfig.DisplayName) ? fieldConfig.FieldName : fieldConfig.DisplayName,
+                Header = headerText,
                 Width = fieldConfig.ColumnWidth > 0 ? new DataGridLength(fieldConfig.ColumnWidth) : new DataGridLength(80)
             };
 
@@ -332,8 +350,8 @@ namespace FACTOVA_MessageLogViewer
 
             var style = new Style(typeof(TextBlock));
             style.Setters.Add(new Setter(TextBlock.HorizontalAlignmentProperty, HorizontalAlignment.Center));
+            style.Setters.Add(new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center));
             style.Setters.Add(new Setter(TextBlock.MarginProperty, new Thickness(5, 0, 5, 0)));
-            style.Setters.Add(new Setter(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0x43, 0xA0, 0x47)))); // 녹색
 
             column.ElementStyle = style;
             return column;
@@ -351,6 +369,7 @@ namespace FACTOVA_MessageLogViewer
 
             var style = new Style(typeof(TextBlock));
             style.Setters.Add(new Setter(TextBlock.HorizontalAlignmentProperty, alignment));
+            style.Setters.Add(new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center));
             style.Setters.Add(new Setter(TextBlock.MarginProperty, new Thickness(5, 0, 5, 0)));
             
             if (!string.IsNullOrEmpty(foreground))
@@ -643,9 +662,16 @@ namespace FACTOVA_MessageLogViewer
             var valueFilter = (cboValueFilter.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "전체";
             var hourFilter = (cboHourFilter.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "전체";
 
+            // 태그 필터 - 선택된 것이 없거나 전체 선택이면 필터 미적용
+            bool applyTagFilter = selectedTagNames.Count > 0 && selectedTagNames.Count < discoveredTagNames.Count;
+
             currentLogView.Filter = item =>
             {
                 if (item is not FLLogEntry entry) return false;
+
+                // 태그 필터
+                if (applyTagFilter && !selectedTagNames.Contains(entry.TagName))
+                    return false;
 
                 // 타입 필터
                 if (typeFilter.Contains("Structure") && !entry.IsStructure) return false;
@@ -735,6 +761,102 @@ namespace FACTOVA_MessageLogViewer
         {
             if (isInitialized)
                 ApplyFilters();
+        }
+
+        #endregion
+
+        #region 태그 필터
+
+        /// <summary>
+        /// 태그 콤보박스 열릴 때 - 발견된 태그명 목록 갱신
+        /// </summary>
+        private void CboTagFilter_DropDownOpened(object? sender, EventArgs e)
+        {
+            // 현재 로그에서 발견된 태그명들로 목록 갱신
+            var newTagNames = logEntries.Select(x => x.TagName).Distinct().OrderBy(x => x).ToList();
+            
+            foreach (var tagName in newTagNames)
+            {
+                if (!discoveredTagNames.Contains(tagName))
+                {
+                    discoveredTagNames.Add(tagName);
+                    tagFilterItems.Add(new BizFilterItem 
+                    { 
+                        Name = tagName, 
+                        IsSelected = selectedTagNames.Count == 0 || selectedTagNames.Contains(tagName)
+                    });
+                }
+            }
+        }
+
+        /// <summary>
+        /// 태그 체크박스 클릭
+        /// </summary>
+        private void TagFilterCheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateTagFilterSelection();
+        }
+
+        /// <summary>
+        /// 태그 전체 선택
+        /// </summary>
+        private void BtnTagSelectAll_Click(object sender, RoutedEventArgs e)
+        {
+            foreach (var item in tagFilterItems)
+            {
+                item.IsSelected = true;
+            }
+            UpdateTagFilterSelection();
+        }
+
+        /// <summary>
+        /// 태그 전체 해제
+        /// </summary>
+        private void BtnTagDeselectAll_Click(object sender, RoutedEventArgs e)
+        {
+            foreach (var item in tagFilterItems)
+            {
+                item.IsSelected = false;
+            }
+            UpdateTagFilterSelection();
+        }
+
+        /// <summary>
+        /// 태그 필터 선택 상태 업데이트
+        /// </summary>
+        private void UpdateTagFilterSelection()
+        {
+            // 선택된 태그명 업데이트
+            selectedTagNames.Clear();
+            foreach (var item in tagFilterItems.Where(x => x.IsSelected))
+            {
+                selectedTagNames.Add(item.Name);
+            }
+
+            // 콤보박스 텍스트 업데이트
+            if (tagFilterItems.Count == 0)
+            {
+                cboTagFilter.Text = "전체";
+            }
+            else if (selectedTagNames.Count == 0)
+            {
+                cboTagFilter.Text = "선택 없음";
+            }
+            else if (selectedTagNames.Count == tagFilterItems.Count)
+            {
+                cboTagFilter.Text = "전체";
+            }
+            else if (selectedTagNames.Count <= 2)
+            {
+                cboTagFilter.Text = string.Join(", ", selectedTagNames);
+            }
+            else
+            {
+                cboTagFilter.Text = $"{selectedTagNames.Count}개 선택";
+            }
+
+            // 필터 적용
+            ApplyFilters();
         }
 
         private void CboTypeFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)

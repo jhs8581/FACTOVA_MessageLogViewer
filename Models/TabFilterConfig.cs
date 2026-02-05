@@ -409,6 +409,44 @@ namespace FACTOVA_MessageLogViewer.Models
                 return string.Join(" AND ", parts);
             }
         }
+
+        /// <summary>
+        /// 매칭된 그룹명 반환 - EVENT 로그
+        /// </summary>
+        public string? GetMatchedGroupName(LogEntry entry)
+        {
+            if (entry == null || IsIntegrated)
+                return null;
+
+            // 조건 그룹이 있으면 매칭된 첫 번째 그룹명 반환
+            if (ConditionGroups != null && ConditionGroups.Count > 0)
+            {
+                var matchedGroup = ConditionGroups.FirstOrDefault(g => g.IsMatch(entry));
+                if (matchedGroup != null && !string.IsNullOrEmpty(matchedGroup.Name))
+                    return matchedGroup.Name;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 매칭된 그룹명 반환 - DATA 로그
+        /// </summary>
+        public string? GetMatchedGroupName(DataLogEntry entry)
+        {
+            if (entry == null || IsIntegrated)
+                return null;
+
+            // 조건 그룹이 있으면 매칭된 첫 번째 그룹명 반환
+            if (ConditionGroups != null && ConditionGroups.Count > 0)
+            {
+                var matchedGroup = ConditionGroups.FirstOrDefault(g => g.IsMatch(entry));
+                if (matchedGroup != null && !string.IsNullOrEmpty(matchedGroup.Name))
+                    return matchedGroup.Name;
+            }
+
+            return null;
+        }
     }
 
     /// <summary>

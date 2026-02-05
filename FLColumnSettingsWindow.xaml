@@ -169,15 +169,6 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                             <CheckBox x:Name="chkShowOnlyColumnFields" Content="컬럼 표시만" VerticalAlignment="Center" Margin="0,0,10,0"
                                       Checked="ChkShowOnlyColumnFields_Changed" Unchecked="ChkShowOnlyColumnFields_Changed"/>
                         </StackPanel>
-                        <Border Background="#FFF3E0" BorderBrush="#FF9800" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,8,0,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="체크한 항목:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,0"/>
-                                <Button Content="컬럼 표시" Width="70" Height="26" Click="BtnBulkShowColumn_Click" FontSize="11"
-                                        Background="#4CAF50" Foreground="White"/>
-                                <Button Content="컬럼 숨김" Width="70" Height="26" Margin="5,0,0,0" Click="BtnBulkHideColumn_Click" FontSize="11"
-                                        Background="#9E9E9E" Foreground="White"/>
-                            </StackPanel>
-                        </Border>
                     </StackPanel>
 
                     <DataGrid Grid.Row="1" 
@@ -192,16 +183,6 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                               RowHeight="30"
                               FontSize="12">
                         <DataGrid.Columns>
-                            <DataGridCheckBoxColumn Header="선택" 
-                                                     Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" 
-                                                     Width="50">
-                                <DataGridCheckBoxColumn.ElementStyle>
-                                    <Style TargetType="CheckBox">
-                                        <Setter Property="HorizontalAlignment" Value="Center"/>
-                                        <Setter Property="VerticalAlignment" Value="Center"/>
-                                    </Style>
-                                </DataGridCheckBoxColumn.ElementStyle>
-                            </DataGridCheckBoxColumn>
                             <DataGridCheckBoxColumn Header="컬럼" 
                                                      Binding="{Binding ShowAsColumn, UpdateSourceTrigger=PropertyChanged}" 
                                                      Width="50">
@@ -228,13 +209,6 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
                             <DataGridTextColumn Header="표시명 (컬럼 헤더)" Binding="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" Width="150"/>
-                            <DataGridTextColumn Header="너비" Binding="{Binding ColumnWidth, UpdateSourceTrigger=PropertyChanged}" Width="60">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="HorizontalAlignment" Value="Center"/>
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
                             <DataGridTemplateColumn Header="값 매핑" Width="150">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>

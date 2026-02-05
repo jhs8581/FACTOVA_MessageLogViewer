@@ -330,6 +330,7 @@ namespace FACTOVA_MessageLogViewer
             cellStyle.Setters.Add(new Setter(DataGridCell.PaddingProperty, new Thickness(10, 4, 10, 4)));
             cellStyle.Setters.Add(new Setter(DataGridCell.BorderThicknessProperty, new Thickness(0)));
             cellStyle.Setters.Add(new Setter(DataGridCell.FocusVisualStyleProperty, null));
+            cellStyle.Setters.Add(new Setter(DataGridCell.VerticalContentAlignmentProperty, VerticalAlignment.Center));
             dataGrid.CellStyle = cellStyle;
 
             // 프리셋에서 컬럼 설정 가져오기
@@ -391,12 +392,20 @@ namespace FACTOVA_MessageLogViewer
                 ? new DataGridLength(1, DataGridLengthUnitType.Star) 
                 : new DataGridLength(field.ColumnWidth);
 
-            return new DataGridTextColumn
+            var column = new DataGridTextColumn
             {
                 Header = field.DisplayName,
                 Binding = binding,
                 Width = width
             };
+
+            // ElementStyle 추가 - 세로 정렬 중앙
+            var style = new Style(typeof(TextBlock));
+            style.Setters.Add(new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center));
+            style.Setters.Add(new Setter(TextBlock.MarginProperty, new Thickness(5, 0, 5, 0)));
+            column.ElementStyle = style;
+
+            return column;
         }
 
         private void DataGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)

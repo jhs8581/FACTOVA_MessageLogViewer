@@ -58,7 +58,7 @@ Loaded="UserControl_Loaded">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="50"/>
-            <RowDefinition Height="40"/>
+            <RowDefinition Height="75"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="35"/>
         </Grid.RowDefinitions>
@@ -156,117 +156,162 @@ Loaded="UserControl_Loaded">
 
         <!-- 필터 영역 -->
         <Border Grid.Row="1" Background="#F3E5F5">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
-                <TextBlock Text="🔍 검색:" 
-                           Foreground="#7B1FA2" 
-                           VerticalAlignment="Center" 
-                           Margin="0,0,8,0"
-                           FontSize="13"
-                           FontWeight="SemiBold"/>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <!-- 첫 번째 줄 -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
+                    <TextBlock Text="🔍 검색:" 
+                               Foreground="#7B1FA2" 
+                               VerticalAlignment="Center" 
+                               Margin="0,0,8,0"
+                               FontSize="13"
+                               FontWeight="SemiBold"/>
 
-                <TextBox x:Name="txtSearch" 
-                         Width="300" Height="28"
-                         VerticalAlignment="Center"
-                         VerticalContentAlignment="Center"
-                         Padding="8,0"
-                         FontSize="12"
-                         KeyDown="TxtSearch_KeyDown"
-                         ToolTip="태그명, 값 등 검색 (쉼표=OR, 플러스=AND)"/>
+                    <TextBox x:Name="txtSearch" 
+                             Width="300" Height="26"
+                             VerticalAlignment="Center"
+                             VerticalContentAlignment="Center"
+                             Padding="8,0"
+                             FontSize="12"
+                             KeyDown="TxtSearch_KeyDown"
+                             ToolTip="태그명, 값 등 검색 (쉼표=OR, 플러스=AND)"/>
 
-                <Button Content="🔍" 
-                        Width="32" Height="28"
-                        Margin="5,0,0,0"
-                        Click="BtnSearch_Click"
-                        Background="#9C27B0"
-                        Foreground="White"
-                        FontSize="14"
-                        Cursor="Hand"
-                        ToolTip="검색 (Enter)"/>
-                
-                <!-- 구분선 -->
-                <Border Width="1" Background="#CE93D8" Margin="20,8,20,8"/>
-                
-                <!-- 타입 필터 -->
-                <Border Background="White" CornerRadius="4" Padding="10,4" BorderBrush="#4CAF50" BorderThickness="1">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="타입:" 
-                                   Foreground="#2E7D32" 
-                                   VerticalAlignment="Center" 
-                                   Margin="0,0,8,0"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"/>
-                        <ComboBox x:Name="cboTypeFilter" 
-                                  Width="90" Height="24"
-                                  FontSize="11"
-                                  VerticalContentAlignment="Center"
-                                  SelectionChanged="CboTypeFilter_SelectionChanged"
-                                  ToolTip="데이터 타입 필터">
-                            <ComboBoxItem Content="전체" IsSelected="True"/>
-                            <ComboBoxItem Content="📦 Structure"/>
-                            <ComboBoxItem Content="🔘 Boolean"/>
-                        </ComboBox>
-                    </StackPanel>
-                </Border>
-                
-                <!-- 구분선 -->
-                <Border Width="1" Background="#CE93D8" Margin="20,8,20,8"/>
-                
-                <!-- ON/OFF 필터 -->
-                <Border Background="White" CornerRadius="4" Padding="10,4" BorderBrush="#9C27B0" BorderThickness="1">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="값:" 
-                                   Foreground="#7B1FA2" 
-                                   VerticalAlignment="Center" 
-                                   Margin="0,0,8,0"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"/>
-                        <ComboBox x:Name="cboValueFilter" 
-                                  Width="80" Height="24"
-                                  FontSize="11"
-                                  VerticalContentAlignment="Center"
-                                  SelectionChanged="CboValueFilter_SelectionChanged"
-                                  ToolTip="값 필터">
-                            <ComboBoxItem Content="전체" IsSelected="True"/>
-                            <ComboBoxItem Content="🟢 ON"/>
-                            <ComboBoxItem Content="🔴 OFF"/>
-                        </ComboBox>
-                    </StackPanel>
-                </Border>
+                    <Button Content="🔍" 
+                            Width="32" Height="26"
+                            Margin="5,0,0,0"
+                            Click="BtnSearch_Click"
+                            Background="#9C27B0"
+                            Foreground="White"
+                            FontSize="14"
+                            Cursor="Hand"
+                            ToolTip="검색 (Enter)"/>
+                    
+                    <!-- 구분선 -->
+                    <Border Width="1" Background="#CE93D8" Margin="20,6,20,6"/>
+                    
+                    <!-- 타입 필터 -->
+                    <Border Background="White" CornerRadius="4" Padding="8,2" BorderBrush="#4CAF50" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="타입:" 
+                                       Foreground="#2E7D32" 
+                                       VerticalAlignment="Center" 
+                                       Margin="0,0,8,0"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"/>
+                            <ComboBox x:Name="cboTypeFilter" 
+                                      Width="90" Height="22"
+                                      FontSize="11"
+                                      VerticalContentAlignment="Center"
+                                      SelectionChanged="CboTypeFilter_SelectionChanged"
+                                      ToolTip="데이터 타입 필터">
+                                <ComboBoxItem Content="전체" IsSelected="True"/>
+                                <ComboBoxItem Content="📦 Structure"/>
+                                <ComboBoxItem Content="🔘 Boolean"/>
+                            </ComboBox>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- 구분선 -->
+                    <Border Width="1" Background="#CE93D8" Margin="20,6,20,6"/>
+                    
+                    <!-- ON/OFF 필터 -->
+                    <Border Background="White" CornerRadius="4" Padding="8,2" BorderBrush="#9C27B0" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="값:" 
+                                       Foreground="#7B1FA2" 
+                                       VerticalAlignment="Center" 
+                                       Margin="0,0,8,0"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"/>
+                            <ComboBox x:Name="cboValueFilter" 
+                                      Width="70" Height="22"
+                                      FontSize="11"
+                                      VerticalContentAlignment="Center"
+                                      SelectionChanged="CboValueFilter_SelectionChanged"
+                                      ToolTip="값 필터">
+                                <ComboBoxItem Content="전체" IsSelected="True"/>
+                                <ComboBoxItem Content="ON"/>
+                                <ComboBoxItem Content="OFF"/>
+                            </ComboBox>
+                        </StackPanel>
+                    </Border>
 
-                <!-- 구분선 -->
-                <Border Width="1" Background="#CE93D8" Margin="20,8,20,8"/>
+                    <!-- 구분선 -->
+                    <Border Width="1" Background="#CE93D8" Margin="20,6,20,6"/>
 
-                <!-- 시간대 필터 -->
-                <Border Background="White" CornerRadius="4" Padding="10,4" BorderBrush="#FF9800" BorderThickness="1">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⏰ 시간대:" 
-                                   Foreground="#E65100" 
-                                   VerticalAlignment="Center" 
-                                   Margin="0,0,8,0"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"/>
-                        <ComboBox x:Name="cboHourFilter" 
-                                  Width="80" Height="24"
-                                  FontSize="11"
-                                  VerticalContentAlignment="Center"
-                                  SelectionChanged="CboHourFilter_SelectionChanged"
-                                  ToolTip="시간대 필터 (로드된 파일 기준)">
-                            <ComboBoxItem Content="전체" IsSelected="True"/>
-                        </ComboBox>
-                    </StackPanel>
-                </Border>
+                    <!-- 시간대 필터 -->
+                    <Border Background="White" CornerRadius="4" Padding="8,2" BorderBrush="#FF9800" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⏰ 시간대:" 
+                                       Foreground="#E65100" 
+                                       VerticalAlignment="Center" 
+                                       Margin="0,0,8,0"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"/>
+                            <ComboBox x:Name="cboHourFilter" 
+                                      Width="70" Height="22"
+                                      FontSize="11"
+                                      VerticalContentAlignment="Center"
+                                      SelectionChanged="CboHourFilter_SelectionChanged"
+                                      ToolTip="시간대 필터 (로드된 파일 기준)">
+                                <ComboBoxItem Content="전체" IsSelected="True"/>
+                            </ComboBox>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- 구분선 -->
+                    <Border Width="1" Background="#CE93D8" Margin="20,6,20,6"/>
+                    
+                    <!-- 파일 수 표시 -->
+                    <TextBlock x:Name="txtFileCount" 
+                               Text="파일: 0개" 
+                               Foreground="#7B1FA2" 
+                               VerticalAlignment="Center" 
+                               FontSize="11"
+                               FontWeight="SemiBold"/>
+                </StackPanel>
                 
-                <!-- 구분선 -->
-                <Border Width="1" Background="#CE93D8" Margin="20,8,20,8"/>
-                
-                <!-- 파일 수 표시 -->
-                <TextBlock x:Name="txtFileCount" 
-                           Text="파일: 0개" 
-                           Foreground="#7B1FA2" 
-                           VerticalAlignment="Center" 
-                           FontSize="12"
-                           FontWeight="SemiBold"/>
-            </StackPanel>
+                <!-- 두 번째 줄: 태그 필터 -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
+                    <!-- 태그 필터 (멀티선택) -->
+                    <Border Background="White" CornerRadius="4" Padding="8,2" BorderBrush="#2196F3" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🏷 태그:" 
+                                       FontSize="11" 
+                                       VerticalAlignment="Center" 
+                                       Margin="0,0,8,0" 
+                                       Foreground="#1565C0" 
+                                       FontWeight="SemiBold"/>
+                            <Button Content="✓" Width="20" Height="20" Margin="0,0,3,0" 
+                                    Click="BtnTagSelectAll_Click" 
+                                    ToolTip="전체 선택" 
+                                    FontSize="9" FontWeight="Bold"
+                                    Background="#E8F5E9" Foreground="#2E7D32" BorderBrush="#A5D6A7" Cursor="Hand"/>
+                            <Button Content="✗" Width="20" Height="20" Margin="0,0,5,0" 
+                                    Click="BtnTagDeselectAll_Click" 
+                                    ToolTip="전체 해제"
+                                    FontSize="9" FontWeight="Bold"
+                                    Background="#FFEBEE" Foreground="#C62828" BorderBrush="#EF9A9A" Cursor="Hand"/>
+                            <ComboBox x:Name="cboTagFilter" Width="350" Height="22" FontSize="11" 
+                                      IsEditable="True" IsReadOnly="True" Text="전체"
+                                      DropDownOpened="CboTagFilter_DropDownOpened">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" 
+                                                  Click="TagFilterCheckBox_Click">
+                                            <TextBlock Text="{Binding Name}"/>
+                                        </CheckBox>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <!-- TabControl with DataGrid -->

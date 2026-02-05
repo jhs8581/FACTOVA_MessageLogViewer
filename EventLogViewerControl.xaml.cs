@@ -340,10 +340,11 @@ namespace FACTOVA_MessageLogViewer
             dataGrid.Columns.Add(CreateDataGridTextColumn("구분", "DirectionText", 50, HorizontalAlignment.Center, null, null, FontWeights.Bold));
             dataGrid.Columns.Add(CreateDataGridTextColumn("MsgId", "MessageId", 60, HorizontalAlignment.Center, "Consolas"));
 
-            // 통합 로그 탭에만 "분류" 컬럼 추가
+            // 통합 로그 탭에만 "분류", "그룹" 컬럼 추가
             if (tabConfig.IsIntegrated)
             {
                 dataGrid.Columns.Add(CreateDataGridTextColumn("분류", "MatchedTabName", 100, HorizontalAlignment.Left, null, "#1565C0"));
+                dataGrid.Columns.Add(CreateDataGridTextColumn("그룹", "MatchedGroupName", 100, HorizontalAlignment.Left, null, "#7B1FA2"));
             }
 
             // 동적 컬럼 추가 (탭별 필터링)
@@ -1261,8 +1262,9 @@ namespace FACTOVA_MessageLogViewer
 
                             displayEntries.Add(item);
 
-                            // 매칭된 첫 번째 탭 이름 찾기 (통합 탭 제외)
+                            // 매칭된 첫 번째 탭 이름과 그룹 이름 찾기 (통합 탭 제외)
                             string? matchedTabName = null;
+                            string? matchedGroupName = null;
 
                             // 각 탭에 로그 추가 (조건 체크는 여기서 한 번만)
                             foreach (var kvp in tabDisplayEntries)
@@ -1275,16 +1277,18 @@ namespace FACTOVA_MessageLogViewer
                                 {
                                     entries.Add(item);
 
-                                    // 첫 번째 매칭된 비통합 탭 이름 저장
+                                    // 첫 번째 매칭된 비통합 탭 이름과 그룹명 저장
                                     if (matchedTabName == null && !tabConfig.IsIntegrated)
                                     {
                                         matchedTabName = tabConfig.Name;
+                                        matchedGroupName = tabConfig.GetMatchedGroupName(item);
                                     }
                                 }
                             }
 
-                            // 매칭된 탭 이름 설정
+                            // 매칭된 탭 이름과 그룹명 설정
                             item.MatchedTabName = matchedTabName ?? "";
+                            item.MatchedGroupName = matchedGroupName ?? "";
                         }
                     }
                 }

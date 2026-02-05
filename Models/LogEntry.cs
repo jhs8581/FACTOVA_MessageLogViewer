@@ -80,6 +80,11 @@ namespace FACTOVA_MessageLogViewer.Models
         /// </summary>
         public string MatchedTabName { get; set; } = "";
 
+        /// <summary>
+        /// 매칭된 그룹 이름 (조건 그룹명, 첫 번째 매칭 그룹)
+        /// </summary>
+        public string MatchedGroupName { get; set; } = "";
+
         // 직접 설정 가능한 필드들
         private string? _returnCode;
         private string? _workType;

@@ -19,7 +19,7 @@ namespace FACTOVA_MessageLogViewer.Converters
                 // Boolean 타입만 표시
                 if (entry.DataType.Equals("Boolean", StringComparison.OrdinalIgnoreCase))
                 {
-                    return entry.IsOn ? "🟢 ON" : "🔴 OFF";
+                    return entry.IsOn ? "ON" : "OFF";
                 }
             }
             return "";

@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Windows;
 using FACTOVA_MessageLogViewer.Models;
 
@@ -10,6 +12,25 @@ namespace FACTOVA_MessageLogViewer
         public MainWindow()
         {
             InitializeComponent();
+            SetWindowTitle();
+        }
+
+        /// <summary>
+        /// 윈도우 타이틀에 버전 정보 설정
+        /// </summary>
+        private void SetWindowTitle()
+        {
+            try
+            {
+                var assembly = Assembly.GetExecutingAssembly();
+                var fileVersionInfo = FileVersionInfo.GetVersionInfo(assembly.Location);
+                var version = fileVersionInfo.FileVersion ?? assembly.GetName().Version?.ToString() ?? "1.0.0";
+                Title = $"FACTOVA 로그 뷰어 v{version}";
+            }
+            catch
+            {
+                Title = "FACTOVA 로그 뷰어";
+            }
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -115,9 +136,6 @@ namespace FACTOVA_MessageLogViewer
             
             var watchFL = logSettings.UseSeparateFLFolder && logSettings.WatchFLLog;
             await flLogViewer.InitializeAsync(flLogDirectory, selectedDate.Date, watchFL);
-
-            // 설정 영역 접기
-            logSettings.CollapseExpander();
 
             // 표시 옵션 저장
             logSettings.SaveDisplaySettings();
