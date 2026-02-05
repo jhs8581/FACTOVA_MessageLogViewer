@@ -141,7 +141,8 @@
                               FontSize="11"
                               SelectionChanged="CboPresets_SelectionChanged"
                               ToolTip="저장된 설정 선택"/>
-                    <Button Content="⚙ 프리셋 설정" 
+                    <Button x:Name="btnPresetSettings"
+                            Content="⚙ 프리셋 설정" 
                             Width="100" 
                             Height="28"
                             FontSize="12"

@@ -2306,28 +2306,47 @@ namespace FACTOVA_MessageLogViewer
         }
 
         /// <summary>
-        /// 지정한 시간으로 이동
+        /// 지정한 시간으로 이동 (필터링된 데이터에서 검색)
         /// </summary>
         private void JumpToTime()
         {
             if (currentDataGrid == null || currentTabConfig == null) return;
-            if (!tabDisplayEntries.TryGetValue(currentTabConfig, out var entries) || entries.Count == 0) return;
+            
+            // 필터링된 데이터 가져오기 (tabViews에서 필터가 적용된 뷰 사용)
+            if (!tabViews.TryGetValue(currentTabConfig, out var view)) return;
+            var filteredEntries = view.Cast<LogEntry>()
+                .OrderBy(e => e.Timestamp)
+                .ThenBy(e => e.RowNumber)
+                .ToList();
+            if (filteredEntries.Count == 0) return;
 
             string timeText = txtJumpTime.Text.Trim();
             if (string.IsNullOrEmpty(timeText)) return;
 
             // 시간 파싱 (HH:mm 또는 HH:mm:ss 또는 HH 형식)
             TimeSpan targetTime;
+            bool isMinuteOnlySearch = false;
+            
             if (timeText.Length <= 2 && int.TryParse(timeText, out int hourOnly))
             {
                 // "09" 또는 "9" 형식 -> 09:00:00
                 targetTime = new TimeSpan(hourOnly, 0, 0);
             }
-            else if (TimeSpan.TryParse(timeText, out var parsed))
+            else if (timeText.Contains(':') && timeText.Split(':').Length == 2 && !timeText.Contains('.'))
             {
-                targetTime = parsed;
+                // HH:mm 형식 (초가 없는 경우) → 분 단위로 검색
+                if (TimeSpan.TryParse(timeText + ":00", out var parsed))
+                {
+                    targetTime = parsed;
+                    isMinuteOnlySearch = true;
+                }
+                else
+                {
+                    MessageBox.Show("시간 형식이 올바르지 않습니다.\n예: 09:30, 14:00, 9", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
             }
-            else if (TimeSpan.TryParse(timeText + ":00", out var parsed2))
+            else if (TimeSpan.TryParse(timeText, out var parsed2))
             {
                 targetTime = parsed2;
             }
@@ -2337,24 +2356,41 @@ namespace FACTOVA_MessageLogViewer
                 return;
             }
 
-            // 해당 시간 이후의 첫 번째 로그 찾기
+            // 필터링된 데이터에서 해당 시간의 첫 번째 로그 찾기
             LogEntry? targetEntry = null;
-            int targetIndex = -1;
 
-            for (int i = 0; i < entries.Count; i++)
+            if (isMinuteOnlySearch)
             {
-                if (entries[i].Timestamp.TimeOfDay >= targetTime)
+                // 분 단위 검색: HH:mm:00 ~ HH:mm:59 범위에서 찾기
+                var startTime = targetTime;
+                var endTime = targetTime.Add(TimeSpan.FromSeconds(59.999));
+                
+                for (int i = 0; i < filteredEntries.Count; i++)
                 {
-                    targetEntry = entries[i];
-                    targetIndex = i;
-                    break;
+                    var entryTime = filteredEntries[i].Timestamp.TimeOfDay;
+                    if (entryTime >= startTime && entryTime <= endTime)
+                    {
+                        targetEntry = filteredEntries[i];
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                // 정확한 시간 이후 검색
+                for (int i = 0; i < filteredEntries.Count; i++)
+                {
+                    if (filteredEntries[i].Timestamp.TimeOfDay >= targetTime)
+                    {
+                        targetEntry = filteredEntries[i];
+                        break;
+                    }
                 }
             }
 
             if (targetEntry == null)
             {
-                // 해당 시간 이후 로그가 없으면 마지막 로그로 이동
-                MessageBox.Show($"{targetTime:hh\\:mm} 이후의 로그가 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"{targetTime:hh\\:mm} 이후의 로그가 필터링된 데이터에 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 

@@ -261,6 +261,7 @@ namespace FACTOVA_MessageLogViewer
             dataGrid.Columns.Add(valueColumn);
 
             dataGrid.MouseDoubleClick += DataGrid_MouseDoubleClick;
+            dataGrid.PreviewKeyDown += DataGrid_PreviewKeyDown;
 
             // DataGrid Row 스타일 (배경색)
             var rowStyle = new Style(typeof(DataGridRow));
@@ -867,6 +868,131 @@ namespace FACTOVA_MessageLogViewer
 
         #endregion
 
+        #region 시간 이동
+
+        /// <summary>
+        /// 시간 이동 텍스트박스 Enter 키
+        /// </summary>
+        private void TxtJumpTime_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                JumpToTime();
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// 시간 이동 버튼 클릭
+        /// </summary>
+        private void BtnJumpToTime_Click(object sender, RoutedEventArgs e)
+        {
+            JumpToTime();
+        }
+
+        /// <summary>
+        /// 지정한 시간으로 이동 (필터링된 데이터에서 검색)
+        /// </summary>
+        private void JumpToTime()
+        {
+            if (currentDataGrid == null || currentLogView == null) return;
+
+            // 필터링된 데이터 가져오기 (시간순 정렬, 같은 시간일 때는 행 번호순)
+            var filteredEntries = currentLogView.Cast<FLLogEntry>()
+                .OrderBy(e => e.Timestamp)
+                .ThenBy(e => e.RowNumber)
+                .ToList();
+            if (filteredEntries.Count == 0) return;
+
+            string timeText = txtJumpTime.Text.Trim();
+            if (string.IsNullOrEmpty(timeText)) return;
+
+            // 시간 파싱
+            TimeSpan targetTime;
+            bool isMinuteOnlySearch = false; // 분 단위 검색 여부
+            
+            if (timeText.Length <= 2 && int.TryParse(timeText, out int hourOnly))
+            {
+                targetTime = new TimeSpan(hourOnly, 0, 0);
+            }
+            else if (timeText.Contains(':') && timeText.Split(':').Length == 2 && !timeText.Contains('.'))
+            {
+                // HH:mm 형식 (초가 없는 경우) → 분 단위로 검색
+                if (TimeSpan.TryParse(timeText + ":00", out var parsed))
+                {
+                    targetTime = parsed;
+                    isMinuteOnlySearch = true; // 분 단위로 검색
+                }
+                else
+                {
+                    MessageBox.Show("시간 형식이 올바르지 않습니다.\n예: 09:30, 14:00, 9", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+            }
+            else if (TimeSpan.TryParse(timeText, out var parsed2))
+            {
+                targetTime = parsed2;
+            }
+            else
+            {
+                MessageBox.Show("시간 형식이 올바르지 않습니다.\n예: 09:30, 14:00, 9, 11:52:17", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // 필터링된 데이터에서 해당 시간 이후의 첫 번째 로그 찾기
+            FLLogEntry? targetEntry = null;
+            
+            if (isMinuteOnlySearch)
+            {
+                // 분 단위 검색: HH:mm:00 ~ HH:mm:59 범위에서 찾기
+                var startTime = targetTime;
+                var endTime = targetTime.Add(TimeSpan.FromSeconds(59.999));
+                
+                for (int i = 0; i < filteredEntries.Count; i++)
+                {
+                    var entryTime = filteredEntries[i].Timestamp.TimeOfDay;
+                    if (entryTime >= startTime && entryTime <= endTime)
+                    {
+                        targetEntry = filteredEntries[i];
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                // 정확한 시간 이후 검색
+                for (int i = 0; i < filteredEntries.Count; i++)
+                {
+                    if (filteredEntries[i].Timestamp.TimeOfDay >= targetTime)
+                    {
+                        targetEntry = filteredEntries[i];
+                        break;
+                    }
+                }
+            }
+
+            if (targetEntry == null)
+            {
+                MessageBox.Show($"{targetTime:hh\\:mm} 이후의 로그가 필터링된 데이터에 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            try
+            {
+                currentDataGrid.ScrollIntoView(targetEntry);
+                currentDataGrid.SelectedItem = targetEntry;
+                currentDataGrid.Focus();
+                
+                txtStatus.Text = $"⏰ {targetTime:hh\\:mm} → {targetEntry.TimeString} (#{targetEntry.RowNumber})";
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"시간 이동 실패: {ex.Message}");
+            }
+        }
+
+        #endregion
+
         #region UI 이벤트
 
         private void BtnClear_Click(object sender, RoutedEventArgs e)
@@ -924,6 +1050,57 @@ namespace FACTOVA_MessageLogViewer
                 popup.SetFLLogContent(entry);
                 popup.Owner = Window.GetWindow(this);
                 popup.ShowDialog();
+            }
+        }
+
+        /// <summary>
+        /// DataGrid 키보드 이벤트 - Ctrl+C로 선택된 셀 값 복사
+        /// </summary>
+        private void DataGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.C &&
+                (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                if (sender is DataGrid dataGrid && dataGrid.CurrentCell.Column != null && dataGrid.SelectedItem is FLLogEntry entry)
+                {
+                    var column = dataGrid.CurrentCell.Column;
+                    string? cellValue = null;
+
+                    if (column.Header is string header)
+                    {
+                        cellValue = header switch
+                        {
+                            "#" => entry.RowNumber.ToString(),
+                            "시간대" => entry.Hour,
+                            "시간" => entry.TimeString,
+                            "태그명" => entry.TagName,
+                            "태그설명" => entry.TagDescription,
+                            "타입" => entry.DataType,
+                            "Boolean" => entry.Value,
+                            "Structure 값" => entry.Value,
+                            _ => null
+                        };
+
+                        if (cellValue == null)
+                        {
+                            var fieldName = header.Replace("__", "_");
+                            if (entry.Fields.TryGetValue(fieldName, out var fieldValue))
+                            {
+                                cellValue = fieldValue;
+                            }
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(cellValue))
+                    {
+                        try
+                        {
+                            Clipboard.SetText(cellValue);
+                            e.Handled = true;
+                        }
+                        catch { }
+                    }
+                }
             }
         }
 

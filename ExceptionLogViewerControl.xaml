@@ -58,7 +58,7 @@
                        FontWeight="SemiBold"/>
 
             <TextBox x:Name="txtSearch" 
-                     Width="400" Height="28"
+                     Width="350" Height="28"
                      VerticalAlignment="Center"
                      VerticalContentAlignment="Center"
                      Padding="8,0"
@@ -148,7 +148,8 @@
               FontFamily="Consolas"
               EnableRowVirtualization="True"
               EnableColumnVirtualization="True"
-              MouseDoubleClick="DataGrid_MouseDoubleClick">
+              MouseDoubleClick="DataGrid_MouseDoubleClick"
+              PreviewKeyDown="DataGrid_PreviewKeyDown">
         <DataGrid.Resources>
             <Style TargetType="DataGridColumnHeader">
                 <Setter Property="FontSize" Value="13"/>

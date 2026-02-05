@@ -464,6 +464,46 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
+        /// <summary>
+        /// DataGrid 키보드 이벤트 - Ctrl+C로 선택된 셀 값 복사
+        /// </summary>
+        private void DataGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.C &&
+                (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                if (dataGrid.CurrentCell.Column != null && dataGrid.SelectedItem is ExceptionLogEntry entry)
+                {
+                    var column = dataGrid.CurrentCell.Column;
+                    string? cellValue = null;
+
+                    if (column.Header is string header)
+                    {
+                        cellValue = header switch
+                        {
+                            "No" => entry.RowNumber.ToString(),
+                            "시간" => entry.TimeString,
+                            "예외 타입" => entry.ExceptionType,
+                            "메시지" => entry.Message,
+                            "소스" => entry.Source,
+                            "상세" => entry.Summary,
+                            _ => null
+                        };
+                    }
+
+                    if (!string.IsNullOrEmpty(cellValue))
+                    {
+                        try
+                        {
+                            Clipboard.SetText(cellValue);
+                            e.Handled = true;
+                        }
+                        catch { }
+                    }
+                }
+            }
+        }
+
         private void TxtJumpTime_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
@@ -480,43 +520,82 @@ namespace FACTOVA_MessageLogViewer
 
         private void JumpToTime()
         {
-            if (logEntries.Count == 0) return;
+            if (logView == null) return;
+
+            // 필터링된 데이터 가져오기 (시간순 정렬, 같은 시간일 때는 행 번호순)
+            var filteredEntries = logView.Cast<ExceptionLogEntry>()
+                .OrderBy(e => e.Timestamp)
+                .ThenBy(e => e.RowNumber)
+                .ToList();
+            if (filteredEntries.Count == 0) return;
 
             string timeText = txtJumpTime.Text.Trim();
             if (string.IsNullOrEmpty(timeText)) return;
 
             TimeSpan targetTime;
+            bool isMinuteOnlySearch = false;
+            
             if (timeText.Length <= 2 && int.TryParse(timeText, out int hourOnly))
             {
                 targetTime = new TimeSpan(hourOnly, 0, 0);
             }
-            else if (TimeSpan.TryParse(timeText, out var parsed))
+            else if (timeText.Contains(':') && timeText.Split(':').Length == 2 && !timeText.Contains('.'))
             {
-                targetTime = parsed;
+                // HH:mm 형식 (초가 없는 경우) → 분 단위로 검색
+                if (TimeSpan.TryParse(timeText + ":00", out var parsed))
+                {
+                    targetTime = parsed;
+                    isMinuteOnlySearch = true;
+                }
+                else
+                {
+                    MessageBox.Show("시간 형식이 올바르지 않습니다.\n예: 09:30, 14:00, 9", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
             }
-            else if (TimeSpan.TryParse(timeText + ":00", out var parsed2))
+            else if (TimeSpan.TryParse(timeText, out var parsed2))
             {
                 targetTime = parsed2;
             }
             else
             {
-                MessageBox.Show("시간 형식이 올바르지 않습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("시간 형식이 올바르지 않습니다.\n예: 09:30, 14:00, 9", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
+            // 필터링된 데이터에서 시간 검색
             ExceptionLogEntry? targetEntry = null;
-            for (int i = 0; i < logEntries.Count; i++)
+            
+            if (isMinuteOnlySearch)
             {
-                if (logEntries[i].Timestamp.TimeOfDay >= targetTime)
+                var startTime = targetTime;
+                var endTime = targetTime.Add(TimeSpan.FromSeconds(59.999));
+                
+                for (int i = 0; i < filteredEntries.Count; i++)
                 {
-                    targetEntry = logEntries[i];
-                    break;
+                    var entryTime = filteredEntries[i].Timestamp.TimeOfDay;
+                    if (entryTime >= startTime && entryTime <= endTime)
+                    {
+                        targetEntry = filteredEntries[i];
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < filteredEntries.Count; i++)
+                {
+                    if (filteredEntries[i].Timestamp.TimeOfDay >= targetTime)
+                    {
+                        targetEntry = filteredEntries[i];
+                        break;
+                    }
                 }
             }
 
             if (targetEntry == null)
             {
-                MessageBox.Show($"{targetTime:hh\\:mm} 이후의 로그가 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"{targetTime:hh\\:mm} 이후의 로그가 필터링된 데이터에 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 

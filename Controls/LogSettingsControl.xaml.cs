@@ -280,19 +280,49 @@ namespace FACTOVA_MessageLogViewer.Controls
 
         private void UpdateForLogType()
         {
-            // 로그 타입에 따른 UI 조정
+            // 로그 타입에 따른 UI 조정 - 모든 탭에서 프리셋 패널 표시
+            ShowPresetPanel = true;
+            
             if (LogType == LogType.DATA)
             {
-                ShowPresetPanel = false;
                 ShowSlowQueryFilter = true;
                 AccentColor = "#FF6B00";
+                UpdatePresetButtonColor("#FF6B00"); // 주황색
+            }
+            else if (LogType == LogType.EXCEPTION)
+            {
+                ShowSlowQueryFilter = false;
+                AccentColor = "#D32F2F";
+                UpdatePresetButtonColor("#D32F2F"); // 빨간색
+            }
+            else if (LogType == LogType.FL)
+            {
+                ShowSlowQueryFilter = false;
+                AccentColor = "#9C27B0";
+                UpdatePresetButtonColor("#9C27B0"); // 보라색
             }
             else
             {
-                ShowPresetPanel = true;
                 ShowSlowQueryFilter = false;
                 AccentColor = "#4CAF50";
+                UpdatePresetButtonColor("#1976D2"); // 파란색 (EVENT 기본)
             }
+        }
+
+        /// <summary>
+        /// 프리셋 설정 버튼 배경색 업데이트
+        /// </summary>
+        private void UpdatePresetButtonColor(string colorHex)
+        {
+            try
+            {
+                var brush = new System.Windows.Media.BrushConverter().ConvertFromString(colorHex) as System.Windows.Media.Brush;
+                if (brush != null && btnPresetSettings != null)
+                {
+                    btnPresetSettings.Background = brush;
+                }
+            }
+            catch { }
         }
 
         #endregion

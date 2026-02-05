@@ -289,12 +289,22 @@ namespace FACTOVA_MessageLogViewer
         }
 
         /// <summary>
-        /// 메인 탭 변경 시 AutoFit 적용
+        /// 메인 탭 변경 시 AutoFit 적용 및 LogType 업데이트
         /// </summary>
         private void MainTabControl_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             // 탭이 실제로 변경되었는지 확인 (이벤트 버블링 방지)
             if (e.Source != mainTabControl) return;
+
+            // LogType 업데이트 (프리셋 버튼 색상 변경용)
+            logSettings.LogType = mainTabControl.SelectedIndex switch
+            {
+                0 => LogType.EVENT,
+                1 => LogType.DATA,
+                2 => LogType.EXCEPTION,
+                3 => LogType.FL,
+                _ => LogType.EVENT
+            };
 
             // 약간의 지연 후 AutoFit 적용 (UI 렌더링 완료 후)
             Dispatcher.BeginInvoke(new Action(() =>

@@ -359,6 +359,7 @@ namespace FACTOVA_MessageLogViewer
             }
 
             dataGrid.MouseDoubleClick += DataGrid_MouseDoubleClick;
+            dataGrid.PreviewKeyDown += DataGrid_PreviewKeyDown;
             return dataGrid;
         }
 
@@ -416,6 +417,55 @@ namespace FACTOVA_MessageLogViewer
                 popup.SetDataLogContent(entry);
                 popup.Owner = Window.GetWindow(this);
                 popup.ShowDialog();
+            }
+        }
+
+        /// <summary>
+        /// DataGrid 키보드 이벤트 - Ctrl+C로 선택된 셀 값 복사
+        /// </summary>
+        private void DataGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.C &&
+                (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                if (sender is DataGrid dataGrid && dataGrid.CurrentCell.Column != null && dataGrid.SelectedItem is DataLogEntry entry)
+                {
+                    var column = dataGrid.CurrentCell.Column;
+                    string? cellValue = null;
+
+                    if (column.Header is string header)
+                    {
+                        cellValue = header switch
+                        {
+                            "No" => entry.RowNumber.ToString(),
+                            "시간" => entry.TimeString,
+                            "비즈명" => entry.BizName,
+                            "실행시간" => entry.ExecTime,
+                            "TXN_ID" => entry.TxnId,
+                            "파라미터" => entry.Summary,
+                            _ => null
+                        };
+
+                        if (cellValue == null)
+                        {
+                            var fieldName = header.Replace("__", "_");
+                            if (entry.Fields.TryGetValue(fieldName, out var fieldValue))
+                            {
+                                cellValue = fieldValue;
+                            }
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(cellValue))
+                    {
+                        try
+                        {
+                            Clipboard.SetText(cellValue);
+                            e.Handled = true;
+                        }
+                        catch { }
+                    }
+                }
             }
         }
 
@@ -1081,6 +1131,36 @@ namespace FACTOVA_MessageLogViewer
             ApplyAllFilters();
         }
 
+        /// <summary>
+        /// 느린 쿼리 임계값 TextBox Enter 키
+        /// </summary>
+        private void TxtSlowThreshold_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.Enter)
+            {
+                // 체크박스가 체크되어 있지 않으면 자동으로 체크
+                if (chkSlowQuery.IsChecked != true)
+                {
+                    chkSlowQuery.IsChecked = true;
+                }
+                ApplyAllFilters();
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// ms+ 텍스트 클릭 시 필터 적용
+        /// </summary>
+        private void TxtSlowThresholdApply_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            // 체크박스가 체크되어 있지 않으면 자동으로 체크
+            if (chkSlowQuery.IsChecked != true)
+            {
+                chkSlowQuery.IsChecked = true;
+            }
+            ApplyAllFilters();
+        }
+
         #endregion
 
         #region 시간 이동
@@ -1111,22 +1191,41 @@ namespace FACTOVA_MessageLogViewer
         private void JumpToTime()
         {
             if (currentDataGrid == null || currentTabConfig == null) return;
-            if (!tabDisplayEntries.TryGetValue(currentTabConfig, out var entries) || entries.Count == 0) return;
+            
+            // 필터링된 데이터 가져오기 (tabViews에서 필터가 적용된 뷰 사용)
+            if (!tabViews.TryGetValue(currentTabConfig, out var view)) return;
+            var filteredEntries = view.Cast<DataLogEntry>()
+                .OrderBy(e => e.Timestamp)
+                .ThenBy(e => e.RowNumber)
+                .ToList();
+            if (filteredEntries.Count == 0) return;
 
             string timeText = txtJumpTime.Text.Trim();
             if (string.IsNullOrEmpty(timeText)) return;
 
             // 시간 파싱
             TimeSpan targetTime;
+            bool isMinuteOnlySearch = false;
+            
             if (timeText.Length <= 2 && int.TryParse(timeText, out int hourOnly))
             {
                 targetTime = new TimeSpan(hourOnly, 0, 0);
             }
-            else if (TimeSpan.TryParse(timeText, out var parsed))
+            else if (timeText.Contains(':') && timeText.Split(':').Length == 2 && !timeText.Contains('.'))
             {
-                targetTime = parsed;
+                // HH:mm 형식 (초가 없는 경우) → 분 단위로 검색
+                if (TimeSpan.TryParse(timeText + ":00", out var parsed))
+                {
+                    targetTime = parsed;
+                    isMinuteOnlySearch = true;
+                }
+                else
+                {
+                    MessageBox.Show("시간 형식이 올바르지 않습니다.\n예: 09:30, 14:00, 9", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
             }
-            else if (TimeSpan.TryParse(timeText + ":00", out var parsed2))
+            else if (TimeSpan.TryParse(timeText, out var parsed2))
             {
                 targetTime = parsed2;
             }
@@ -1138,18 +1237,37 @@ namespace FACTOVA_MessageLogViewer
 
             // 해당 시간 이후의 첫 번째 로그 찾기
             DataLogEntry? targetEntry = null;
-            for (int i = 0; i < entries.Count; i++)
+            
+            if (isMinuteOnlySearch)
             {
-                if (entries[i].Timestamp.TimeOfDay >= targetTime)
+                var startTime = targetTime;
+                var endTime = targetTime.Add(TimeSpan.FromSeconds(59.999));
+                
+                for (int i = 0; i < filteredEntries.Count; i++)
                 {
-                    targetEntry = entries[i];
-                    break;
+                    var entryTime = filteredEntries[i].Timestamp.TimeOfDay;
+                    if (entryTime >= startTime && entryTime <= endTime)
+                    {
+                        targetEntry = filteredEntries[i];
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < filteredEntries.Count; i++)
+                {
+                    if (filteredEntries[i].Timestamp.TimeOfDay >= targetTime)
+                    {
+                        targetEntry = filteredEntries[i];
+                        break;
+                    }
                 }
             }
 
             if (targetEntry == null)
             {
-                MessageBox.Show($"{targetTime:hh\\:mm} 이후의 로그가 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"{targetTime:hh\\:mm} 이후의 로그가 필터링된 데이터에 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 

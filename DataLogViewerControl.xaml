@@ -195,11 +195,13 @@
                     <CheckBox x:Name="chkSlowQuery" Content="🐢" VerticalAlignment="Center" Margin="0,0,5,0"
                               Checked="ChkSlowQuery_Changed" Unchecked="ChkSlowQuery_Changed"
                               ToolTip="느린 쿼리만 표시"/>
-                    <TextBox x:Name="txtSlowThreshold" Width="45" Height="22" FontSize="11" Text="100"
+                    <TextBox x:Name="txtSlowThreshold" Width="45" Height="22" FontSize="11" Text="200"
                              VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                             IsEnabled="{Binding IsChecked, ElementName=chkSlowQuery}"
-                             ToolTip="ms 단위 임계값"/>
-                    <TextBlock Text="ms+" VerticalAlignment="Center" Margin="3,0,0,0" FontSize="10" Foreground="#666"/>
+                             KeyDown="TxtSlowThreshold_KeyDown"
+                             ToolTip="ms 단위 임계값 (Enter로 적용)"/>
+                    <TextBlock Text="ms+" VerticalAlignment="Center" Margin="3,0,0,0" FontSize="10" Foreground="#666"
+                               Cursor="Hand" MouseLeftButtonDown="TxtSlowThresholdApply_Click"
+                               ToolTip="클릭하여 필터 적용"/>
                 </StackPanel>
             </Border>
             
