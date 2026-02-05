@@ -89,6 +89,11 @@
             <TabItem Header="⚠️ EXCEPTION 로그">
                 <local:ExceptionLogViewerControl x:Name="exceptionLogViewer"/>
             </TabItem>
+            
+            <!-- F/L 로그 탭 -->
+            <TabItem Header="🏭 F/L 뷰어">
+                <local:FLLogViewerControl x:Name="flLogViewer"/>
+            </TabItem>
         </TabControl>
     </Grid>
 </Window>

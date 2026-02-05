@@ -107,6 +107,15 @@ namespace FACTOVA_MessageLogViewer
                 exceptionLogViewer.Initialize(exceptionSettings);
             }
 
+            // F/L 로그 초기화
+            // 별도 폴더 사용 여부에 따라 경로 결정
+            var flLogDirectory = logSettings.UseSeparateFLFolder && !string.IsNullOrEmpty(logSettings.FLLogFolderPath)
+                ? logSettings.FLLogFolderPath
+                : logSettings.CurrentLogDirectory;
+            
+            var watchFL = logSettings.UseSeparateFLFolder && logSettings.WatchFLLog;
+            await flLogViewer.InitializeAsync(flLogDirectory, selectedDate.Date, watchFL);
+
             // 설정 영역 접기
             logSettings.CollapseExpander();
 
@@ -190,6 +199,7 @@ namespace FACTOVA_MessageLogViewer
             // 폴더 변경 시 날짜 목록 자동 갱신됨 (LogSettingsControl 내부에서 처리)
         }
 
+
         /// <summary>
         /// 프리셋 설정 버튼 클릭
         /// </summary>
@@ -215,6 +225,18 @@ namespace FACTOVA_MessageLogViewer
                 // EXCEPTION 로그 프리셋 설정창 (현재 선택된 프리셋 이름 전달)
                 var settingsWindow = new ExceptionColumnSettingsWindow(currentPresetName);
                 settingsWindow.Owner = this;
+                if (settingsWindow.ShowDialog() == true)
+                {
+                    // 프리셋 목록 갱신
+                    logSettings.LoadPresetList();
+                }
+            }
+            else if (currentTabIndex == 3) // F/L 탭
+            {
+                // F/L 로그 프리셋 설정창
+                var settingsWindow = new FLColumnSettingsWindow(currentPresetName);
+                settingsWindow.Owner = this;
+                settingsWindow.GetCurrentLogEntries = () => flLogViewer.GetLogEntries();
                 if (settingsWindow.ShowDialog() == true)
                 {
                     // 프리셋 목록 갱신
@@ -269,6 +291,9 @@ namespace FACTOVA_MessageLogViewer
                         break;
                     case 2: // EXCEPTION 로그 탭
                         exceptionLogViewer?.ApplyAutoFit();
+                        break;
+                    case 3: // F/L 로그 탭
+                        flLogViewer?.ApplyAutoFit();
                         break;
                 }
             }), System.Windows.Threading.DispatcherPriority.Loaded);

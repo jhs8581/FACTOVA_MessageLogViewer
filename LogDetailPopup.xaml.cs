@@ -10,6 +10,7 @@ namespace FACTOVA_MessageLogViewer
         private LogEntry? _logEntry;
         private DataLogEntry? _dataLogEntry;
         private ExceptionLogEntry? _exceptionLogEntry;
+        private FLLogEntry? _flLogEntry;
 
         public LogDetailPopup(LogEntry entry)
         {
@@ -39,6 +40,15 @@ namespace FACTOVA_MessageLogViewer
         {
             _exceptionLogEntry = entry;
             LoadExceptionLogDetails();
+        }
+
+        /// <summary>
+        /// F/L 로그 내용 설정
+        /// </summary>
+        public void SetFLLogContent(FLLogEntry entry)
+        {
+            _flLogEntry = entry;
+            LoadFLLogDetails();
         }
 
         private void LoadLogDetails()
@@ -136,6 +146,51 @@ namespace FACTOVA_MessageLogViewer
             txtRawData.Text = _exceptionLogEntry.RawData;
         }
 
+        private void LoadFLLogDetails()
+        {
+            if (_flLogEntry == null) return;
+
+            // 헤더 정보
+            txtTime.Text = _flLogEntry.TimeString;
+            txtDirection.Text = $"[{_flLogEntry.Level}] {_flLogEntry.Hour}시";
+            txtMsgId.Text = _flLogEntry.TagName;
+            txtMatchedTab.Text = _flLogEntry.ShortModuleName;
+
+            // F/L 로그는 보라색
+            txtDirection.Foreground = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(156, 39, 176));
+
+            // 필드 목록
+            var fields = new Dictionary<string, string>
+            {
+                ["태그명"] = _flLogEntry.TagName,
+                ["타입"] = _flLogEntry.DataType,
+                ["모듈"] = _flLogEntry.ModuleName,
+                ["파일"] = _flLogEntry.SourceFile
+            };
+
+            // Structure 필드 추가
+            if (_flLogEntry.IsStructure && _flLogEntry.Fields.Count > 0)
+            {
+                foreach (var field in _flLogEntry.Fields)
+                {
+                    fields[$"📦 {field.Key}"] = field.Value;
+                }
+            }
+            else
+            {
+                fields["값"] = _flLogEntry.Value;
+            }
+
+            var fieldList = fields
+                .Select(f => new KeyValuePair<string, string>(f.Key, f.Value))
+                .ToList();
+            dgFields.ItemsSource = fieldList;
+
+            // Raw Data
+            txtRawData.Text = _flLogEntry.RawLine;
+        }
+
         /// <summary>
         /// Raw Data를 보기 좋게 포맷팅
         /// </summary>
@@ -176,7 +231,7 @@ namespace FACTOVA_MessageLogViewer
         {
             try
             {
-                string dataToCopy = _logEntry?.RawData ?? _dataLogEntry?.RawData ?? _exceptionLogEntry?.RawData ?? "";
+                string dataToCopy = _logEntry?.RawData ?? _dataLogEntry?.RawData ?? _exceptionLogEntry?.RawData ?? _flLogEntry?.RawLine ?? "";
                 Clipboard.SetText(dataToCopy);
                 MessageBox.Show("Raw Data가 클립보드에 복사되었습니다.", "복사 완료", 
                     MessageBoxButton.OK, MessageBoxImage.Information);

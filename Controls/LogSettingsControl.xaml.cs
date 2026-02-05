@@ -95,6 +95,17 @@ namespace FACTOVA_MessageLogViewer.Controls
         public bool WatchEventLog => chkWatchEvent.IsChecked == true;
         public bool WatchDataLog => chkWatchData.IsChecked == true;
         public bool WatchExceptionLog => chkWatchException.IsChecked == true;
+        public bool WatchFLLog => chkWatchFL.IsChecked == true;
+
+        /// <summary>
+        /// F/L 로그 별도 폴더 사용 여부
+        /// </summary>
+        public bool UseSeparateFLFolder => rbFLUseSeparateFolder.IsChecked == true;
+
+        /// <summary>
+        /// F/L 로그 폴더 경로 (별도 폴더 사용 시)
+        /// </summary>
+        public string FLLogFolderPath => txtFLLogFolder.Text?.Trim() ?? "";
 
         public string LogFolderPath
         {
@@ -160,8 +171,14 @@ namespace FACTOVA_MessageLogViewer.Controls
                 chkWatchEvent.IsChecked = settings.WatchEventLog;
                 chkWatchData.IsChecked = settings.WatchDataLog;
                 chkWatchException.IsChecked = settings.WatchExceptionLog;
+
+                // F/L 로그 설정
+                rbFLUseLogFolder.IsChecked = !settings.UseSeparateFLFolder;
+                rbFLUseSeparateFolder.IsChecked = settings.UseSeparateFLFolder;
+                txtFLLogFolder.Text = settings.FLLogFolder ?? "";
+                chkWatchFL.IsChecked = settings.WatchFLLog;
                 
-                System.Diagnostics.Debug.WriteLine($"📋 표시 옵션 로드: LoadMode={settings.LogLoadMode}, Watch=[E:{settings.WatchEventLog}, D:{settings.WatchDataLog}, X:{settings.WatchExceptionLog}]");
+                System.Diagnostics.Debug.WriteLine($"📋 표시 옵션 로드: LoadMode={settings.LogLoadMode}, Watch=[E:{settings.WatchEventLog}, D:{settings.WatchDataLog}, X:{settings.WatchExceptionLog}, FL:{settings.WatchFLLog}]");
             }
             catch (Exception ex)
             {
@@ -173,6 +190,8 @@ namespace FACTOVA_MessageLogViewer.Controls
                 chkWatchEvent.IsChecked = true;
                 chkWatchData.IsChecked = true;
                 chkWatchException.IsChecked = true;
+                rbFLUseLogFolder.IsChecked = true;
+                chkWatchFL.IsChecked = false;
             }
         }
 
@@ -199,10 +218,15 @@ namespace FACTOVA_MessageLogViewer.Controls
                 settings.WatchEventLog = chkWatchEvent.IsChecked == true;
                 settings.WatchDataLog = chkWatchData.IsChecked == true;
                 settings.WatchExceptionLog = chkWatchException.IsChecked == true;
+
+                // F/L 로그 설정 저장
+                settings.UseSeparateFLFolder = rbFLUseSeparateFolder.IsChecked == true;
+                settings.FLLogFolder = txtFLLogFolder.Text?.Trim() ?? "";
+                settings.WatchFLLog = chkWatchFL.IsChecked == true;
                 
                 AppSettingsManager.SaveCurrent();
                 
-                System.Diagnostics.Debug.WriteLine($"💾 표시 옵션 저장: LoadMode={settings.LogLoadMode}, Watch=[E:{settings.WatchEventLog}, D:{settings.WatchDataLog}, X:{settings.WatchExceptionLog}]");
+                System.Diagnostics.Debug.WriteLine($"💾 표시 옵션 저장: LoadMode={settings.LogLoadMode}, Watch=[E:{settings.WatchEventLog}, D:{settings.WatchDataLog}, X:{settings.WatchExceptionLog}, FL:{settings.WatchFLLog}]");
             }
             catch (Exception ex)
             {
@@ -518,6 +542,27 @@ namespace FACTOVA_MessageLogViewer.Controls
             }
 
             StartViewerRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void BtnBrowseFLFolder_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new Microsoft.Win32.OpenFolderDialog
+            {
+                Title = "F/L 로그 폴더를 선택하세요",
+                InitialDirectory = !string.IsNullOrEmpty(txtFLLogFolder.Text) && Directory.Exists(txtFLLogFolder.Text)
+                    ? txtFLLogFolder.Text
+                    : Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                txtFLLogFolder.Text = dialog.FolderName;
+            }
+        }
+
+        private void RbFLFolder_Checked(object sender, RoutedEventArgs e)
+        {
+            // F/L 폴더 옵션 변경 시 처리 (필요 시)
         }
 
         #endregion

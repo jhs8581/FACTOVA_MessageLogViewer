@@ -23,6 +23,11 @@
         /// <summary>
         /// EXCEPTION 로그 - 예외 정보
         /// </summary>
-        EXCEPTION
+        EXCEPTION,
+
+        /// <summary>
+        /// F/L 로그 - PLC Core 로그 (시간대별 파일)
+        /// </summary>
+        FL
     }
 }

@@ -6,7 +6,7 @@ using System.Text.Json;
 namespace FACTOVA_MessageLogViewer.Models
 {
     /// <summary>
-    /// 통합 프리셋 - EVENT/DATA/EXCEPTION 탭 설정을 하나로 관리
+    /// 통합 프리셋 - EVENT/DATA/EXCEPTION/F/L 탭 설정을 하나로 관리
     /// </summary>
     public class UnifiedPreset
     {
@@ -31,6 +31,11 @@ namespace FACTOVA_MessageLogViewer.Models
         public DataColumnSettings? ExceptionSettings { get; set; }
 
         /// <summary>
+        /// F/L 로그 설정
+        /// </summary>
+        public FLPresetSettings? FLSettings { get; set; }
+
+        /// <summary>
         /// 생성 일시
         /// </summary>
         public DateTime CreatedAt { get; set; } = DateTime.Now;
@@ -50,7 +55,53 @@ namespace FACTOVA_MessageLogViewer.Models
                 Name = "Default",
                 EventSettings = ColumnSettingsManager.CreateDefaultSettings(),
                 DataSettings = DataColumnSettings.CreateDefault(),
-                ExceptionSettings = DataColumnSettings.CreateExceptionDefault()
+                ExceptionSettings = DataColumnSettings.CreateExceptionDefault(),
+                FLSettings = FLPresetSettings.CreateDefault()
+            };
+        }
+    }
+
+    /// <summary>
+    /// F/L 프리셋 설정 (UnifiedPreset 내부용)
+    /// </summary>
+    public class FLPresetSettings
+    {
+        /// <summary>
+        /// 태그 설정 목록 (태그명 → 표시명)
+        /// </summary>
+        public List<FLTagConfig> TagConfigs { get; set; } = new();
+
+        /// <summary>
+        /// Structure 필드 설정 (필드명 → 컬럼 설정)
+        /// </summary>
+        public List<FLFieldConfig> FieldConfigs { get; set; } = new();
+
+        /// <summary>
+        /// 탭 설정
+        /// </summary>
+        public FLTabSettings TabSettings { get; set; } = new();
+
+        /// <summary>
+        /// 기본 설정 생성
+        /// </summary>
+        public static FLPresetSettings CreateDefault()
+        {
+            return new FLPresetSettings
+            {
+                TagConfigs = new List<FLTagConfig>(),
+                FieldConfigs = new List<FLFieldConfig>(),
+                TabSettings = new FLTabSettings
+                {
+                    Tabs = new List<FLTabConfig>
+                    {
+                        new FLTabConfig
+                        {
+                            Name = "📊 전체 로그",
+                            IsIntegrated = true,
+                            IsEnabled = true
+                        }
+                    }
+                }
             };
         }
     }
@@ -231,6 +282,7 @@ namespace FACTOVA_MessageLogViewer.Models
             return names.OrderBy(n => n).ToList();
         }
 
+
         /// <summary>
         /// 프리셋 삭제
         /// </summary>
@@ -251,6 +303,11 @@ namespace FACTOVA_MessageLogViewer.Models
             
             return false;
         }
+
+        /// <summary>
+        /// 프리셋 폴더 경로 반환
+        /// </summary>
+        public static string GetPresetFolderPath() => PresetFolder;
 
         /// <summary>
         /// 현재 프리셋 저장

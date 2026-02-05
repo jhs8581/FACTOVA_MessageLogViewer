@@ -73,6 +73,7 @@ namespace FACTOVA_MessageLogViewer.Models
         /// </summary>
         public bool WatchEventLog { get; set; } = true;
 
+
         /// <summary>
         /// DATA 로그 실시간 감지 여부
         /// </summary>
@@ -82,6 +83,30 @@ namespace FACTOVA_MessageLogViewer.Models
         /// EXCEPTION 로그 실시간 감지 여부
         /// </summary>
         public bool WatchExceptionLog { get; set; } = true;
+
+        /// <summary>
+        /// F/L 로그 폰트 크기
+        /// </summary>
+        public int FLLogFontSize { get; set; } = 11;
+
+        #endregion
+
+        #region F/L 로그 설정
+
+        /// <summary>
+        /// F/L 로그 별도 폴더 사용 여부
+        /// </summary>
+        public bool UseSeparateFLFolder { get; set; } = false;
+
+        /// <summary>
+        /// F/L 로그 별도 폴더 경로
+        /// </summary>
+        public string FLLogFolder { get; set; } = "";
+
+        /// <summary>
+        /// F/L 로그 실시간 감지 여부
+        /// </summary>
+        public bool WatchFLLog { get; set; } = false;
 
         #endregion
     }
