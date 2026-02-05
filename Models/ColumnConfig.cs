@@ -238,11 +238,11 @@ namespace FACTOVA_MessageLogViewer.Models
     {
         public static ColumnSettings CurrentSettings
         {
-            get => AppSettingsManager.ColumnSettings ?? AppSettingsManager.CreateDefaultColumnSettings();
+            get => AppSettingsManager.Settings.ColumnSettings ?? AppSettingsManager.CreateDefaultColumnSettings();
             set
             {
-                AppSettingsManager.ColumnSettings = value;
-                AppSettingsManager.CurrentPresetName = value.Name;
+                AppSettingsManager.Settings.ColumnSettings = value;
+                AppSettingsManager.Settings.CurrentPresetName = value.Name;
                 AppSettingsManager.SaveCurrent();
             }
         }
@@ -260,7 +260,7 @@ namespace FACTOVA_MessageLogViewer.Models
         /// </summary>
         public static void SaveCurrentSettings(ColumnSettings settings)
         {
-            AppSettingsManager.ColumnSettings = settings;
+            AppSettingsManager.Settings.ColumnSettings = settings;
             AppSettingsManager.SaveCurrent();
         }
 

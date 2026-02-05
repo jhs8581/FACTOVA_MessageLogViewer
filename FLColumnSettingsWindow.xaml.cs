@@ -66,9 +66,33 @@ namespace FACTOVA_MessageLogViewer
 
             var presetName = cboPresets.SelectedItem.ToString() ?? "Default";
             var preset = UnifiedPresetManager.LoadPreset(presetName) ?? UnifiedPreset.CreateDefault();
-            
+
             currentPreset = preset;
             LoadPresetToUI(preset);
+        }
+
+        /// <summary>
+        /// 탭 변경 시 프리셋 영역 색상 변경
+        /// </summary>
+        private void MainTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (e.Source != mainTabControl) return;
+
+            try
+            {
+                // 탭별 테마 색상
+                var (bgColor, borderColor) = mainTabControl.SelectedIndex switch
+                {
+                    0 => ("#F3E5F5", "#CE93D8"),  // 태그 설정 - 보라색
+                    1 => ("#FFF3E0", "#FFB74D"),  // 필드 설정 - 주황색
+                    2 => ("#E3F2FD", "#64B5F6"),  // 탭 설정 - 파란색
+                    _ => ("#F3E5F5", "#CE93D8")
+                };
+
+                grpPreset.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(bgColor));
+                grpPreset.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(borderColor));
+            }
+            catch { }
         }
 
         private void LoadPresetToUI(UnifiedPreset preset)
@@ -273,34 +297,6 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
-        private void BtnBulkEnable_Click(object sender, RoutedEventArgs e)
-        {
-            foreach (var item in tagConfigs.Where(t => t.IsSelected))
-            {
-                item.IsEnabled = true;
-            }
-            dgTags.Items.Refresh();
-        }
-
-        private void BtnBulkDisable_Click(object sender, RoutedEventArgs e)
-        {
-            foreach (var item in tagConfigs.Where(t => t.IsSelected))
-            {
-                item.IsEnabled = false;
-            }
-            dgTags.Items.Refresh();
-        }
-
-        private void BtnBulkSetDisplayName_Click(object sender, RoutedEventArgs e)
-        {
-            var displayName = txtBulkDisplayName.Text.Trim();
-            foreach (var item in tagConfigs.Where(t => t.IsSelected))
-            {
-                item.DisplayName = displayName;
-            }
-            dgTags.Items.Refresh();
-        }
-
         #endregion
 
         #region 탭 설정
@@ -322,7 +318,7 @@ namespace FACTOVA_MessageLogViewer
             panelTabDetails.IsEnabled = true;
             txtTabName.Text = selectedTab.Name;
             chkIsIntegrated.IsChecked = selectedTab.IsIntegrated;
-            itemsConditionGroups.ItemsSource = selectedTab.ConditionGroups;
+            itemsSelectedTags.ItemsSource = selectedTab.SelectedTagNames;
         }
 
         private void TxtTabName_TextChanged(object sender, TextChangedEventArgs e)
@@ -355,7 +351,7 @@ namespace FACTOVA_MessageLogViewer
                 Name = $"새 탭 {tabConfigs.Count + 1}",
                 IsEnabled = true,
                 IsIntegrated = false,
-                ConditionGroups = new List<FLConditionGroup>()
+                SelectedTagNames = new List<string>()
             };
             tabConfigs.Add(newTab);
             listBoxTabs.SelectedItem = newTab;
@@ -400,58 +396,38 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
-        private void BtnAddGroup_Click(object sender, RoutedEventArgs e)
+        private void BtnAddTag_Click(object sender, RoutedEventArgs e)
         {
             if (selectedTab == null) return;
 
-            selectedTab.ConditionGroups.Add(new FLConditionGroup
+            // 태그 선택 다이얼로그 (이미 선택된 태그 전달)
+            var availableTags = tagConfigs.Where(t => t.IsEnabled).Select(t => t.TagName).ToList();
+            var selectWindow = new FLTagSelectWindow(availableTags, selectedTab.SelectedTagNames);
+            selectWindow.Owner = this;
+
+            if (selectWindow.ShowDialog() == true)
             {
-                Name = $"그룹 {selectedTab.ConditionGroups.Count + 1}",
-                TagNames = new List<string>()
-            });
+                // 기존 목록을 새 선택으로 교체
+                selectedTab.SelectedTagNames.Clear();
+                selectedTab.SelectedTagNames.AddRange(selectWindow.SelectedTags);
 
-            itemsConditionGroups.ItemsSource = null;
-            itemsConditionGroups.ItemsSource = selectedTab.ConditionGroups;
-            listBoxTabs.Items.Refresh();
-        }
-
-        private void BtnRemoveGroup_Click(object sender, RoutedEventArgs e)
-        {
-            if (selectedTab == null) return;
-
-            var button = sender as Button;
-            var group = button?.Tag as FLConditionGroup;
-            if (group != null)
-            {
-                selectedTab.ConditionGroups.Remove(group);
-                itemsConditionGroups.ItemsSource = null;
-                itemsConditionGroups.ItemsSource = selectedTab.ConditionGroups;
+                itemsSelectedTags.ItemsSource = null;
+                itemsSelectedTags.ItemsSource = selectedTab.SelectedTagNames;
                 listBoxTabs.Items.Refresh();
             }
         }
 
-        private void BtnAddTagToGroup_Click(object sender, RoutedEventArgs e)
+        private void BtnRemoveTag_Click(object sender, RoutedEventArgs e)
         {
+            if (selectedTab == null) return;
+
             var button = sender as Button;
-            var group = button?.Tag as FLConditionGroup;
-            if (group == null) return;
-
-            // 태그 선택 다이얼로그
-            var selectWindow = new FLTagSelectWindow(tagConfigs.Where(t => t.IsEnabled).Select(t => t.TagName).ToList());
-            selectWindow.Owner = this;
-
-            if (selectWindow.ShowDialog() == true && selectWindow.SelectedTags.Count > 0)
+            var tagName = button?.Tag as string;
+            if (tagName != null)
             {
-                foreach (var tag in selectWindow.SelectedTags)
-                {
-                    if (!group.TagNames.Contains(tag))
-                    {
-                        group.TagNames.Add(tag);
-                    }
-                }
-
-                itemsConditionGroups.ItemsSource = null;
-                itemsConditionGroups.ItemsSource = selectedTab?.ConditionGroups;
+                selectedTab.SelectedTagNames.Remove(tagName);
+                itemsSelectedTags.ItemsSource = null;
+                itemsSelectedTags.ItemsSource = selectedTab.SelectedTagNames;
                 listBoxTabs.Items.Refresh();
             }
         }
@@ -465,7 +441,7 @@ namespace FACTOVA_MessageLogViewer
             var entries = GetCurrentLogEntries?.Invoke()?.ToList();
             if (entries == null || entries.Count == 0)
             {
-                MessageBox.Show("현재 로드된 F/L 로그가 없습니다.\n먼저 F/L 뷰어에서 로그를 로드해주세요.", 
+                MessageBox.Show("현재 로드된 F/L 로그가 없습니다.\n먼저 F/L 뷰어에서 로그를 로드해주세요.",
                     "알림", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
@@ -522,7 +498,7 @@ namespace FACTOVA_MessageLogViewer
             }
 
             dgFields.Items.Refresh();
-            MessageBox.Show($"필드 {addedCount}개가 추가되었습니다.\n전체 필드: {fieldConfigs.Count}개", 
+            MessageBox.Show($"필드 {addedCount}개가 추가되었습니다.\n전체 필드: {fieldConfigs.Count}개",
                 "추출 완료", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
@@ -579,7 +555,7 @@ namespace FACTOVA_MessageLogViewer
                 // ValueMappingPopup 사용 (이벤트뷰어와 동일)
                 var popup = new ValueMappingPopup(field.ValueMapping);
                 popup.Owner = this;
-                
+
                 if (popup.ShowDialog() == true)
                 {
                     field.ValueMapping = popup.ResultMapping;

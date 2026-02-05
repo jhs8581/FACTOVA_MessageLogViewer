@@ -27,17 +27,31 @@ Background="#F5F5F5">
 
         <ListBox Grid.Row="2" 
                  x:Name="listBoxTags"
-                 SelectionMode="Multiple"
-                 Background="White">
+                 Background="White"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <Border Background="Transparent" Padding="5,3">
+                                    <ContentPresenter/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <StackPanel Orientation="Horizontal">
-                        <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" 
+                              VerticalAlignment="Center">
                         <TextBlock Text="{Binding TagName}" 
                                    FontFamily="Consolas"
                                    FontSize="11"
                                    VerticalAlignment="Center"/>
-                    </StackPanel>
+                    </CheckBox>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>

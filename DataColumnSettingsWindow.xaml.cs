@@ -24,10 +24,10 @@ namespace FACTOVA_MessageLogViewer
         {
             InitializeComponent();
             this.initialPresetName = selectedPresetName;
-            
+
             dgBasicFields.ItemsSource = basicFields;
             dgParamFields.ItemsSource = paramFields;
-            
+
             LoadPresetList();
             LoadSelectedPreset();
         }
@@ -57,7 +57,7 @@ namespace FACTOVA_MessageLogViewer
                     break;
                 }
             }
-            
+
             cboPresets.SelectedIndex = matchIndex;
         }
 
@@ -147,11 +147,11 @@ namespace FACTOVA_MessageLogViewer
         {
             var inputDialog = new InputDialog("새 프리셋", "프리셋 이름을 입력하세요:");
             inputDialog.Owner = this;
-            
+
             if (inputDialog.ShowDialog() == true && !string.IsNullOrWhiteSpace(inputDialog.InputText))
             {
                 var newName = inputDialog.InputText.Trim();
-                
+
                 // 중복 체크
                 if (cboPresets.Items.Contains(newName))
                 {
@@ -162,9 +162,9 @@ namespace FACTOVA_MessageLogViewer
                 // 현재 설정으로 새 프리셋 생성
                 currentSettings.Name = newName;
                 SaveCurrentSettingsToPreset(newName);
-                
+
                 LoadPresetList();
-                
+
                 // 새 프리셋 선택
                 for (int i = 0; i < cboPresets.Items.Count; i++)
                 {
@@ -186,7 +186,7 @@ namespace FACTOVA_MessageLogViewer
                 return;
             }
 
-            if (MessageBox.Show($"'{presetName}' 프리셋을 삭제하시겠습니까?", "확인", 
+            if (MessageBox.Show($"'{presetName}' 프리셋을 삭제하시겠습니까?", "확인",
                 MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
                 UnifiedPresetManager.DeletePreset(presetName);
@@ -256,7 +256,7 @@ namespace FACTOVA_MessageLogViewer
         private void CollectSettingsFromUI()
         {
             currentSettings.ColumnFields.Clear();
-            
+
             if (int.TryParse(txtSlowThreshold.Text, out int threshold))
                 currentSettings.DefaultSlowThreshold = threshold;
 
@@ -289,27 +289,27 @@ namespace FACTOVA_MessageLogViewer
             CollectSettingsFromUI();
 
             var enabledFields = currentSettings.ColumnFields.Where(f => f.IsEnabled).ToList();
-            var preview = string.Join("\n", enabledFields.Select(f => 
+            var preview = string.Join("\n", enabledFields.Select(f =>
                 $"[{(f.IsParameter ? "P" : "B")}] {f.DisplayName} ({f.FieldName}) - {(f.ColumnWidth == 0 ? "*" : f.ColumnWidth.ToString())}px" +
                 (string.IsNullOrEmpty(f.ValueMapping) ? "" : $" 변환:{f.ValueMapping}")));
 
-            MessageBox.Show($"활성화된 컬럼 ({enabledFields.Count}개):\n\n{preview}", 
+            MessageBox.Show($"활성화된 컬럼 ({enabledFields.Count}개):\n\n{preview}",
                 "미리보기", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void BtnSave_Click(object sender, RoutedEventArgs e)
         {
             var presetName = cboPresets.SelectedItem?.ToString() ?? "Default";
-            
+
             if (presetName == "Default")
             {
                 // Default는 통합 프리셋에 저장하지 않고 현재 세션에만 적용
                 CollectSettingsFromUI();
-                
+
                 // 현재 프리셋에 반영
                 if (UnifiedPresetManager.CurrentPreset.DataSettings == null)
                     UnifiedPresetManager.CurrentPreset.DataSettings = new DataColumnSettings();
-                
+
                 UnifiedPresetManager.CurrentPreset.DataSettings = currentSettings;
             }
             else

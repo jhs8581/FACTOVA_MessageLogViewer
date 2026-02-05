@@ -11,11 +11,16 @@ namespace FACTOVA_MessageLogViewer
         private List<TagSelectItem> allItems = new();
         public List<string> SelectedTags { get; private set; } = new();
 
-        public FLTagSelectWindow(List<string> availableTags)
+        public FLTagSelectWindow(List<string> availableTags, List<string>? alreadySelectedTags = null)
         {
             InitializeComponent();
 
-            allItems = availableTags.Select(t => new TagSelectItem { TagName = t, IsSelected = false }).ToList();
+            alreadySelectedTags ??= new List<string>();
+            allItems = availableTags.Select(t => new TagSelectItem
+            {
+                TagName = t,
+                IsSelected = alreadySelectedTags.Contains(t)
+            }).ToList();
             listBoxTags.ItemsSource = allItems;
             UpdateSelectedCount();
         }

@@ -14,7 +14,7 @@ namespace FACTOVA_MessageLogViewer
     {
         private string logFilePath;
         private ObservableCollection<FieldSettingItem> fieldItems = new();
-        
+
         // 탭 설정 관련
         private ObservableCollection<TabConfig> tabs = new();
         private TabConfig? selectedTab;
@@ -40,11 +40,11 @@ namespace FACTOVA_MessageLogViewer
             InitializeComponent();
             this.logFilePath = logFilePath;
             this.initialPresetName = selectedPresetName;
-            
+
             dgFields.ItemsSource = fieldItems;
-            
+
             LoadPresetList();
-            
+
             // 선택된 프리셋 로드 후 필드 표시
             LoadSelectedPresetFields();
             LoadTabSettings();
@@ -57,14 +57,14 @@ namespace FACTOVA_MessageLogViewer
             isLoadingPreset = true;
             cboPresets.Items.Clear();
             cboPresets.Items.Add("Default");
-            
+
             // 통합 프리셋 목록도 가져오기
             foreach (var preset in UnifiedPresetManager.GetPresetNames())
             {
                 if (!cboPresets.Items.Contains(preset))
                     cboPresets.Items.Add(preset);
             }
-            
+
             // 기존 프리셋 목록도 가져오기
             foreach (var preset in ColumnSettingsManager.GetPresetNames())
             {
@@ -83,7 +83,7 @@ namespace FACTOVA_MessageLogViewer
                     break;
                 }
             }
-            
+
             cboPresets.SelectedIndex = matchIndex;
             isLoadingPreset = false;
         }
@@ -95,9 +95,9 @@ namespace FACTOVA_MessageLogViewer
         {
             var selected = cboPresets.SelectedItem?.ToString();
             System.Diagnostics.Debug.WriteLine($"📂 LoadSelectedPresetFields: '{selected}'");
-            
+
             ColumnSettings? settings = null;
-            
+
             if (string.IsNullOrEmpty(selected) || selected == "Default")
             {
                 settings = ColumnSettingsManager.CurrentSettings;
@@ -120,7 +120,7 @@ namespace FACTOVA_MessageLogViewer
                 System.Diagnostics.Debug.WriteLine($"   ⚠️ 프리셋 필드 없음 (settings={settings != null}, Fields={settings?.Fields?.Count ?? 0})");
                 System.Diagnostics.Debug.WriteLine($"   로그 파일 분석 시도: '{logFilePath}'");
                 AnalyzeAndLoadFields();
-                
+
                 // 필터 설정은 현재 설정에서 로드
                 var currentSettings = ColumnSettingsManager.CurrentSettings;
                 txtExcludedMsgIds.Text = currentSettings.ExcludedMsgIds ?? "";
@@ -142,17 +142,17 @@ namespace FACTOVA_MessageLogViewer
             var analysisResults = string.IsNullOrEmpty(logFilePath) || !System.IO.File.Exists(logFilePath)
                 ? new List<FieldAnalysisResult>()
                 : LogFieldAnalyzer.AnalyzeFields(logFilePath);
-            
+
             var currentSettings = ColumnSettingsManager.CurrentSettings;
             System.Diagnostics.Debug.WriteLine($"📋 AnalyzeAndLoadFields: 현재 설정 필드 {currentSettings.Fields.Count}개, 분석 결과 {analysisResults.Count}개");
 
             int order = 1;
-            
+
             // Add existing settings in order
             foreach (var config in currentSettings.Fields.OrderBy(f => f.Order))
             {
                 var analysisResult = analysisResults.FirstOrDefault(r => r.FieldName == config.FieldName);
-                
+
                 fieldItems.Add(new FieldSettingItem
                 {
                     Order = order++,
@@ -229,10 +229,10 @@ namespace FACTOVA_MessageLogViewer
         private void ApplySettingsToGrid(ColumnSettings settings)
         {
             System.Diagnostics.Debug.WriteLine($"📂 ApplySettingsToGrid - 프리셋 필드 로드: {settings.Fields.Count}개");
-            
+
             // 프리셋의 모든 필드를 로드 (기존 fieldItems 대체)
             fieldItems.Clear();
-            
+
             int order = 1;
             foreach (var config in settings.Fields.OrderBy(f => f.Order))
             {
@@ -248,13 +248,13 @@ namespace FACTOVA_MessageLogViewer
                     SampleValues = new List<string>()
                 });
             }
-            
+
             System.Diagnostics.Debug.WriteLine($"📂 ApplySettingsToGrid 완료 - {fieldItems.Count}개 필드 로드됨");
-            
+
             // 필터 설정 로드
             txtExcludedMsgIds.Text = settings.ExcludedMsgIds ?? "";
             txtIncludeKeywords.Text = settings.IncludeKeywords ?? "";
-            
+
             // DataGrid 갱신
             dgFields.ItemsSource = null;
             dgFields.ItemsSource = fieldItems;
@@ -265,7 +265,7 @@ namespace FACTOVA_MessageLogViewer
         {
             var selected = cboPresets.SelectedItem?.ToString();
             var settings = CreateSettingsFromAll();
-            
+
             if (string.IsNullOrEmpty(selected) || selected == "Default")
             {
                 // Default 선택 시 현재 설정에 저장
@@ -293,15 +293,15 @@ namespace FACTOVA_MessageLogViewer
 
             var settings = CreateSettingsFromAll();
             settings.Name = name;
-            
+
             // 새 통합 프리셋 생성하여 저장
-            var unifiedPreset = new UnifiedPreset 
-            { 
+            var unifiedPreset = new UnifiedPreset
+            {
                 Name = name,
                 EventSettings = settings
             };
             UnifiedPresetManager.SavePreset(unifiedPreset);
-            
+
             LoadPresetList();
             MessageBox.Show($"'{name}'으로 저장되었습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
         }
@@ -339,7 +339,7 @@ namespace FACTOVA_MessageLogViewer
                 ExcludedMsgIds = txtExcludedMsgIds.Text.Trim(),
                 IncludeKeywords = txtIncludeKeywords.Text
             };
-            
+
             return settings;
         }
 
@@ -354,8 +354,8 @@ namespace FACTOVA_MessageLogViewer
                 {
                     foreach (var condition in group.Conditions)
                     {
-                        if (string.IsNullOrEmpty(condition.FieldName) || 
-                            string.IsNullOrEmpty(condition.Value) || 
+                        if (string.IsNullOrEmpty(condition.FieldName) ||
+                            string.IsNullOrEmpty(condition.Value) ||
                             string.IsNullOrEmpty(condition.DisplayNames))
                         {
                             continue;
@@ -380,7 +380,7 @@ namespace FACTOVA_MessageLogViewer
                         if (mappings.Count > 0)
                         {
                             var newMapping = string.Join(",", mappings);
-                            if (string.IsNullOrEmpty(fieldItem.ValueMapping) || 
+                            if (string.IsNullOrEmpty(fieldItem.ValueMapping) ||
                                 mappings.Count > fieldItem.ValueMapping.Split(',').Length)
                             {
                                 fieldItem.ValueMapping = newMapping;
@@ -470,7 +470,7 @@ namespace FACTOVA_MessageLogViewer
             // tabs가 null이면 경고
             if (tabs == null || tabs.Count == 0)
             {
-                MessageBox.Show("설정된 탭이 없습니다. 탭 설정 탭에서 탭을 먼저 설정해주세요.", 
+                MessageBox.Show("설정된 탭이 없습니다. 탭 설정 탭에서 탭을 먼저 설정해주세요.",
                                 "알림", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
@@ -487,7 +487,7 @@ namespace FACTOVA_MessageLogViewer
             {
                 // 선택 결과 적용 (전체 탭이면 null)
                 var selectedTabs = popup.SelectedTabs.Count > 0 ? popup.SelectedTabs : null;
-                
+
                 foreach (var item in checkedItems)
                 {
                     item.VisibleInTabs = selectedTabs != null ? new List<string>(selectedTabs) : null;
@@ -500,7 +500,7 @@ namespace FACTOVA_MessageLogViewer
                 dgFields.ItemsSource = items;
 
                 string tabsText = selectedTabs == null ? "전체 탭" : string.Join(", ", selectedTabs);
-                MessageBox.Show($"{checkedItems.Count}개 항목의 표시할 탭이 [{tabsText}](으)로 설정되었습니다.", 
+                MessageBox.Show($"{checkedItems.Count}개 항목의 표시할 탭이 [{tabsText}](으)로 설정되었습니다.",
                                 "완료", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
@@ -540,16 +540,16 @@ namespace FACTOVA_MessageLogViewer
         {
             // 입력된 순번대로 정렬
             var sortedItems = fieldItems.OrderBy(f => f.Order).ToList();
-            
+
             fieldItems.Clear();
             foreach (var item in sortedItems)
             {
                 fieldItems.Add(item);
             }
-            
+
             // 순번 재정렬 (1부터 연속으로)
             UpdateFieldOrders();
-            
+
             MessageBox.Show("순번대로 정렬되었습니다.", "완료", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
@@ -591,7 +591,7 @@ namespace FACTOVA_MessageLogViewer
         {
             // 로그 파일 경로가 없으면 파일 선택 다이얼로그 표시
             var targetPath = logFilePath;
-            
+
             if (string.IsNullOrEmpty(targetPath) || !System.IO.File.Exists(targetPath))
             {
                 var dialog = new Microsoft.Win32.OpenFileDialog
@@ -600,7 +600,7 @@ namespace FACTOVA_MessageLogViewer
                     Filter = "로그 파일 (*.log)|*.log|모든 파일 (*.*)|*.*",
                     DefaultExt = ".log"
                 };
-                
+
                 if (dialog.ShowDialog() == true)
                 {
                     targetPath = dialog.FileName;
@@ -611,17 +611,17 @@ namespace FACTOVA_MessageLogViewer
                     return;
                 }
             }
-            
+
             System.Diagnostics.Debug.WriteLine($"🔍 재분석: {targetPath}");
-            
+
             // 분석 실행
             var analysisResults = LogFieldAnalyzer.AnalyzeFields(targetPath);
             System.Diagnostics.Debug.WriteLine($"   발견된 필드: {analysisResults.Count}개");
-            
+
             // 기존 필드에 없는 새 필드만 추가
             int newCount = 0;
             int order = fieldItems.Count + 1;
-            
+
             foreach (var result in analysisResults)
             {
                 if (!fieldItems.Any(f => f.FieldName == result.FieldName))
@@ -645,10 +645,10 @@ namespace FACTOVA_MessageLogViewer
                     existing.SampleValues = result.SampleValues;
                 }
             }
-            
+
             dgFields.Items.Refresh();
-            
-            MessageBox.Show($"분석 완료!\n- 새 필드: {newCount}개\n- 전체 필드: {fieldItems.Count}개", 
+
+            MessageBox.Show($"분석 완료!\n- 새 필드: {newCount}개\n- 전체 필드: {fieldItems.Count}개",
                 "재분석", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
@@ -669,14 +669,14 @@ namespace FACTOVA_MessageLogViewer
             System.Diagnostics.Debug.WriteLine($"   - TabSettings null?: {settings.TabSettings == null}");
             System.Diagnostics.Debug.WriteLine($"   - Tabs null?: {settings.TabSettings?.Tabs == null}");
             System.Diagnostics.Debug.WriteLine($"   - Tabs count: {settings.TabSettings?.Tabs?.Count ?? 0}");
-            
+
             tabs.Clear();
             if (settings.TabSettings?.Tabs != null)
             {
                 foreach (var tab in settings.TabSettings.Tabs)
                 {
                     System.Diagnostics.Debug.WriteLine($"   - Tab: {tab.Name}, IsEnabled: {tab.IsEnabled}, IsIntegrated: {tab.IsIntegrated}");
-                    
+
                     var copy = new TabConfig
                     {
                         Name = tab.Name,
@@ -739,7 +739,7 @@ namespace FACTOVA_MessageLogViewer
 
             listBoxTabs.ItemsSource = null;
             listBoxTabs.ItemsSource = tabs;
-            
+
             if (tabs.Count > 0)
             {
                 listBoxTabs.SelectedIndex = 0;
@@ -765,10 +765,10 @@ namespace FACTOVA_MessageLogViewer
 
             txtTabName.Text = selectedTab.Name;
             chkIsIntegrated.IsChecked = selectedTab.IsIntegrated;
-            
+
             itemsConditionGroups.ItemsSource = null;
             itemsConditionGroups.ItemsSource = selectedTab.ConditionGroups;
-            
+
             itemsConditionGroups.IsEnabled = !selectedTab.IsIntegrated;
 
             isUpdating = false;
@@ -777,7 +777,7 @@ namespace FACTOVA_MessageLogViewer
         private void TxtTabName_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (isUpdating || selectedTab == null) return;
-            
+
             selectedTab.Name = txtTabName.Text;
             RefreshTabList();
         }
@@ -785,7 +785,7 @@ namespace FACTOVA_MessageLogViewer
         private void ChkIsIntegrated_Changed(object sender, RoutedEventArgs e)
         {
             if (isUpdating || selectedTab == null) return;
-            
+
             selectedTab.IsIntegrated = chkIsIntegrated.IsChecked == true;
             itemsConditionGroups.IsEnabled = !selectedTab.IsIntegrated;
             RefreshTabList();
@@ -841,9 +841,9 @@ namespace FACTOVA_MessageLogViewer
             {
                 var index = tabs.IndexOf(selectedTab);
                 tabs.Remove(selectedTab);
-                
+
                 RefreshTabList();
-                
+
                 if (tabs.Count > 0)
                 {
                     listBoxTabs.SelectedIndex = Math.Min(index, tabs.Count - 1);
@@ -991,34 +991,34 @@ namespace FACTOVA_MessageLogViewer
         private void BtnDeletePreset_Click(object sender, RoutedEventArgs e)
         {
             var selectedPreset = cboPresets.SelectedItem?.ToString();
-            
+
             if (string.IsNullOrEmpty(selectedPreset) || selectedPreset == "Default")
             {
                 MessageBox.Show("Default 프리셋은 삭제할 수 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
-            
-            var result = MessageBox.Show($"'{selectedPreset}' 프리셋을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.", 
+
+            var result = MessageBox.Show($"'{selectedPreset}' 프리셋을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.",
                 "프리셋 삭제 확인", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            
+
             if (result != MessageBoxResult.Yes)
                 return;
-            
+
             try
             {
                 // 통합 프리셋 삭제 시도
                 bool deleted = UnifiedPresetManager.DeletePreset(selectedPreset);
-                
+
                 // 기존 프리셋도 삭제 시도
                 if (!deleted)
                 {
                     deleted = ColumnSettingsManager.DeletePreset(selectedPreset);
                 }
-                
+
                 if (deleted)
                 {
                     MessageBox.Show($"'{selectedPreset}' 프리셋이 삭제되었습니다.", "삭제 완료", MessageBoxButton.OK, MessageBoxImage.Information);
-                    
+
                     // 프리셋 목록 새로고침 후 Default 선택
                     LoadPresetList();
                     cboPresets.SelectedIndex = 0;
@@ -1042,13 +1042,13 @@ namespace FACTOVA_MessageLogViewer
             try
             {
                 var presetFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Presets");
-                
+
                 // 폴더가 없으면 생성
                 if (!Directory.Exists(presetFolder))
                 {
                     Directory.CreateDirectory(presetFolder);
                 }
-                
+
                 // 파일 탐색기로 열기
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
@@ -1086,7 +1086,7 @@ namespace FACTOVA_MessageLogViewer
         private void BtnApply_Click(object sender, RoutedEventArgs e)
         {
             var settings = CreateSettingsFromAll();
-            
+
             // 선택된 프리셋에 저장 (적용 시 자동 저장)
             var selected = cboPresets.SelectedItem?.ToString();
             if (string.IsNullOrEmpty(selected) || selected == "Default")
@@ -1101,9 +1101,9 @@ namespace FACTOVA_MessageLogViewer
                 unifiedPreset.EventSettings = settings;
                 UnifiedPresetManager.SavePreset(unifiedPreset);
             }
-            
+
             ColumnSettingsManager.CurrentSettings = settings;
-            
+
             SettingsApplied = true;
             DialogResult = true;
             Close();
@@ -1119,17 +1119,17 @@ namespace FACTOVA_MessageLogViewer
                 // tabs가 null이면 경고
                 if (tabs == null || tabs.Count == 0)
                 {
-                    MessageBox.Show("설정된 탭이 없습니다. Tab Settings 탭에서 탭을 먼저 설정해주세요.", 
+                    MessageBox.Show("설정된 탭이 없습니다. Tab Settings 탭에서 탭을 먼저 설정해주세요.",
                                     "알림", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
 
                 // 현재 설정의 탭 목록 가져오기
                 var availableTabs = tabs.Select(t => t.Name).ToList();
-                
+
                 if (availableTabs.Count == 0)
                 {
-                    MessageBox.Show("설정된 탭이 없습니다. Tab Settings 탭에서 탭을 먼저 설정해주세요.", 
+                    MessageBox.Show("설정된 탭이 없습니다. Tab Settings 탭에서 탭을 먼저 설정해주세요.",
                                     "알림", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
@@ -1143,18 +1143,18 @@ namespace FACTOVA_MessageLogViewer
                         System.Diagnostics.Debug.WriteLine($"  - {tab}");
                     }
                 }
-                
+
                 var currentSelection = fieldItem.VisibleInTabs ?? new List<string>();
-                
+
                 // 팝업 창 생성
                 var popup = new TabSelectionPopup(availableTabs, currentSelection);
                 popup.Owner = this;
-                
+
                 if (popup.ShowDialog() == true)
                 {
                     // 선택 결과 적용
                     var selectedTabs = popup.SelectedTabs.Count > 0 ? popup.SelectedTabs : null;
-                    
+
                     System.Diagnostics.Debug.WriteLine($"✅ 팝업 확인 후 - 선택된 탭: {selectedTabs?.Count ?? 0}개");
                     if (selectedTabs != null)
                     {
@@ -1163,11 +1163,11 @@ namespace FACTOVA_MessageLogViewer
                             System.Diagnostics.Debug.WriteLine($"  - {tab}");
                         }
                     }
-                    
+
                     fieldItem.VisibleInTabs = selectedTabs;
-                    
+
                     System.Diagnostics.Debug.WriteLine($"✅ FieldItem 업데이트 후: {fieldItem.VisibleTabsDisplayText}");
-                    
+
                     // DataGrid 전체 갱신
                     dgFields.Items.Refresh();
                 }
@@ -1183,7 +1183,7 @@ namespace FACTOVA_MessageLogViewer
             {
                 var popup = new ValueMappingPopup(fieldItem.ValueMapping);
                 popup.Owner = this;
-                
+
                 if (popup.ShowDialog() == true)
                 {
                     fieldItem.ValueMapping = popup.ResultMapping;
@@ -1235,10 +1235,10 @@ namespace FACTOVA_MessageLogViewer
         public string ValueMapping
         {
             get => _valueMapping;
-            set 
-            { 
-                _valueMapping = value; 
-                OnPropertyChanged(nameof(ValueMapping)); 
+            set
+            {
+                _valueMapping = value;
+                OnPropertyChanged(nameof(ValueMapping));
                 OnPropertyChanged(nameof(ValueMappingDisplayText));
             }
         }
@@ -1252,11 +1252,11 @@ namespace FACTOVA_MessageLogViewer
             {
                 if (string.IsNullOrWhiteSpace(_valueMapping))
                     return "(없음)";
-                
+
                 var pairs = _valueMapping.Split(',');
                 if (pairs.Length > 2)
                     return $"{pairs.Length}개 매핑";
-                
+
                 // 짧게 표시: 1→자동, 2→수동
                 var displayPairs = pairs.Take(2).Select(p =>
                 {
@@ -1271,10 +1271,10 @@ namespace FACTOVA_MessageLogViewer
         public string DisplayTypeString
         {
             get => _displayTypeString;
-            set 
-            { 
-                _displayTypeString = value; 
-                OnPropertyChanged(nameof(DisplayTypeString)); 
+            set
+            {
+                _displayTypeString = value;
+                OnPropertyChanged(nameof(DisplayTypeString));
                 OnPropertyChanged(nameof(DisplayType));
             }
         }
@@ -1283,11 +1283,11 @@ namespace FACTOVA_MessageLogViewer
         public FieldDisplayType DisplayType
         {
             get => Enum.TryParse<FieldDisplayType>(_displayTypeString, out var result) ? result : FieldDisplayType.Summary;
-            set 
-            { 
+            set
+            {
                 _displayTypeString = value.ToString();
                 OnPropertyChanged(nameof(DisplayTypeString));
-                OnPropertyChanged(nameof(DisplayType)); 
+                OnPropertyChanged(nameof(DisplayType));
             }
         }
 
@@ -1298,7 +1298,7 @@ namespace FACTOVA_MessageLogViewer
         }
 
         private List<string>? _visibleInTabs = null;
-        
+
         /// <summary>
         /// 이 컬럼을 표시할 탭 목록
         /// </summary>
@@ -1310,11 +1310,11 @@ namespace FACTOVA_MessageLogViewer
                 System.Diagnostics.Debug.WriteLine($"🔧 FieldSettingItem.VisibleInTabs setter 호출: {FieldName}");
                 System.Diagnostics.Debug.WriteLine($"   이전 값: {_visibleInTabs?.Count ?? 0}개");
                 System.Diagnostics.Debug.WriteLine($"   새 값: {value?.Count ?? 0}개");
-                
+
                 _visibleInTabs = value;
                 OnPropertyChanged(nameof(VisibleInTabs));
                 OnPropertyChanged(nameof(VisibleTabsDisplayText));
-                
+
                 System.Diagnostics.Debug.WriteLine($"   DisplayText: {VisibleTabsDisplayText}");
             }
         }
@@ -1335,15 +1335,15 @@ namespace FACTOVA_MessageLogViewer
         }
 
         public System.Collections.Generic.List<string> SampleValues { get; set; } = new();
-        
-        public string SamplePreview => SampleValues.Count > 0 
-            ? string.Join(", ", SampleValues.Take(3)) 
+
+        public string SamplePreview => SampleValues.Count > 0
+            ? string.Join(", ", SampleValues.Take(3))
             : "(no value)";
 
         public event PropertyChangedEventHandler? PropertyChanged;
-        protected void OnPropertyChanged(string name) => 
+        protected void OnPropertyChanged(string name) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-        
+
         /// <summary>
         /// UI 강제 갱신용 public 메서드
         /// </summary>
