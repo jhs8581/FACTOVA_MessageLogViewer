@@ -127,6 +127,32 @@ Loaded="UserControl_Loaded">
                             FontSize="12"
                             Cursor="Hand"/>
 
+                    <Button x:Name="btnRealTimeWatch"
+                            Content="⏸️ 일시정지" 
+                            Width="90" Height="28" 
+                            Margin="0,0,8,0"
+                            Click="BtnRealTimeWatch_Click"
+                            Background="#40FFFFFF"
+                            Foreground="White"
+                            BorderBrush="White"
+                            BorderThickness="1"
+                            FontSize="11"
+                            Cursor="Hand"
+                            ToolTip="실시간 감지 일시정지/재개"/>
+
+                    <Button x:Name="btnRefreshCurrent"
+                            Content="📥 현재시간" 
+                            Width="90" Height="28" 
+                            Margin="0,0,8,0"
+                            Click="BtnRefreshCurrent_Click"
+                            Background="#40FFFFFF"
+                            Foreground="White"
+                            BorderBrush="White"
+                            BorderThickness="1"
+                            FontSize="11"
+                            Cursor="Hand"
+                            ToolTip="현재 시간대 로그 강제 갱신 (파일 복사→재로드)"/>
+
                     <Button x:Name="btnAutoScroll"
                             Content="⬇ 자동스크롤" 
                             Width="100" Height="28" 

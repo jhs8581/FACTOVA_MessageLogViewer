@@ -39,6 +39,7 @@ namespace FACTOVA_MessageLogViewer
         private FileSystemWatcher? fileWatcher;
         private System.Timers.Timer? watcherDebounceTimer;
         private HashSet<string> pendingWatcherFiles = new();
+        private bool isRealTimeWatchEnabled = true;
 
         // 태그 필터 관련
         private ObservableCollection<BizFilterItem> tagFilterItems = new();
@@ -1031,6 +1032,31 @@ namespace FACTOVA_MessageLogViewer
             btnAutoScroll.Content = isAutoScrollEnabled ? "⬇ 자동스크롤" : "⬇ 자동스크롤 OFF";
         }
 
+        private void BtnRealTimeWatch_Click(object sender, RoutedEventArgs e)
+        {
+            isRealTimeWatchEnabled = !isRealTimeWatchEnabled;
+            
+            if (isRealTimeWatchEnabled)
+            {
+                StartFileWatcher();
+                btnRealTimeWatch.Background = new SolidColorBrush(Color.FromRgb(76, 175, 80));
+                btnRealTimeWatch.Content = "▶️ 실시간";
+                txtStatus.Text = "실시간 감지 재개";
+            }
+            else
+            {
+                StopFileWatcher();
+                btnRealTimeWatch.Background = new SolidColorBrush(Color.FromRgb(255, 152, 0));
+                btnRealTimeWatch.Content = "⏸️ 일시정지";
+                txtStatus.Text = "실시간 감지 일시정지";
+            }
+        }
+
+        private async void BtnRefreshCurrent_Click(object sender, RoutedEventArgs e)
+        {
+            await RefreshCurrentHourFiles();
+        }
+
         private void BtnAutoFit_Click(object sender, RoutedEventArgs e)
         {
             ApplyAutoFit();
@@ -1299,6 +1325,192 @@ namespace FACTOVA_MessageLogViewer
 
         #endregion
 
+        #region 현재 시간 파일 갱신
+
+        /// <summary>
+        /// 현재 시간대 파일 강제 갱신 (복사로 flush 트리거 → 복사본 읽기)
+        /// </summary>
+        private async Task RefreshCurrentHourFiles()
+        {
+            if (string.IsNullOrEmpty(logDirectory) || !Directory.Exists(logDirectory))
+            {
+                MessageBox.Show("로그 디렉토리가 설정되지 않았습니다.\nF/L 로그를 먼저 로드해주세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            try
+            {
+                var currentHour = DateTime.Now.Hour.ToString("D2");
+                var currentMonth = DateTime.Now.Month.ToString("D2");
+                var currentDay = DateTime.Now.Day.ToString("D2");
+
+                // 현재 시간대 파일 찾기 (_MMDDYY.log)
+                var targetFiles = Directory.GetFiles(logDirectory, "*.log", SearchOption.TopDirectoryOnly)
+                    .Where(f =>
+                    {
+                        var fileName = Path.GetFileName(f);
+                        if (fileName.StartsWith("LGE", StringComparison.OrdinalIgnoreCase))
+                            return false;
+
+                        var match = FileNamePattern.Match(fileName);
+                        if (!match.Success) return false;
+
+                        var fileMonth = match.Groups[1].Value;
+                        var fileDay = match.Groups[2].Value;
+                        var fileHour = match.Groups[3].Value;
+
+                        return fileMonth == currentMonth && fileDay == currentDay && fileHour == currentHour;
+                    })
+                    .ToList();
+
+                if (targetFiles.Count == 0)
+                {
+                    MessageBox.Show($"현재 시간대({currentHour}시) 파일을 찾을 수 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                txtStatus.Text = $"📥 현재시간({currentHour}시) 파일 갱신 중...";
+
+                // 로그 디렉토리 안에 Temp 폴더 생성
+                var tempFolder = Path.Combine(logDirectory, "Temp");
+                Directory.CreateDirectory(tempFolder);
+
+                var copiedFiles = new List<string>();
+
+                try
+                {
+                    foreach (var file in targetFiles)
+                    {
+                        // Temp 폴더에 복사 (이 과정에서 OS가 버퍼 flush!)
+                        var fileName = Path.GetFileName(file);
+                        var tempPath = Path.Combine(tempFolder, fileName);
+                        
+                        File.Copy(file, tempPath, true);
+                        copiedFiles.Add(tempPath);
+                        
+                        System.Diagnostics.Debug.WriteLine($"✅ 파일 복사로 flush 트리거: {fileName} → Temp\\{fileName}");
+                    }
+
+                    // 약간의 지연 (flush 완료 대기)
+                    await Task.Delay(100);
+
+                    // 복사본 파일들 재로드
+                    await ReloadSpecificFiles(copiedFiles);
+
+                    MessageBox.Show($"현재 시간대({currentHour}시) 로그 {targetFiles.Count}개 파일을 갱신했습니다.", "완료", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                finally
+                {
+                    // Temp 폴더의 복사본 파일들 삭제
+                    foreach (var tempFile in copiedFiles)
+                    {
+                        try { if (File.Exists(tempFile)) File.Delete(tempFile); } catch { }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"현재 시간 파일 갱신 중 오류:\n{ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Diagnostics.Debug.WriteLine($"❌ 현재 시간 파일 갱신 실패: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 특정 파일들 재로드 (최적화: 증분 업데이트)
+        /// </summary>
+        private async Task ReloadSpecificFiles(List<string> filePaths)
+        {
+            var fileNames = filePaths.Select(Path.GetFileName).ToHashSet();
+            
+            // 1단계: 해당 파일의 기존 로그를 빠르게 제거
+            var entriesToRemove = logEntries.Where(e => fileNames.Contains(e.SourceFile)).ToList();
+            
+            foreach (var entry in entriesToRemove)
+            {
+                logEntries.Remove(entry);
+            }
+
+            // 탭별로도 제거
+            foreach (var tabEntries in tabLogEntries.Values)
+            {
+                var tabEntriesToRemove = tabEntries.Where(e => fileNames.Contains(e.SourceFile)).ToList();
+                foreach (var entry in tabEntriesToRemove)
+                {
+                    tabEntries.Remove(entry);
+                }
+            }
+
+            // 2단계: 새 로그 파싱
+            var reloadedEntries = new List<FLLogEntry>();
+            foreach (var file in filePaths)
+            {
+                var newEntries = await Task.Run(() => ParseFLLogFile(file));
+                reloadedEntries.AddRange(newEntries);
+                System.Diagnostics.Debug.WriteLine($"📂 재로드: {Path.GetFileName(file)} → {newEntries.Count}개");
+            }
+
+            if (reloadedEntries.Count == 0)
+            {
+                txtStatus.Text = "재로드 완료 (변화 없음)";
+                UpdateStatus();
+                return;
+            }
+
+            // 3단계: 프리셋에서 태그 설명 적용
+            var tagDescriptions = FLPresetManager.GetTagDescriptions();
+            foreach (var entry in reloadedEntries)
+            {
+                if (tagDescriptions.TryGetValue(entry.TagName, out var desc))
+                {
+                    entry.TagDescription = desc;
+                }
+            }
+
+            // 4단계: 정렬된 위치에 삽입 (이미 시간순 정렬되어 있음)
+            var allLogsList = logEntries.ToList();
+            allLogsList.AddRange(reloadedEntries);
+            allLogsList = allLogsList.OrderBy(e => e.Timestamp).ToList();
+
+            // 5단계: ObservableCollection 업데이트 (한번에)
+            logEntries.Clear();
+            for (int i = 0; i < allLogsList.Count; i++)
+            {
+                allLogsList[i].RowNumber = i + 1;
+                logEntries.Add(allLogsList[i]);
+            }
+
+            // 6단계: 탭별 데이터 재구성 (새로 추가된 것만)
+            var flSettings = FLPresetManager.CurrentSettings;
+            foreach (var entry in reloadedEntries)
+            {
+                foreach (var tabConfig in flSettings.TabSettings?.Tabs ?? new List<FLTabConfig>())
+                {
+                    if (tabConfig.IsEnabled && IsEntryMatchesTab(entry, tabConfig))
+                    {
+                        if (tabLogEntries.TryGetValue(tabConfig.Name, out var tabEntries))
+                        {
+                            tabEntries.Add(entry);
+                        }
+                    }
+                }
+            }
+
+            UpdateStatus();
+            txtStatus.Text = $"✅ 재로드 완료: +{reloadedEntries.Count}개";
+
+            // 자동 스크롤
+            if (isAutoScrollEnabled && currentDataGrid != null && currentLogView != null)
+            {
+                var items = currentLogView.Cast<object>().ToList();
+                if (items.Count > 0)
+                {
+                    currentDataGrid.ScrollIntoView(items.Last());
+                }
+            }
+        }
+
+        #endregion
+
         #region 실시간 감지 (FileSystemWatcher)
 
         private void StartFileWatcher()
@@ -1371,6 +1583,10 @@ namespace FACTOVA_MessageLogViewer
 
         private void OnWatcherDebounceElapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
+            // 일시정지 상태면 무시
+            if (!isRealTimeWatchEnabled)
+                return;
+
             List<string> filesToProcess;
             lock (pendingWatcherFiles)
             {
