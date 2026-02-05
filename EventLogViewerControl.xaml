@@ -176,54 +176,65 @@ Loaded="UserControl_Loaded">
                            FontSize="13"
                            FontWeight="SemiBold"/>
 
-                <TextBox x:Name="txtSearch" 
-                         Width="350" Height="28"
-                         VerticalAlignment="Center"
-                         VerticalContentAlignment="Center"
-                         Padding="8,0"
-                         FontSize="12"
-                         KeyDown="TxtSearch_KeyDown">
-                    <TextBox.ToolTip>
-                        <ToolTip MaxWidth="450">
-                            <StackPanel>
-                                <TextBlock Text="🔍 복합 검색" FontWeight="Bold" FontSize="13" Margin="0,0,0,8"/>
+                <Grid Width="350" Height="28">
+                    <TextBox x:Name="txtSearch" 
+                             Height="28"
+                             VerticalAlignment="Center"
+                             VerticalContentAlignment="Center"
+                             Padding="8,0,30,0"
+                             FontSize="12"
+                             TextChanged="TxtSearch_TextChanged"
+                             KeyDown="TxtSearch_KeyDown">
+                        <TextBox.ToolTip>
+                            <ToolTip MaxWidth="450">
+                                <StackPanel>
+                                    <TextBlock Text="🔍 복합 검색" FontWeight="Bold" FontSize="13" Margin="0,0,0,8"/>
 
-                                <Border Background="#F0F0F0" Padding="8" CornerRadius="3" Margin="0,0,0,8">
-                                    <StackPanel>
-                                        <TextBlock FontWeight="Bold" Margin="0,0,0,3">
-                                            <Run Text="구분자:"/>
-                                        </TextBlock>
-                                        <TextBlock Margin="5,0,0,2">
-                                            <Run Text="쉼표(,)" FontFamily="Consolas" FontWeight="Bold"/>
-                                            <Run Text=" → OR 검색 (또는)"/>
-                                        </TextBlock>
-                                        <TextBlock Margin="5,0,0,0">
-                                            <Run Text="플러스(+)" FontFamily="Consolas" FontWeight="Bold"/>
-                                            <Run Text=" → AND 검색 (그리고)"/>
-                                        </TextBlock>
-                                    </StackPanel>
-                                </Border>
+                                    <Border Background="#F0F0F0" Padding="8" CornerRadius="3" Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <TextBlock FontWeight="Bold" Margin="0,0,0,3">
+                                                <Run Text="구분자:"/>
+                                            </TextBlock>
+                                            <TextBlock Margin="5,0,0,2">
+                                                <Run Text="쉼표(,)" FontFamily="Consolas" FontWeight="Bold"/>
+                                                <Run Text=" → OR 검색 (또는)"/>
+                                            </TextBlock>
+                                            <TextBlock Margin="5,0,0,0">
+                                                <Run Text="플러스(+)" FontFamily="Consolas" FontWeight="Bold"/>
+                                                <Run Text=" → AND 검색 (그리고)"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
 
-                                <TextBlock Text="📝 예시:" FontWeight="Bold" Margin="0,0,0,5"/>
+                                    <TextBlock Text="📝 예시:" FontWeight="Bold" Margin="0,0,0,5"/>
 
-                                <TextBlock Margin="5,0,0,3">
-                                    <Run Text="OK+1234" FontFamily="Consolas" FontWeight="Bold" Foreground="#1976D2"/>
-                                    <Run Text=" → OK 그리고 1234 포함" Foreground="#666" FontSize="11"/>
-                                </TextBlock>
+                                    <TextBlock Margin="5,0,0,3">
+                                        <Run Text="OK+1234" FontFamily="Consolas" FontWeight="Bold" Foreground="#1976D2"/>
+                                        <Run Text=" → OK 그리고 1234 포함" Foreground="#666" FontSize="11"/>
+                                    </TextBlock>
 
-                                <TextBlock Margin="5,0,0,3">
-                                    <Run Text="OK,NG" FontFamily="Consolas" FontWeight="Bold" Foreground="#1976D2"/>
-                                    <Run Text=" → OK 또는 NG 포함" Foreground="#666" FontSize="11"/>
-                                </TextBlock>
+                                    <TextBlock Margin="5,0,0,3">
+                                        <Run Text="OK,NG" FontFamily="Consolas" FontWeight="Bold" Foreground="#1976D2"/>
+                                        <Run Text=" → OK 또는 NG 포함" Foreground="#666" FontSize="11"/>
+                                    </TextBlock>
 
-                                <TextBlock Margin="5,0,0,0">
-                                    <Run Text="송신+NG,수신+OK" FontFamily="Consolas" FontWeight="Bold" Foreground="#1976D2"/>
-                                    <Run Text=" → (송신 AND NG) OR (수신 AND OK)" Foreground="#666" FontSize="11"/>
-                                </TextBlock>
-                            </StackPanel>
-                        </ToolTip>
-                    </TextBox.ToolTip>
-                </TextBox>
+                                    <TextBlock Margin="5,0,0,0">
+                                        <Run Text="송신+NG,수신+OK" FontFamily="Consolas" FontWeight="Bold" Foreground="#1976D2"/>
+                                        <Run Text=" → (송신 AND NG) OR (수신 AND OK)" Foreground="#666" FontSize="11"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </ToolTip>
+                        </TextBox.ToolTip>
+                    </TextBox>
+                    
+                    <Button x:Name="btnClearSearch" Content="✕" Width="24" Height="24" 
+                            HorizontalAlignment="Right" Margin="0,0,3,0"
+                            Background="Transparent" BorderThickness="0"
+                            Foreground="#999" FontSize="14" Cursor="Hand"
+                            Click="BtnClearSearch_Click"
+                            Visibility="Collapsed"
+                            ToolTip="검색어 지우기"/>
+                </Grid>
 
                 <Button Content="🔍" 
                         Width="32" Height="28"

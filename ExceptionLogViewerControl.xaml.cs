@@ -400,6 +400,19 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
+        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            btnClearSearch.Visibility = string.IsNullOrEmpty(txtSearch.Text) 
+                ? Visibility.Collapsed 
+                : Visibility.Visible;
+        }
+
+        private void BtnClearSearch_Click(object sender, RoutedEventArgs e)
+        {
+            txtSearch.Clear();
+            ApplySearch();
+        }
+
         private void BtnSearch_Click(object sender, RoutedEventArgs e)
         {
             ApplySearch();

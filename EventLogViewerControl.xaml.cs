@@ -340,12 +340,9 @@ namespace FACTOVA_MessageLogViewer
             dataGrid.Columns.Add(CreateDataGridTextColumn("구분", "DirectionText", 50, HorizontalAlignment.Center, null, null, FontWeights.Bold));
             dataGrid.Columns.Add(CreateDataGridTextColumn("MsgId", "MessageId", 60, HorizontalAlignment.Center, "Consolas"));
 
-            // 통합 로그 탭에만 "분류", "그룹" 컬럼 추가
-            if (tabConfig.IsIntegrated)
-            {
-                dataGrid.Columns.Add(CreateDataGridTextColumn("분류", "MatchedTabName", 100, HorizontalAlignment.Left, null, "#1565C0"));
-                dataGrid.Columns.Add(CreateDataGridTextColumn("그룹", "MatchedGroupName", 100, HorizontalAlignment.Left, null, "#7B1FA2"));
-            }
+            // "분류", "그룹" 컬럼 추가 (모든 탭에 표시)
+            dataGrid.Columns.Add(CreateDataGridTextColumn("분류", "MatchedTabName", 100, HorizontalAlignment.Left, null, "#1565C0"));
+            dataGrid.Columns.Add(CreateDataGridTextColumn("그룹", "MatchedGroupName", 100, HorizontalAlignment.Left, null, "#7B1FA2"));
 
             // 동적 컬럼 추가 (탭별 필터링)
             var settings = ColumnSettingsManager.CurrentSettings;
@@ -1892,6 +1889,20 @@ namespace FACTOVA_MessageLogViewer
                 UpdateStatus();
                 e.Handled = true;
             }
+        }
+
+        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            btnClearSearch.Visibility = string.IsNullOrEmpty(txtSearch.Text) 
+                ? Visibility.Collapsed 
+                : Visibility.Visible;
+        }
+
+        private void BtnClearSearch_Click(object sender, RoutedEventArgs e)
+        {
+            txtSearch.Clear();
+            RefreshAllTabViews();
+            UpdateStatus();
         }
 
         private void BtnSearch_Click(object sender, RoutedEventArgs e)

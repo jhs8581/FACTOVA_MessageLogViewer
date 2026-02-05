@@ -1062,6 +1062,18 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
+        private void TxtPresetName_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            btnClearPresetName.Visibility = string.IsNullOrEmpty(txtPresetName.Text) 
+                ? Visibility.Collapsed 
+                : Visibility.Visible;
+        }
+
+        private void BtnClearPresetName_Click(object sender, RoutedEventArgs e)
+        {
+            txtPresetName.Clear();
+        }
+
         #endregion
 
         #region 공통 버튼
@@ -1168,7 +1180,9 @@ namespace FACTOVA_MessageLogViewer
 
                     System.Diagnostics.Debug.WriteLine($"✅ FieldItem 업데이트 후: {fieldItem.VisibleTabsDisplayText}");
 
-                    // DataGrid 전체 갱신
+                    // 편집 모드 종료 후 DataGrid 전체 갱신
+                    dgFields.CommitEdit();
+                    dgFields.CommitEdit();
                     dgFields.Items.Refresh();
                 }
             }
@@ -1187,6 +1201,10 @@ namespace FACTOVA_MessageLogViewer
                 if (popup.ShowDialog() == true)
                 {
                     fieldItem.ValueMapping = popup.ResultMapping;
+                    
+                    // 편집 모드 종료 후 새로고침
+                    dgFields.CommitEdit();
+                    dgFields.CommitEdit();
                     dgFields.Items.Refresh();
                 }
             }

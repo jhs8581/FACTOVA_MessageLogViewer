@@ -242,6 +242,15 @@ namespace FACTOVA_MessageLogViewer
             UnifiedPresetManager.SavePreset(preset);
         }
 
+        private void BtnReset_Click(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show("기본값으로 초기화하시겠습니까?", "확인", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result == MessageBoxResult.Yes)
+            {
+                LoadDefaultSettings();
+            }
+        }
+
         private void BtnPreview_Click(object sender, RoutedEventArgs e)
         {
             CollectSettingsFromUI();
@@ -277,10 +286,70 @@ namespace FACTOVA_MessageLogViewer
             Close();
         }
 
+        private void BtnApply_Click(object sender, RoutedEventArgs e)
+        {
+            var presetName = cboPresets.SelectedItem?.ToString() ?? "Default";
+            
+            if (presetName == "Default")
+            {
+                CollectSettingsFromUI();
+                
+                if (UnifiedPresetManager.CurrentPreset.ExceptionSettings == null)
+                    UnifiedPresetManager.CurrentPreset.ExceptionSettings = new DataColumnSettings();
+                
+                UnifiedPresetManager.CurrentPreset.ExceptionSettings = currentSettings;
+            }
+            else
+            {
+                SaveCurrentSettingsToPreset(presetName);
+            }
+
+            SettingsApplied = true;
+            DialogResult = true;
+            Close();
+        }
+
         private void BtnCancel_Click(object sender, RoutedEventArgs e)
         {
             DialogResult = false;
             Close();
+        }
+
+        private void BtnOpenPresetFolder_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var presetFolder = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Presets");
+
+                // 폴더가 없으면 생성
+                if (!System.IO.Directory.Exists(presetFolder))
+                {
+                    System.IO.Directory.CreateDirectory(presetFolder);
+                }
+
+                // 파일 탐색기로 열기
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = presetFolder,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"폴더를 열 수 없습니다:\n{ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void TxtPresetName_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            btnClearPresetName.Visibility = string.IsNullOrEmpty(txtPresetName.Text) 
+                ? System.Windows.Visibility.Collapsed 
+                : System.Windows.Visibility.Visible;
+        }
+
+        private void BtnClearPresetName_Click(object sender, RoutedEventArgs e)
+        {
+            txtPresetName.Clear();
         }
 
         #endregion

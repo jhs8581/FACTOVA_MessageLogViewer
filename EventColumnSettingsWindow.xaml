@@ -17,13 +17,13 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
 
         <!-- Header -->
         <StackPanel Grid.Row="0" Margin="0,0,0,10">
-            <TextBlock Text="EVENT 로그 프리셋 설정" FontSize="18" FontWeight="Bold"/>
-            <TextBlock Text="컬럼과 탭 설정이 프리셋으로 함께 저장됩니다."
+            <TextBlock Text="📡 EVENT 로그 프리셋 설정" FontSize="18" FontWeight="Bold" Foreground="#1976D2"/>
+            <TextBlock Text="컬럼, 탭, 필터 설정이 프리셋으로 저장됩니다."
                        Foreground="#666" FontSize="12" Margin="0,5,0,0"/>
         </StackPanel>
 
-        <!-- Preset Management -->
-        <GroupBox Grid.Row="1" Header="프리셋" Margin="0,0,0,10" Padding="10">
+        <GroupBox Grid.Row="1" Header="프리셋" Margin="0,0,0,10" Padding="10"
+                  Background="#E3F2FD" BorderBrush="#90CAF9">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="프리셋:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
                 <ComboBox x:Name="cboPresets" Width="180" Height="28" FontSize="12"
@@ -32,9 +32,19 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                         ToolTip="현재 프리셋에 저장"/>
                 <Border Width="1" Background="#CCC" Margin="15,2"/>
                 <TextBlock Text="새 이름:" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <TextBox x:Name="txtPresetName" Width="130" Height="28" 
-                         VerticalContentAlignment="Center" FontSize="12"
-                         ToolTip="새 프리셋 이름 입력"/>
+                <Grid Width="130" Height="28">
+                    <TextBox x:Name="txtPresetName" Height="28" 
+                             VerticalContentAlignment="Center" FontSize="12" Padding="5,0,25,0"
+                             ToolTip="새 프리셋 이름 입력"
+                             TextChanged="TxtPresetName_TextChanged"/>
+                    <Button x:Name="btnClearPresetName" Content="✕" Width="20" Height="20" 
+                            HorizontalAlignment="Right" Margin="0,0,4,0"
+                            Background="Transparent" BorderThickness="0"
+                            Foreground="#999" FontSize="14" Cursor="Hand"
+                            Click="BtnClearPresetName_Click"
+                            Visibility="Collapsed"
+                            ToolTip="이름 지우기"/>
+                </Grid>
                 <Button Content="다른이름저장" Width="80" Height="28" Margin="10,0,0,0" Click="BtnSaveAsPreset_Click"/>
                 <Border Width="1" Background="#CCC" Margin="15,2"/>
                 <Button Content="🗑 삭제" Width="60" Height="28" Click="BtnDeletePreset_Click"
@@ -48,8 +58,8 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
         <!-- TabControl (Column Settings / Tab Settings) -->
         <TabControl Grid.Row="2">
             <!-- Column Settings Tab -->
-            <TabItem Header="컬럼 설정">
-                <Grid Margin="10">
+            <TabItem Header="📋 컬럼 설정">
+                <Grid Margin="10" Background="#E3F2FD">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
@@ -66,7 +76,7 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                             <Button Content="▲" Width="26" Height="26" Margin="5,0,0,0" Click="BtnMoveUp_Click" FontSize="11" ToolTip="위로 이동"/>
                             <Button Content="▼" Width="26" Height="26" Margin="3,0,0,0" Click="BtnMoveDown_Click" FontSize="11" ToolTip="아래로 이동"/>
                             <Button Content="순번 적용" Width="70" Height="26" Margin="5,0,0,0" Click="BtnApplyOrder_Click" FontSize="11" 
-                                    ToolTip="입력한 순번대로 정렬" Background="#FF9800" Foreground="White" FontWeight="Bold"/>
+                                    ToolTip="입력한 순번대로 정렬" Background="#1976D2" Foreground="White" FontWeight="Bold"/>
                             <TextBlock Text="  |  " VerticalAlignment="Center" Foreground="#999"/>
                             <ComboBox x:Name="cboSortType" Width="80" Height="26" FontSize="11" SelectedIndex="0">
                                 <ComboBoxItem Content="Column"/>
@@ -77,9 +87,9 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                                     ToolTip="선택한 타입을 맨 위로 정렬"/>
                             <TextBlock Text="  |  " VerticalAlignment="Center" Foreground="#999"/>
                             <Button Content="재분석" Width="60" Height="26" Margin="5,0,0,0" Click="BtnReanalyze_Click" FontSize="11"
-                                    ToolTip="로그 파일에서 새 필드 검색"/>
+                                    ToolTip="로그 파일에서 새 필드 검색" Background="#1976D2" Foreground="White" FontWeight="SemiBold"/>
                         </StackPanel>
-                        <Border Background="#E3F2FD" BorderBrush="#2196F3" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,8,0,0">
+                        <Border Background="#BBDEFB" BorderBrush="#1976D2" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,8,0,0">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="체크한 항목 일괄 변경:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,0"/>
                                 <ComboBox x:Name="cboBulkChange" Width="100" Height="26" FontSize="11">
@@ -88,8 +98,8 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                                     <ComboBoxItem Content="Hidden"/>
                                 </ComboBox>
                                 <Button Content="적용" Width="60" Height="26" Margin="10,0,0,0" Click="BtnBulkChange_Click" FontSize="11"
-                                        Background="#2196F3" Foreground="White" FontWeight="Bold"/>
-                                <Border Width="1" Background="#90CAF9" Margin="15,2"/>
+                                        Background="#1976D2" Foreground="White" FontWeight="Bold"/>
+                                <Border Width="1" Background="#64B5F6" Margin="15,2"/>
                                 <TextBlock Text="표시할 탭:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,0"/>
                                 <Button Content="일괄 설정" Width="80" Height="26" Click="BtnBulkSetTabs_Click" FontSize="11"
                                         Background="#4CAF50" Foreground="White" FontWeight="Bold"
@@ -186,8 +196,8 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
             </TabItem>
 
             <!-- Tab Settings Tab -->
-            <TabItem Header="탭 설정">
-                <Grid Margin="10">
+            <TabItem Header="🗂️ 탭 설정">
+                <Grid Margin="10" Background="#E3F2FD">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="250"/>
                         <ColumnDefinition Width="*"/>
@@ -439,11 +449,11 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
             </TabItem>
 
             <!-- Filter Settings Tab -->
-            <TabItem Header="필터 설정">
+            <TabItem Header="🔍 필터 설정">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="10">
+                    <StackPanel Margin="10" Background="#E3F2FD">
                         <!-- Excluded MSGID Section -->
-                        <GroupBox Header="🚫 제외할 MSGID" Padding="15" Margin="0,0,0,15">
+                        <GroupBox Header="🚫 제외할 MSGID" Padding="15" Margin="0,0,0,15" Background="White">
                             <StackPanel>
                                 <TextBlock Text="파싱에서 제외할 MSGID를 쉼표로 구분하여 입력하세요." 
                                            Foreground="#666" FontSize="12" Margin="0,0,0,5"/>
@@ -462,7 +472,7 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                         </GroupBox>
 
                         <!-- Include Keywords Section -->
-                        <GroupBox Header="✅ 포함할 키워드 (MSGID 없는 로그 수집)" Padding="15" Margin="0,0,0,15">
+                        <GroupBox Header="✅ 포함할 키워드 (MSGID 없는 로그 수집)" Padding="15" Margin="0,0,0,15" Background="White">
                             <StackPanel>
                                 <TextBlock TextWrapping="Wrap" Foreground="#666" FontSize="12" Margin="0,0,0,5">
                                     <Run Text="MSGID가 없는 로그 중 수집할 키워드를 "/>

@@ -105,6 +105,9 @@ namespace FACTOVA_MessageLogViewer
             {
                 tagConfigs.Add(config);
             }
+            
+            // ItemsSource 재설정으로 필터 초기화
+            dgTags.ItemsSource = null;
             dgTags.ItemsSource = tagConfigs;
 
             // 필드 설정 로드
@@ -113,6 +116,9 @@ namespace FACTOVA_MessageLogViewer
             {
                 fieldConfigs.Add(config);
             }
+            
+            // ItemsSource 재설정으로 필터 초기화
+            dgFields.ItemsSource = null;
             dgFields.ItemsSource = fieldConfigs;
 
             // 탭 설정 로드
@@ -121,6 +127,9 @@ namespace FACTOVA_MessageLogViewer
             {
                 tabConfigs.Add(tab);
             }
+            
+            // ItemsSource 재설정
+            listBoxTabs.ItemsSource = null;
             listBoxTabs.ItemsSource = tabConfigs;
 
             if (tabConfigs.Count > 0)
@@ -190,6 +199,18 @@ namespace FACTOVA_MessageLogViewer
             var folderPath = UnifiedPresetManager.GetPresetFolderPath();
             Directory.CreateDirectory(folderPath);
             Process.Start("explorer.exe", folderPath);
+        }
+
+        private void TxtPresetName_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            btnClearPresetName.Visibility = string.IsNullOrEmpty(txtPresetName.Text) 
+                ? Visibility.Collapsed 
+                : Visibility.Visible;
+        }
+
+        private void BtnClearPresetName_Click(object sender, RoutedEventArgs e)
+        {
+            txtPresetName.Clear();
         }
 
         #endregion

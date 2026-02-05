@@ -94,8 +94,6 @@ namespace FACTOVA_MessageLogViewer
             basicFields.Clear();
             paramFields.Clear();
 
-            txtSlowThreshold.Text = currentSettings.DefaultSlowThreshold.ToString();
-
             foreach (var field in currentSettings.ColumnFields)
             {
                 if (field.IsParameter)
@@ -198,24 +196,105 @@ namespace FACTOVA_MessageLogViewer
 
         #region 파라미터 필드 관리
 
-        private void BtnAddParam_Click(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// 로그에서 파라미터 분석
+        /// </summary>
+        private void BtnAnalyzeParams_Click(object sender, RoutedEventArgs e)
         {
-            var fieldName = txtNewParamField.Text.Trim();
-            var displayName = txtNewParamDisplay.Text.Trim();
+            try
+            {
+                // MainWindow 찾기
+                var mainWindow = Application.Current.MainWindow as MainWindow;
+                if (mainWindow == null)
+                {
+                    MessageBox.Show("메인 윈도우를 찾을 수 없습니다.", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
 
+                // DataLogViewerControl 찾기
+                var dataControl = mainWindow.FindName("dataLogViewer") as DataLogViewerControl;
+                if (dataControl == null)
+                {
+                    MessageBox.Show("DATA 로그 컨트롤을 찾을 수 없습니다.", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                // Reflection을 사용하여 logEntries에 접근
+                var logEntriesField = typeof(DataLogViewerControl).GetField("logEntries", 
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                
+                if (logEntriesField == null)
+                {
+                    MessageBox.Show("로그 데이터에 접근할 수 없습니다.", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                var logEntries = logEntriesField.GetValue(dataControl) as ObservableCollection<DataLogEntry>;
+                if (logEntries == null || !logEntries.Any())
+                {
+                    MessageBox.Show("로드된 DATA 로그가 없습니다.\n먼저 로그를 로드해주세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                // 모든 로그에서 파라미터 필드 추출
+                var parameterSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var log in logEntries)
+                {
+                    if (log.Fields != null)
+                    {
+                        foreach (var key in log.Fields.Keys)
+                        {
+                            parameterSet.Add(key);
+                        }
+                    }
+                }
+
+                if (!parameterSet.Any())
+                {
+                    MessageBox.Show("파라미터를 찾을 수 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                // 콤보박스에 추가
+                cboAvailableParams.Items.Clear();
+                foreach (var param in parameterSet.OrderBy(p => p))
+                {
+                    cboAvailableParams.Items.Add(param);
+                }
+
+                if (cboAvailableParams.Items.Count > 0)
+                {
+                    cboAvailableParams.SelectedIndex = 0;
+                }
+
+                MessageBox.Show($"{parameterSet.Count}개의 파라미터를 발견했습니다.", "분석 완료", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"파라미터 분석 중 오류가 발생했습니다:\n{ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 콤보박스에서 선택한 파라미터 추가
+        /// </summary>
+        private void BtnAddParamFromCombo_Click(object sender, RoutedEventArgs e)
+        {
+            var fieldName = cboAvailableParams.SelectedItem?.ToString();
             if (string.IsNullOrEmpty(fieldName))
             {
-                MessageBox.Show("필드명을 입력하세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("파라미터를 선택하세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
+            var displayName = txtParamDisplayFromCombo.Text.Trim();
             if (string.IsNullOrEmpty(displayName))
                 displayName = fieldName;
 
             // 중복 체크
             if (paramFields.Any(f => f.FieldName.Equals(fieldName, StringComparison.OrdinalIgnoreCase)))
             {
-                MessageBox.Show("이미 존재하는 필드입니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("이미 추가된 파라미터입니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -237,8 +316,13 @@ namespace FACTOVA_MessageLogViewer
                 IsParameter = true
             });
 
-            txtNewParamField.Text = "";
-            txtNewParamDisplay.Text = "";
+            txtParamDisplayFromCombo.Text = "";
+
+            // 다음 항목 선택
+            if (cboAvailableParams.SelectedIndex < cboAvailableParams.Items.Count - 1)
+            {
+                cboAvailableParams.SelectedIndex++;
+            }
         }
 
         private void BtnRemoveParam_Click(object sender, RoutedEventArgs e)
@@ -256,9 +340,6 @@ namespace FACTOVA_MessageLogViewer
         private void CollectSettingsFromUI()
         {
             currentSettings.ColumnFields.Clear();
-
-            if (int.TryParse(txtSlowThreshold.Text, out int threshold))
-                currentSettings.DefaultSlowThreshold = threshold;
 
             foreach (var field in basicFields)
             {
@@ -282,6 +363,15 @@ namespace FACTOVA_MessageLogViewer
             preset.DataSettings = currentSettings;
             preset.DataSettings.Name = presetName;
             UnifiedPresetManager.SavePreset(preset);
+        }
+
+        private void BtnReset_Click(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show("기본값으로 초기화하시겠습니까?", "확인", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result == MessageBoxResult.Yes)
+            {
+                LoadDefaultSettings();
+            }
         }
 
         private void BtnPreview_Click(object sender, RoutedEventArgs e)
@@ -322,10 +412,72 @@ namespace FACTOVA_MessageLogViewer
             Close();
         }
 
+        private void BtnApply_Click(object sender, RoutedEventArgs e)
+        {
+            var presetName = cboPresets.SelectedItem?.ToString() ?? "Default";
+
+            if (presetName == "Default")
+            {
+                // Default는 통합 프리셋에 저장하지 않고 현재 세션에만 적용
+                CollectSettingsFromUI();
+
+                // 현재 프리셋에 반영
+                if (UnifiedPresetManager.CurrentPreset.DataSettings == null)
+                    UnifiedPresetManager.CurrentPreset.DataSettings = new DataColumnSettings();
+
+                UnifiedPresetManager.CurrentPreset.DataSettings = currentSettings;
+            }
+            else
+            {
+                SaveCurrentSettingsToPreset(presetName);
+            }
+
+            SettingsApplied = true;
+            DialogResult = true;
+            Close();
+        }
+
         private void BtnCancel_Click(object sender, RoutedEventArgs e)
         {
             DialogResult = false;
             Close();
+        }
+
+        private void BtnOpenPresetFolder_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var presetFolder = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Presets");
+
+                // 폴더가 없으면 생성
+                if (!System.IO.Directory.Exists(presetFolder))
+                {
+                    System.IO.Directory.CreateDirectory(presetFolder);
+                }
+
+                // 파일 탐색기로 열기
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = presetFolder,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"폴더를 열 수 없습니다:\n{ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void TxtPresetName_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            btnClearPresetName.Visibility = string.IsNullOrEmpty(txtPresetName.Text) 
+                ? System.Windows.Visibility.Collapsed 
+                : System.Windows.Visibility.Visible;
+        }
+
+        private void BtnClearPresetName_Click(object sender, RoutedEventArgs e)
+        {
+            txtPresetName.Clear();
         }
 
         #endregion

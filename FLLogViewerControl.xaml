@@ -171,14 +171,25 @@ Loaded="UserControl_Loaded">
                                FontSize="13"
                                FontWeight="SemiBold"/>
 
-                    <TextBox x:Name="txtSearch" 
-                             Width="350" Height="28"
-                             VerticalAlignment="Center"
-                             VerticalContentAlignment="Center"
-                             Padding="8,0"
-                             FontSize="12"
-                             KeyDown="TxtSearch_KeyDown"
-                             ToolTip="태그명, 값 등 검색 (쉼표=OR, 플러스=AND)"/>
+                    <Grid Width="350" Height="28">
+                        <TextBox x:Name="txtSearch" 
+                                 Height="28"
+                                 VerticalAlignment="Center"
+                                 VerticalContentAlignment="Center"
+                                 Padding="8,0,30,0"
+                                 FontSize="12"
+                                 TextChanged="TxtSearch_TextChanged"
+                                 KeyDown="TxtSearch_KeyDown"
+                                 ToolTip="태그명, 값 등 검색 (쉼표=OR, 플러스=AND)"/>
+                        
+                        <Button x:Name="btnClearSearch" Content="✕" Width="24" Height="24" 
+                                HorizontalAlignment="Right" Margin="0,0,3,0"
+                                Background="Transparent" BorderThickness="0"
+                                Foreground="#999" FontSize="14" Cursor="Hand"
+                                Click="BtnClearSearch_Click"
+                                Visibility="Collapsed"
+                                ToolTip="검색어 지우기"/>
+                    </Grid>
 
                     <Button Content="🔍" 
                             Width="32" Height="28"
