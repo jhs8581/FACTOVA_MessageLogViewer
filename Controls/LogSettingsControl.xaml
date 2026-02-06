@@ -96,7 +96,7 @@
                                  ToolTip="별도 폴더에서 F/L 로그 검색"/>
                     
                     <TextBox x:Name="txtFLLogFolder"
-                             Width="300"
+                             Width="400"
                              Height="24"
                              FontSize="10"
                              FontFamily="Consolas"
@@ -111,19 +111,9 @@
                             IsEnabled="{Binding IsChecked, ElementName=rbFLUseSeparateFolder}"
                             Click="BtnBrowseFLFolder_Click"
                             ToolTip="F/L 로그 폴더 선택"/>
-                    
-                    <Border Width="1" Background="#CE93D8" Margin="15,4,15,4"/>
-                    
-                    <CheckBox x:Name="chkWatchFL" 
-                              Content="📡 실시간 감지" 
-                              VerticalAlignment="Center" 
-                              FontSize="11"
-                              Foreground="#7B1FA2"
-                              FontWeight="SemiBold"
-                              IsEnabled="{Binding IsChecked, ElementName=rbFLUseSeparateFolder}"
-                              ToolTip="F/L 로그 실시간 감지 (별도 폴더 사용 시)"/>
                 </StackPanel>
             </Border>
+            
             
             <!-- Row 2: 프리셋, 날짜 -->
             <Grid Grid.Row="2" Margin="0,0,0,8">
@@ -284,13 +274,87 @@
                           Margin="20,0,0,0" 
                           Foreground="#E65100"
                           Visibility="Collapsed"/>
+            </StackPanel>
+            
+            <!-- Row 4: 시작 버튼 + 뷰어 대상 선택 + 실시간 감지 -->
+            <StackPanel Grid.Row="4" Orientation="Horizontal">
+                <!-- 시작 버튼 -->
+                <Button x:Name="btnStartViewer"
+                        Content="🚀 로그 뷰어 시작" 
+                        Width="160" 
+                        Height="34"
+                        FontSize="13"
+                        FontWeight="Bold"
+                        Background="#2196F3"
+                        Foreground="White"
+                        BorderThickness="0"
+                        Click="BtnStartViewer_Click"
+                        Cursor="Hand">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}"
+                                                CornerRadius="5"
+                                                Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" 
+                                                             VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#1976D2"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
                 
                 <!-- 구분선 -->
-                <Border Width="1" Background="#DDD" Margin="20,4,15,4"/>
+                <Border Width="1" Background="#DDD" Margin="15,4,15,4"/>
+                
+                <!-- 뷰어 시작 대상 선택 -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                    <TextBlock Text="🎯 시작 대상:" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#424242"/>
+                    <CheckBox x:Name="chkStartEvent" 
+                              Content="EVENT" 
+                              VerticalAlignment="Center" 
+                              FontSize="11" 
+                              IsChecked="True"
+                              Margin="0,0,10,0"
+                              ToolTip="EVENT 로그 뷰어 시작"/>
+                    <CheckBox x:Name="chkStartData" 
+                              Content="DATA" 
+                              VerticalAlignment="Center" 
+                              FontSize="11"
+                              IsChecked="True"
+                              Margin="0,0,10,0"
+                              ToolTip="DATA 로그 뷰어 시작"/>
+                    <CheckBox x:Name="chkStartException" 
+                              Content="EXCEPTION" 
+                              VerticalAlignment="Center" 
+                              FontSize="11"
+                              IsChecked="True"
+                              Margin="0,0,10,0"
+                              ToolTip="EXCEPTION 로그 뷰어 시작"/>
+                    <CheckBox x:Name="chkStartFL" 
+                              Content="F/L" 
+                              VerticalAlignment="Center" 
+                              FontSize="11"
+                              IsChecked="True"
+                              Foreground="#7B1FA2"
+                              ToolTip="F/L 로그 뷰어 시작"/>
+                </StackPanel>
+                
+                <!-- 구분선 -->
+                <Border Width="1" Background="#DDD" Margin="0,4,15,4"/>
                 
                 <!-- 실시간 감지 옵션 -->
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="📡 실시간 감지:" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#1976D2"/>
+                    <TextBlock Text="📡 실시간 감지:" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#1976D2"/>
                     <CheckBox x:Name="chkWatchEvent" 
                               Content="EVENT" 
                               VerticalAlignment="Center" 
@@ -307,47 +371,17 @@
                               Content="EXCEPTION" 
                               VerticalAlignment="Center" 
                               FontSize="11"
+                              Margin="0,0,10,0"
                               Foreground="#D32F2F"
                               ToolTip="EXCEPTION 로그 실시간 감지"/>
+                    <CheckBox x:Name="chkWatchFL" 
+                              Content="F/L" 
+                              VerticalAlignment="Center" 
+                              FontSize="11"
+                              Foreground="#7B1FA2"
+                              ToolTip="F/L 로그 실시간 감지"/>
                 </StackPanel>
             </StackPanel>
-            
-            <!-- Row 4: 시작 버튼 -->
-            <Button x:Name="btnStartViewer"
-                    Grid.Row="4"
-                    Content="🚀 로그 뷰어 시작" 
-                    Width="160" 
-                    Height="34"
-                    FontSize="13"
-                    FontWeight="Bold"
-                    Background="#2196F3"
-                    Foreground="White"
-                    BorderThickness="0"
-                    HorizontalAlignment="Left"
-                    Click="BtnStartViewer_Click"
-                    Cursor="Hand">
-                <Button.Style>
-                    <Style TargetType="Button">
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="Button">
-                                    <Border Background="{TemplateBinding Background}"
-                                            CornerRadius="5"
-                                            Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter HorizontalAlignment="Center" 
-                                                         VerticalAlignment="Center"/>
-                                    </Border>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                        <Style.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#1976D2"/>
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </Button.Style>
-            </Button>
         </Grid>
     </Expander>
 </UserControl>

@@ -91,7 +91,7 @@ namespace FACTOVA_MessageLogViewer
 
             // EVENT 로그 파일 경로 찾기
             var eventFilePath = FindLogFilePath(selectedDate.Date, LogType.EVENT);
-            if (!string.IsNullOrEmpty(eventFilePath))
+            if (!string.IsNullOrEmpty(eventFilePath) && logSettings.StartEvent)
             {
                 var eventSettings = viewerSettings with 
                 { 
@@ -104,7 +104,7 @@ namespace FACTOVA_MessageLogViewer
 
             // DATA 로그 파일 경로 찾기
             var dataFilePath = FindLogFilePath(selectedDate.Date, LogType.DATA);
-            if (!string.IsNullOrEmpty(dataFilePath))
+            if (!string.IsNullOrEmpty(dataFilePath) && logSettings.StartData)
             {
                 var dataSettings = viewerSettings with 
                 { 
@@ -117,7 +117,7 @@ namespace FACTOVA_MessageLogViewer
 
             // EXCEPTION 로그 파일 경로 찾기
             var exceptionFilePath = FindLogFilePath(selectedDate.Date, LogType.EXCEPTION);
-            if (!string.IsNullOrEmpty(exceptionFilePath))
+            if (!string.IsNullOrEmpty(exceptionFilePath) && logSettings.StartException)
             {
                 var exceptionSettings = viewerSettings with 
                 { 
@@ -128,17 +128,23 @@ namespace FACTOVA_MessageLogViewer
                 exceptionLogViewer.Initialize(exceptionSettings);
             }
 
+
             // F/L 로그 초기화
             // 별도 폴더 사용 여부에 따라 경로 결정
-            var flLogDirectory = logSettings.UseSeparateFLFolder && !string.IsNullOrEmpty(logSettings.FLLogFolderPath)
-                ? logSettings.FLLogFolderPath
-                : logSettings.CurrentLogDirectory;
-            
-            var watchFL = logSettings.UseSeparateFLFolder && logSettings.WatchFLLog;
-            await flLogViewer.InitializeAsync(flLogDirectory, selectedDate.Date, watchFL);
+            if (logSettings.StartFL)
+            {
+                var flLogDirectory = logSettings.UseSeparateFLFolder && !string.IsNullOrEmpty(logSettings.FLLogFolderPath)
+                    ? logSettings.FLLogFolderPath
+                    : logSettings.CurrentLogDirectory;
+                
+                // F/L 실시간 감지는 별도 폴더 사용 시에만 가능
+                var watchFL = logSettings.UseSeparateFLFolder && logSettings.WatchFLLog;
+                await flLogViewer.InitializeAsync(flLogDirectory, selectedDate.Date, watchFL);
+            }
 
             // 표시 옵션 저장
             logSettings.SaveDisplaySettings();
+
 
             // 설정 저장
             AppSettingsManager.Settings.LastUsedFolder = logSettings.CurrentLogDirectory;
@@ -236,6 +242,13 @@ namespace FACTOVA_MessageLogViewer
                 {
                     // 프리셋 목록 갱신
                     logSettings.LoadPresetList();
+                    
+                    // 적용된 프리셋 선택
+                    var appliedPresetName = AppSettingsManager.Settings.CurrentPresetName;
+                    if (!string.IsNullOrEmpty(appliedPresetName))
+                    {
+                        logSettings.SelectPreset(appliedPresetName);
+                    }
                 }
             }
             else if (currentTabIndex == 2) // EXCEPTION 탭
@@ -247,6 +260,13 @@ namespace FACTOVA_MessageLogViewer
                 {
                     // 프리셋 목록 갱신
                     logSettings.LoadPresetList();
+                    
+                    // 적용된 프리셋 선택
+                    var appliedPresetName = AppSettingsManager.Settings.CurrentPresetName;
+                    if (!string.IsNullOrEmpty(appliedPresetName))
+                    {
+                        logSettings.SelectPreset(appliedPresetName);
+                    }
                 }
             }
             else if (currentTabIndex == 3) // F/L 탭
@@ -259,6 +279,13 @@ namespace FACTOVA_MessageLogViewer
                 {
                     // 프리셋 목록 갱신
                     logSettings.LoadPresetList();
+                    
+                    // 적용된 프리셋 선택
+                    var appliedPresetName = AppSettingsManager.Settings.CurrentPresetName;
+                    if (!string.IsNullOrEmpty(appliedPresetName))
+                    {
+                        logSettings.SelectPreset(appliedPresetName);
+                    }
                 }
             }
             else // EVENT 탭 (기본)
@@ -270,6 +297,13 @@ namespace FACTOVA_MessageLogViewer
                 {
                     // 프리셋 목록 갱신
                     logSettings.LoadPresetList();
+                    
+                    // 적용된 프리셋 선택
+                    var appliedPresetName = AppSettingsManager.Settings.CurrentPresetName;
+                    if (!string.IsNullOrEmpty(appliedPresetName))
+                    {
+                        logSettings.SelectPreset(appliedPresetName);
+                    }
                 }
             }
         }

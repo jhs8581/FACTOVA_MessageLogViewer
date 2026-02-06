@@ -248,6 +248,9 @@ namespace FACTOVA_MessageLogViewer
             // Boolean 값 컬럼 (Boolean 타입에만 표시)
             dataGrid.Columns.Add(CreateBooleanValueColumn());
 
+            // Integer 값 컬럼 (Integer 타입에만 표시)
+            dataGrid.Columns.Add(CreateIntegerValueColumn());
+
             // 프리셋의 필드 설정에 따라 동적 컬럼 추가 (Structure 타입용)
             var columnFields = FLPresetManager.GetColumnFields();
             foreach (var fieldConfig in columnFields)
@@ -295,6 +298,33 @@ namespace FACTOVA_MessageLogViewer
             style.Setters.Add(new Setter(TextBlock.HorizontalAlignmentProperty, HorizontalAlignment.Center));
             style.Setters.Add(new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center));
             style.Setters.Add(new Setter(TextBlock.FontWeightProperty, FontWeights.Bold));
+            style.Setters.Add(new Setter(TextBlock.MarginProperty, new Thickness(5, 0, 5, 0)));
+
+            column.ElementStyle = style;
+            return column;
+        }
+
+        /// <summary>
+        /// Integer 값 전용 컬럼 생성
+        /// </summary>
+        private DataGridTextColumn CreateIntegerValueColumn()
+        {
+            var column = new DataGridTextColumn
+            {
+                Header = "Integer",
+                Width = new DataGridLength(80)
+            };
+
+            var binding = new Binding()
+            {
+                Mode = BindingMode.OneTime,
+                Converter = new FLIntegerValueConverter()
+            };
+            column.Binding = binding;
+
+            var style = new Style(typeof(TextBlock));
+            style.Setters.Add(new Setter(TextBlock.HorizontalAlignmentProperty, HorizontalAlignment.Center));
+            style.Setters.Add(new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center));
             style.Setters.Add(new Setter(TextBlock.MarginProperty, new Thickness(5, 0, 5, 0)));
 
             column.ElementStyle = style;

@@ -85,6 +85,26 @@ namespace FACTOVA_MessageLogViewer.Models
         public bool WatchExceptionLog { get; set; } = true;
 
         /// <summary>
+        /// EVENT 로그 뷰어 시작 여부
+        /// </summary>
+        public bool StartEventViewer { get; set; } = true;
+
+        /// <summary>
+        /// DATA 로그 뷰어 시작 여부
+        /// </summary>
+        public bool StartDataViewer { get; set; } = true;
+
+        /// <summary>
+        /// EXCEPTION 로그 뷰어 시작 여부
+        /// </summary>
+        public bool StartExceptionViewer { get; set; } = true;
+
+        /// <summary>
+        /// F/L 로그 뷰어 시작 여부
+        /// </summary>
+        public bool StartFLViewer { get; set; } = true;
+
+        /// <summary>
         /// F/L 로그 폰트 크기
         /// </summary>
         public int FLLogFontSize { get; set; } = 11;

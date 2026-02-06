@@ -686,6 +686,13 @@ namespace FACTOVA_MessageLogViewer
             SaveUIToPreset();
             UnifiedPresetManager.SavePreset(currentPreset);
             UnifiedPresetManager.CurrentPreset = currentPreset;
+            
+            // 현재 설정 저장
+            AppSettingsManager.Settings.CurrentPresetName = currentPreset.Name;
+            AppSettingsManager.SaveCurrent();
+            
+            System.Diagnostics.Debug.WriteLine($"✅ FL 프리셋 적용 완료: {currentPreset.Name}");
+            
             DialogResult = true;
             Close();
         }

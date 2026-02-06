@@ -32,6 +32,31 @@ namespace FACTOVA_MessageLogViewer.Converters
     }
 
     /// <summary>
+    /// F/L Integer 값을 표시하는 컨버터
+    /// Integer 타입이 아니면 빈 문자열 반환
+    /// </summary>
+    public class FLIntegerValueConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is FLLogEntry entry)
+            {
+                // Integer 타입만 표시 (Int16, Int32, Int64 등)
+                if (entry.DataType.Contains("Int", StringComparison.OrdinalIgnoreCase))
+                {
+                    return entry.Value;
+                }
+            }
+            return "";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
     /// F/L Structure 값만 표시하는 컨버터
     /// Structure 타입이 아니면 빈 문자열 반환
     /// </summary>

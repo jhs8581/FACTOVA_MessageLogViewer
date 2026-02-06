@@ -303,6 +303,10 @@ namespace FACTOVA_MessageLogViewer
             {
                 SaveCurrentSettingsToPreset(presetName);
             }
+            
+            // 현재 프리셋 이름 저장
+            AppSettingsManager.Settings.CurrentPresetName = presetName;
+            AppSettingsManager.SaveCurrent();
 
             SettingsApplied = true;
             DialogResult = true;

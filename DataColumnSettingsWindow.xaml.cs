@@ -441,35 +441,15 @@ namespace FACTOVA_MessageLogViewer
         {
             if (sender is Button btn && btn.Tag is DataFieldConfig field)
             {
-                var dialog = new InputDialog("값 매핑 설정", $"'{field.FieldName}'의 값 매핑을 입력하세요:\n예: 1=ON,0=OFF,Y=사용,N=미사용");
-                dialog.Owner = this;
+                var popup = new ValueMappingPopup(field.ValueMapping ?? "");
+                popup.Owner = this;
                 
-                // 기존 값 설정
-                var textBox = FindTextBox(dialog);
-                if (textBox != null)
+                if (popup.ShowDialog() == true)
                 {
-                    textBox.Text = field.ValueMapping;
-                }
-
-                if (dialog.ShowDialog() == true)
-                {
-                    field.ValueMapping = dialog.InputText.Trim();
+                    field.ValueMapping = popup.ResultMapping;
                     dgParamFields.Items.Refresh();
                 }
             }
-        }
-
-        private TextBox? FindTextBox(Window window)
-        {
-            if (window.Content is Grid grid)
-            {
-                foreach (var child in grid.Children)
-                {
-                    if (child is TextBox tb)
-                        return tb;
-                }
-            }
-            return null;
         }
 
         #endregion
@@ -570,6 +550,10 @@ namespace FACTOVA_MessageLogViewer
             {
                 SaveCurrentSettingsToPreset(presetName);
             }
+            
+            // 현재 프리셋 이름 저장
+            AppSettingsManager.Settings.CurrentPresetName = presetName;
+            AppSettingsManager.SaveCurrent();
 
             SettingsApplied = true;
             DialogResult = true;

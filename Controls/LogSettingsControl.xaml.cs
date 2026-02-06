@@ -98,6 +98,14 @@ namespace FACTOVA_MessageLogViewer.Controls
         public bool WatchFLLog => chkWatchFL.IsChecked == true;
 
         /// <summary>
+        /// 뷰어 시작 대상
+        /// </summary>
+        public bool StartEvent => chkStartEvent.IsChecked == true;
+        public bool StartData => chkStartData.IsChecked == true;
+        public bool StartException => chkStartException.IsChecked == true;
+        public bool StartFL => chkStartFL.IsChecked == true;
+
+        /// <summary>
         /// F/L 로그 별도 폴더 사용 여부
         /// </summary>
         public bool UseSeparateFLFolder => rbFLUseSeparateFolder.IsChecked == true;
@@ -172,6 +180,12 @@ namespace FACTOVA_MessageLogViewer.Controls
                 chkWatchData.IsChecked = settings.WatchDataLog;
                 chkWatchException.IsChecked = settings.WatchExceptionLog;
 
+                // 뷰어 시작 대상 설정
+                chkStartEvent.IsChecked = settings.StartEventViewer;
+                chkStartData.IsChecked = settings.StartDataViewer;
+                chkStartException.IsChecked = settings.StartExceptionViewer;
+                chkStartFL.IsChecked = settings.StartFLViewer;
+
                 // F/L 로그 설정
                 rbFLUseLogFolder.IsChecked = !settings.UseSeparateFLFolder;
                 rbFLUseSeparateFolder.IsChecked = settings.UseSeparateFLFolder;
@@ -190,6 +204,10 @@ namespace FACTOVA_MessageLogViewer.Controls
                 chkWatchEvent.IsChecked = true;
                 chkWatchData.IsChecked = true;
                 chkWatchException.IsChecked = true;
+                chkStartEvent.IsChecked = true;
+                chkStartData.IsChecked = true;
+                chkStartException.IsChecked = true;
+                chkStartFL.IsChecked = true;
                 rbFLUseLogFolder.IsChecked = true;
                 chkWatchFL.IsChecked = false;
             }
@@ -218,6 +236,12 @@ namespace FACTOVA_MessageLogViewer.Controls
                 settings.WatchEventLog = chkWatchEvent.IsChecked == true;
                 settings.WatchDataLog = chkWatchData.IsChecked == true;
                 settings.WatchExceptionLog = chkWatchException.IsChecked == true;
+
+                // 뷰어 시작 대상 저장
+                settings.StartEventViewer = chkStartEvent.IsChecked == true;
+                settings.StartDataViewer = chkStartData.IsChecked == true;
+                settings.StartExceptionViewer = chkStartException.IsChecked == true;
+                settings.StartFLViewer = chkStartFL.IsChecked == true;
 
                 // F/L 로그 설정 저장
                 settings.UseSeparateFLFolder = rbFLUseSeparateFolder.IsChecked == true;

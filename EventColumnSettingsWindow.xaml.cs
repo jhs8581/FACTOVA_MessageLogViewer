@@ -601,23 +601,17 @@ namespace FACTOVA_MessageLogViewer
                 foreach (var entry in logEntries)
                 {
                     count++;
-                    var type = entry.GetType();
                     
-                    // ExpandoFields 속성에서 필드 추출
-                    var expandoFieldsProp = type.GetProperty("ExpandoFields");
-                    if (expandoFieldsProp != null)
+                    // LogEntry의 Fields 속성에서 필드 추출
+                    if (entry is LogEntry logEntry && logEntry.Fields != null)
                     {
-                        var expandoFields = expandoFieldsProp.GetValue(entry) as IDictionary<string, object>;
-                        if (expandoFields != null)
+                        foreach (var kvp in logEntry.Fields)
                         {
-                            foreach (var kvp in expandoFields)
-                            {
-                                fieldSet.Add(kvp.Key);
-                                if (!sampleValues.ContainsKey(kvp.Key))
-                                    sampleValues[kvp.Key] = new List<string>();
-                                if (sampleValues[kvp.Key].Count < 3 && kvp.Value != null)
-                                    sampleValues[kvp.Key].Add(kvp.Value.ToString() ?? "");
-                            }
+                            fieldSet.Add(kvp.Key);
+                            if (!sampleValues.ContainsKey(kvp.Key))
+                                sampleValues[kvp.Key] = new List<string>();
+                            if (sampleValues[kvp.Key].Count < 3 && !string.IsNullOrWhiteSpace(kvp.Value))
+                                sampleValues[kvp.Key].Add(kvp.Value);
                         }
                     }
                 }
@@ -628,38 +622,29 @@ namespace FACTOVA_MessageLogViewer
                     return;
                 }
 
-                // 기존 필드에 없는 새 필드만 추가
-                int newCount = 0;
-                int order = fieldItems.Count + 1;
+                // 기존 필드를 모두 지우고 새 로그 기준으로 완전히 새로 구성
+                fieldItems.Clear();
+                int order = 1;
 
                 foreach (var field in fieldSet.OrderBy(f => f))
                 {
-                    if (!fieldItems.Any(f => f.FieldName.Equals(field, StringComparison.OrdinalIgnoreCase)))
+                    fieldItems.Add(new FieldSettingItem
                     {
-                        fieldItems.Add(new FieldSettingItem
-                        {
-                            Order = order++,
-                            FieldName = field,
-                            DisplayName = field,
-                            DisplayType = FieldDisplayType.Summary,
-                            ColumnWidth = 100,
-                            VisibleInTabs = null,
-                            SampleValues = sampleValues.ContainsKey(field) ? sampleValues[field] : new List<string>()
-                        });
-                        newCount++;
-                    }
-                    else
-                    {
-                        // 기존 필드 샘플 값 업데이트
-                        var existing = fieldItems.First(f => f.FieldName.Equals(field, StringComparison.OrdinalIgnoreCase));
-                        if (sampleValues.ContainsKey(field))
-                            existing.SampleValues = sampleValues[field];
-                    }
+                        Order = order++,
+                        FieldName = field,
+                        DisplayName = field,
+                        DisplayType = FieldDisplayType.Summary,
+                        ColumnWidth = 100,
+                        VisibleInTabs = null,
+                        SampleValues = sampleValues.ContainsKey(field) ? sampleValues[field] : new List<string>()
+                    });
                 }
 
-                dgFields.Items.Refresh();
+                // DataGrid 완전 초기화 (ItemsSource 재설정)
+                dgFields.ItemsSource = null;
+                dgFields.ItemsSource = fieldItems;
 
-                MessageBox.Show($"분석 완료!\n- 로그 수: {count}개\n- 새 필드: {newCount}개\n- 전체 필드: {fieldItems.Count}개",
+                MessageBox.Show($"분석 완료!\n- 로그 수: {count}개\n- 발견된 필드: {fieldItems.Count}개",
                     "재분석", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
@@ -1131,6 +1116,10 @@ namespace FACTOVA_MessageLogViewer
             }
 
             ColumnSettingsManager.CurrentSettings = settings;
+            
+            // 현재 프리셋 이름 저장
+            AppSettingsManager.Settings.CurrentPresetName = selected ?? "Default";
+            AppSettingsManager.SaveCurrent();
 
             SettingsApplied = true;
             DialogResult = true;
