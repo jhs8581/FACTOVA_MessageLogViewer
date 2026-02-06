@@ -338,27 +338,55 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                                             <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
 
-                                        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
-                                            <ItemsControl x:Name="itemsSelectedTags">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Border Background="White" BorderBrush="#CE93D8" BorderThickness="1"
-                                                                CornerRadius="3" Padding="8,4" Margin="0,0,0,4">
-                                                            <Grid>
-                                                                <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="11"
-                                                                           VerticalAlignment="Center"/>
-                                                                <Button Content="✕" HorizontalAlignment="Right"
-                                                                        Width="20" Height="20"
-                                                                        FontSize="10" Background="#FFCDD2"
-                                                                        BorderThickness="0" Cursor="Hand"
-                                                                        Click="BtnRemoveTag_Click" Tag="{Binding}"
-                                                                        ToolTip="태그 제거"/>
-                                                            </Grid>
-                                                        </Border>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </ScrollViewer>
+                                        <ListBox Grid.Row="0" x:Name="listBoxSelectedTags"
+                                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                 BorderThickness="0"
+                                                 Background="Transparent"
+                                                 AllowDrop="True"
+                                                 PreviewMouseLeftButtonDown="ListBoxSelectedTags_PreviewMouseLeftButtonDown"
+                                                 MouseMove="ListBoxSelectedTags_MouseMove"
+                                                 DragOver="ListBoxSelectedTags_DragOver"
+                                                 Drop="ListBoxSelectedTags_Drop">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="White" BorderBrush="#CE93D8" BorderThickness="1"
+                                                            CornerRadius="3" Padding="8,4" Margin="0,0,0,4"
+                                                            Cursor="Hand">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            
+                                                            <TextBlock Grid.Column="0" Text="≡" FontSize="14" Foreground="#9C27B0"
+                                                                       VerticalAlignment="Center" Margin="0,0,8,0"
+                                                                       ToolTip="드래그하여 순서 변경"/>
+                                                            
+                                                            <TextBlock Grid.Column="1" Text="{Binding}" FontFamily="Consolas" FontSize="11"
+                                                                       VerticalAlignment="Center"/>
+                                                            
+                                                            <Button Grid.Column="2" Content="✕" Width="20" Height="20"
+                                                                    FontSize="10" Background="#FFCDD2"
+                                                                    BorderThickness="0" Cursor="Hand"
+                                                                    Click="BtnRemoveTag_Click" Tag="{Binding}"
+                                                                    ToolTip="태그 제거"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                            <ListBox.ItemContainerStyle>
+                                                <Style TargetType="ListBoxItem">
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="ListBoxItem">
+                                                                <ContentPresenter/>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </Style>
+                                            </ListBox.ItemContainerStyle>
+                                        </ListBox>
 
                                         <Button Grid.Row="1" Content="+ 태그 추가" Height="30" Margin="0,10,0,0"
                                                 Click="BtnAddTag_Click"

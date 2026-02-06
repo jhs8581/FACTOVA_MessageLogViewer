@@ -21,6 +21,10 @@ namespace FACTOVA_MessageLogViewer
         private UnifiedPreset currentPreset = UnifiedPreset.CreateDefault();
         private bool isInitializing = true; // 초기화 중 플래그
 
+        // 드래그 앤 드롭 관련
+        private Point dragStartPoint;
+        private string? draggedTag;
+
         // 현재 로드된 F/L 로그에서 태그 추출을 위한 콜백
         public Func<IEnumerable<FLLogEntry>>? GetCurrentLogEntries { get; set; }
 
@@ -403,7 +407,7 @@ namespace FACTOVA_MessageLogViewer
             panelTabDetails.IsEnabled = true;
             txtTabName.Text = selectedTab.Name;
             chkIsIntegrated.IsChecked = selectedTab.IsIntegrated;
-            itemsSelectedTags.ItemsSource = selectedTab.SelectedTagNames;
+            listBoxSelectedTags.ItemsSource = selectedTab.SelectedTagNames;
         }
 
         private void TxtTabName_TextChanged(object sender, TextChangedEventArgs e)
@@ -496,8 +500,8 @@ namespace FACTOVA_MessageLogViewer
                 selectedTab.SelectedTagNames.Clear();
                 selectedTab.SelectedTagNames.AddRange(selectWindow.SelectedTags);
 
-                itemsSelectedTags.ItemsSource = null;
-                itemsSelectedTags.ItemsSource = selectedTab.SelectedTagNames;
+                listBoxSelectedTags.ItemsSource = null;
+                listBoxSelectedTags.ItemsSource = selectedTab.SelectedTagNames;
                 listBoxTabs.Items.Refresh();
             }
         }
@@ -511,11 +515,138 @@ namespace FACTOVA_MessageLogViewer
             if (tagName != null)
             {
                 selectedTab.SelectedTagNames.Remove(tagName);
-                itemsSelectedTags.ItemsSource = null;
-                itemsSelectedTags.ItemsSource = selectedTab.SelectedTagNames;
+                listBoxSelectedTags.ItemsSource = null;
+                listBoxSelectedTags.ItemsSource = selectedTab.SelectedTagNames;
                 listBoxTabs.Items.Refresh();
             }
         }
+
+        #region 드래그 앤 드롭
+
+        private void ListBoxSelectedTags_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            dragStartPoint = e.GetPosition(null);
+            
+            // 클릭한 아이템 찾기
+            var listBox = sender as ListBox;
+            if (listBox == null) return;
+            
+            var element = e.OriginalSource as FrameworkElement;
+            if (element == null) return;
+            
+            // 버튼 클릭이면 드래그 시작하지 않음
+            if (element is Button || element.TemplatedParent is Button)
+                return;
+            
+            // ListBoxItem 찾기
+            var listBoxItem = FindAncestor<ListBoxItem>(element);
+            if (listBoxItem != null)
+            {
+                draggedTag = listBoxItem.Content as string;
+            }
+        }
+
+        private void ListBoxSelectedTags_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed && draggedTag != null)
+            {
+                Point mousePos = e.GetPosition(null);
+                Vector diff = dragStartPoint - mousePos;
+
+                if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    var listBox = sender as ListBox;
+                    if (listBox != null)
+                    {
+                        var dragData = new DataObject("tagName", draggedTag);
+                        DragDrop.DoDragDrop(listBox, dragData, DragDropEffects.Move);
+                    }
+                }
+            }
+        }
+
+        private void ListBoxSelectedTags_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent("tagName"))
+            {
+                e.Effects = DragDropEffects.Move;
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
+            e.Handled = true;
+        }
+
+        private void ListBoxSelectedTags_Drop(object sender, DragEventArgs e)
+        {
+            if (selectedTab == null || !e.Data.GetDataPresent("tagName")) return;
+
+            var droppedTag = e.Data.GetData("tagName") as string;
+            if (droppedTag == null) return;
+
+            var listBox = sender as ListBox;
+            if (listBox == null) return;
+
+            // 드롭 위치의 아이템 찾기
+            var element = e.OriginalSource as FrameworkElement;
+            if (element == null) return;
+
+            var targetItem = FindAncestor<ListBoxItem>(element);
+            string? targetTag = null;
+            
+            if (targetItem != null)
+            {
+                targetTag = targetItem.Content as string;
+            }
+
+            var tags = selectedTab.SelectedTagNames;
+            int oldIndex = tags.IndexOf(droppedTag);
+            
+            if (oldIndex < 0) return;
+
+            // 타겟이 있으면 그 위치로, 없으면 맨 끝으로
+            int newIndex;
+            if (targetTag != null)
+            {
+                newIndex = tags.IndexOf(targetTag);
+                if (newIndex < 0) return;
+            }
+            else
+            {
+                newIndex = tags.Count - 1;
+            }
+
+            if (oldIndex != newIndex)
+            {
+                tags.RemoveAt(oldIndex);
+                if (newIndex > oldIndex)
+                    newIndex--;
+                tags.Insert(newIndex, droppedTag);
+
+                // UI 갱신
+                listBoxSelectedTags.ItemsSource = null;
+                listBoxSelectedTags.ItemsSource = tags;
+                listBoxTabs.Items.Refresh();
+            }
+
+            draggedTag = null;
+        }
+
+        private static T? FindAncestor<T>(DependencyObject current) where T : DependencyObject
+        {
+            do
+            {
+                if (current is T ancestor)
+                    return ancestor;
+                current = VisualTreeHelper.GetParent(current);
+            }
+            while (current != null);
+            return null;
+        }
+
+        #endregion
 
         #endregion
 
