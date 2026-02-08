@@ -382,7 +382,7 @@ namespace FACTOVA_MessageLogViewer.Controls
             if (AvailableDates.Count > 0)
             {
                 cboAvailableDates.SelectedIndex = 0;
-                txtDateInfo.Text = $"총 {AvailableDates.Count}개의 {(LogType == LogType.DATA ? "DATA" : "EVENT")} 로그 파일";
+                txtDateInfo.Text = $"총 {AvailableDates.Count}개 날짜의 로그 파일";
             }
             else
             {
@@ -628,9 +628,15 @@ namespace FACTOVA_MessageLogViewer.Controls
             var result = new System.Collections.Generic.List<AvailableDate>();
             if (!Directory.Exists(baseDir)) return result;
 
-            var filePattern = LogType == LogType.DATA
-                ? new Regex(@"LGE GMES_DATA_(\d{2})(\d{2})(\d{4})\.log$", RegexOptions.IgnoreCase)
-                : new Regex(@"LGE GMES_EVENT_(\d{2})(\d{2})(\d{4})\.log$", RegexOptions.IgnoreCase);
+            // F/L 로그는 별도 처리 (_MMDDYY.log 형식, 년도 정보 없음)
+            if (LogType == LogType.FL)
+            {
+                return FindFLDatesInFolder(baseDir);
+            }
+
+            // 모든 LGE GMES 로그 타입을 찾는 패턴 (EVENT, DATA, DEBUG, EXCEPTION)
+            var filePattern = new Regex(@"LGE GMES_(?:EVENT|DATA|DEBUG|EXCEPTION)_(\d{2})(\d{2})(\d{4})\.log$", RegexOptions.IgnoreCase);
+            var dateSet = new System.Collections.Generic.HashSet<DateTime>();
 
             try
             {
@@ -653,7 +659,13 @@ namespace FACTOVA_MessageLogViewer.Controls
                                         int.Parse(match.Groups[3].Value),
                                         int.Parse(match.Groups[1].Value),
                                         int.Parse(match.Groups[2].Value));
-                                    result.Add(new AvailableDate { Date = date, FilePath = file });
+                                    
+                                    // 중복 날짜 제거 (같은 날짜의 여러 로그 타입 파일이 있으므로)
+                                    if (!dateSet.Contains(date))
+                                    {
+                                        dateSet.Add(date);
+                                        result.Add(new AvailableDate { Date = date, FilePath = file });
+                                    }
                                 }
                                 catch { }
                             }
@@ -665,20 +677,39 @@ namespace FACTOVA_MessageLogViewer.Controls
             return result;
         }
 
+
         private System.Collections.Generic.List<AvailableDate> FindDatesInCustomFolder(string folder)
         {
             var result = new System.Collections.Generic.List<AvailableDate>();
-            if (!Directory.Exists(folder)) return result;
+            System.Diagnostics.Debug.WriteLine($"📂 FindDatesInCustomFolder: {folder}, LogType: {LogType}");
+            
+            if (!Directory.Exists(folder))
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ 폴더가 존재하지 않음: {folder}");
+                return result;
+            }
 
-            var filePattern = LogType == LogType.DATA
-                ? new Regex(@"LGE GMES_DATA_(\d{2})(\d{2})(\d{4})\.log$", RegexOptions.IgnoreCase)
-                : new Regex(@"LGE GMES_EVENT_(\d{2})(\d{2})(\d{4})\.log$", RegexOptions.IgnoreCase);
+            // F/L 로그는 별도 처리 (_MMDDYY.log 형식, 년도 정보 없음)
+            if (LogType == LogType.FL)
+            {
+                return FindFLDatesInFolder(folder);
+            }
+
+            // 모든 LGE GMES 로그 타입을 찾는 패턴 (EVENT, DATA, DEBUG, EXCEPTION)
+            var filePattern = new Regex(@"LGE GMES_(?:EVENT|DATA|DEBUG|EXCEPTION)_(\d{2})(\d{2})(\d{4})\.log$", RegexOptions.IgnoreCase);
+            var dateSet = new System.Collections.Generic.HashSet<DateTime>();
 
             try
             {
-                foreach (var file in Directory.GetFiles(folder, "*.log", SearchOption.AllDirectories))
+                var files = Directory.GetFiles(folder, "*.log", SearchOption.AllDirectories);
+                System.Diagnostics.Debug.WriteLine($"📄 검색된 .log 파일 수: {files.Length}");
+                
+                foreach (var file in files)
                 {
-                    var match = filePattern.Match(Path.GetFileName(file));
+                    var fileName = Path.GetFileName(file);
+                    var match = filePattern.Match(fileName);
+                    System.Diagnostics.Debug.WriteLine($"   파일: {fileName}, 매치: {match.Success}");
+                    
                     if (match.Success)
                     {
                         try
@@ -687,7 +718,76 @@ namespace FACTOVA_MessageLogViewer.Controls
                                 int.Parse(match.Groups[3].Value),
                                 int.Parse(match.Groups[1].Value),
                                 int.Parse(match.Groups[2].Value));
-                            result.Add(new AvailableDate { Date = date, FilePath = file });
+                            
+                            System.Diagnostics.Debug.WriteLine($"   ✅ 파싱된 날짜: {date:yyyy-MM-dd}");
+                            
+                            // 중복 날짜 제거 (같은 날짜의 여러 로그 타입 파일이 있으므로)
+                            if (!dateSet.Contains(date))
+                            {
+                                dateSet.Add(date);
+                                result.Add(new AvailableDate { Date = date, FilePath = file });
+                            }
+                        }
+                        catch { }
+                    }
+                }
+                
+                System.Diagnostics.Debug.WriteLine($"📊 최종 결과: {result.Count}개 날짜");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ 예외: {ex.Message}");
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// F/L 로그 폴더에서 사용 가능한 날짜 찾기
+        /// F/L 로그 파일명은 _MMDDYY.log 형식 (YY는 시간, 년도 정보 없음)
+        /// 파일 수정 날짜에서 년도를 추출
+        /// </summary>
+        private System.Collections.Generic.List<AvailableDate> FindFLDatesInFolder(string folder)
+        {
+            var result = new System.Collections.Generic.List<AvailableDate>();
+            if (!Directory.Exists(folder)) return result;
+
+            // F/L 로그 파일명 패턴: _MMDDYY.log (MM=월, DD=일, YY=시간)
+            var flPattern = new Regex(@"_(\d{2})(\d{2})(\d{2})\.log$", RegexOptions.IgnoreCase);
+            var dateSet = new System.Collections.Generic.HashSet<DateTime>();
+
+            try
+            {
+                foreach (var file in Directory.GetFiles(folder, "*.log", SearchOption.TopDirectoryOnly))
+                {
+                    var fileName = Path.GetFileName(file);
+                    
+                    // LGE로 시작하는 파일은 제외 (DATA/EVENT 로그)
+                    if (fileName.StartsWith("LGE", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    var match = flPattern.Match(fileName);
+                    if (match.Success)
+                    {
+                        try
+                        {
+                            int month = int.Parse(match.Groups[1].Value);
+                            int day = int.Parse(match.Groups[2].Value);
+                            
+                            if (month < 1 || month > 12 || day < 1 || day > 31)
+                                continue;
+
+                            // 파일 수정 날짜에서 년도 추출
+                            var fileInfo = new FileInfo(file);
+                            int year = fileInfo.LastWriteTime.Year;
+
+                            var date = new DateTime(year, month, day);
+                            
+                            // 중복 날짜 제거 (같은 날짜의 여러 시간대 파일이 있으므로)
+                            if (!dateSet.Contains(date))
+                            {
+                                dateSet.Add(date);
+                                result.Add(new AvailableDate { Date = date, FilePath = file });
+                            }
                         }
                         catch { }
                     }
