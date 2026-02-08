@@ -8,9 +8,9 @@
     <UseWPF>true</UseWPF>
     
     <!-- 버전 정보 -->
-    <Version>3.2.0</Version>
-    <AssemblyVersion>3.2.0.0</AssemblyVersion>
-    <FileVersion>3.2.0.0</FileVersion>
+    <Version>3.3.0</Version>
+    <AssemblyVersion>3.3.0.0</AssemblyVersion>
+    <FileVersion>3.3.0.0</FileVersion>
     
     <!-- 어플리케이션 정보 -->
     <Product>FACTOVA Message Log Viewer</Product>
