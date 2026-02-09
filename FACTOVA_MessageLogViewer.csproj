@@ -58,10 +58,6 @@
       <Generator>MSBuild:Compile</Generator>
       <XamlRuntime>Wpf</XamlRuntime>
     </Page>
-    <Page Update="Views\DataLogViewerWindow.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <XamlRuntime>Wpf</XamlRuntime>
-    </Page>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="EPPlus" Version="7.5.2" />
