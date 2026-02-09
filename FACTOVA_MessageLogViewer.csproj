@@ -42,11 +42,23 @@
       <Generator>MSBuild:Compile</Generator>
       <XamlRuntime>Wpf</XamlRuntime>
     </Page>
-    <Page Update="EventLogViewerControl.xaml">
+    <Page Update="Views\EventLogViewerControl.xaml">
       <Generator>MSBuild:Compile</Generator>
       <XamlRuntime>Wpf</XamlRuntime>
     </Page>
-    <Page Update="DataLogViewerControl.xaml">
+    <Page Update="Views\DataLogViewerControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <XamlRuntime>Wpf</XamlRuntime>
+    </Page>
+    <Page Update="Views\ExceptionLogViewerControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <XamlRuntime>Wpf</XamlRuntime>
+    </Page>
+    <Page Update="Views\FLLogViewerControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <XamlRuntime>Wpf</XamlRuntime>
+    </Page>
+    <Page Update="Views\DataLogViewerWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <XamlRuntime>Wpf</XamlRuntime>
     </Page>
@@ -56,6 +68,10 @@
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Icons\free-icon-search-10725247.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Views\" />
+    <Folder Include="Popup\" />
   </ItemGroup>
 
 </Project>

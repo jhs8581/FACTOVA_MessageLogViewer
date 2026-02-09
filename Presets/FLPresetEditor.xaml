@@ -1,0 +1,442 @@
+﻿<Window x:Class="FACTOVA_MessageLogViewer.Presets.FLPresetEditor"
+xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+xmlns:sys="clr-namespace:System;assembly=mscorlib"
+Title="F/L 로그 프리셋 설정"
+Height="700" Width="950"
+WindowStartupLocation="CenterOwner"
+Background="#F5F5F5"
+Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
+
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="🏭 F/L 로그 프리셋 설정" FontSize="18" FontWeight="Bold" Foreground="#7B1FA2"/>
+            <TextBlock Text="태그 설정 및 탭 그룹 설정이 프리셋으로 저장됩니다."
+                       Foreground="#666" FontSize="12" Margin="0,5,0,0"/>
+        </StackPanel>
+
+        <!-- Preset Management -->
+        <GroupBox x:Name="grpPreset" Grid.Row="1" Header="프리셋" Margin="0,0,0,10" Padding="10"
+                  Background="#F3E5F5" BorderBrush="#CE93D8">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="프리셋:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
+                <ComboBox x:Name="cboPresets" Width="180" Height="28" FontSize="12"
+                          SelectionChanged="CboPresets_SelectionChanged"/>
+                <Button Content="저장" Width="60" Height="28" Margin="15,0,0,0" Click="BtnSavePreset_Click"
+                        ToolTip="현재 프리셋에 저장"/>
+                <Border Width="1" Background="#CCC" Margin="15,2"/>
+                <TextBlock Text="새 이름:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <Grid Width="130" Height="28">
+                    <TextBox x:Name="txtPresetName" Height="28" 
+                             VerticalContentAlignment="Center" FontSize="12" Padding="5,0,25,0"
+                             ToolTip="새 프리셋 이름 입력"
+                             TextChanged="TxtPresetName_TextChanged"/>
+                    <Button x:Name="btnClearPresetName" Content="✕" Width="20" Height="20" 
+                            HorizontalAlignment="Right" Margin="0,0,4,0"
+                            Background="Transparent" BorderThickness="0"
+                            Foreground="#999" FontSize="14" Cursor="Hand"
+                            Click="BtnClearPresetName_Click"
+                            Visibility="Collapsed"
+                            ToolTip="이름 지우기"/>
+                </Grid>
+                <Button Content="다른이름저장" Width="80" Height="28" Margin="10,0,0,0" Click="BtnSaveAsPreset_Click"/>
+                <Border Width="1" Background="#CCC" Margin="15,2"/>
+                <Button Content="🗑 삭제" Width="60" Height="28" Click="BtnDeletePreset_Click"
+                        Background="#FFEBEE" Foreground="#C62828" BorderBrush="#EF9A9A"
+                        ToolTip="현재 선택된 프리셋 삭제 (Default는 삭제 불가)"/>
+                <Button Content="📂 폴더" Width="60" Height="28" Margin="5,0,0,0" Click="BtnOpenPresetFolder_Click"
+                        ToolTip="프리셋 저장 폴더를 파일 탐색기로 열기"/>
+            </StackPanel>
+        </GroupBox>
+
+
+        <!-- TabControl (Tag Settings / Tab Settings) -->
+        <TabControl Grid.Row="2" x:Name="mainTabControl" SelectionChanged="MainTabControl_SelectionChanged">
+            <!-- Tag Settings Tab -->
+            <TabItem Header="🏷️ 태그 설정">
+                <Grid Margin="10" Background="#F3E5F5">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                        <TextBlock Text="태그명에 표시명(설명)을 매핑합니다. 표시명이 있으면 그리드에 '태그설명' 컬럼으로 표시됩니다."
+                                   Foreground="#666" FontSize="11" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="현재 로그에서 태그 추출" Width="150" Height="26" Click="BtnExtractTags_Click"
+                                    Background="#9C27B0" Foreground="White" FontWeight="SemiBold" FontSize="11"
+                                    ToolTip="현재 로드된 F/L 로그에서 태그명을 추출합니다."/>
+                            <Border Width="1" Background="#CCC" Margin="15,2"/>
+                            <Button Content="▲" Width="26" Height="26" Click="BtnMoveUp_Click" FontSize="11" ToolTip="위로 이동"/>
+                            <Button Content="▼" Width="26" Height="26" Margin="3,0,0,0" Click="BtnMoveDown_Click" FontSize="11" ToolTip="아래로 이동"/>
+                            <Border Width="1" Background="#CCC" Margin="15,2"/>
+                            <CheckBox x:Name="chkShowOnlyEnabled" Content="활성화만" VerticalAlignment="Center" Margin="0,0,10,0"
+                                      Checked="ChkShowOnlyEnabled_Changed" Unchecked="ChkShowOnlyEnabled_Changed"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <DataGrid Grid.Row="1"
+                              x:Name="dgTags"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              SelectionMode="Extended"
+                              GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column"
+                              Background="White"
+                              RowHeight="30"
+                              FontSize="12">
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Header="활성"
+                                                     Binding="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                                     Width="50">
+                                <DataGridCheckBoxColumn.ElementStyle>
+                                    <Style TargetType="CheckBox">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridCheckBoxColumn.ElementStyle>
+                            </DataGridCheckBoxColumn>
+                            <DataGridTextColumn Header="#" Binding="{Binding Order}" Width="50" IsReadOnly="True">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="Foreground" Value="#666"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="태그명" Binding="{Binding TagName}" Width="380" IsReadOnly="True">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontFamily" Value="Consolas"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="표시명 (설명)" Binding="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" Width="200"/>
+                            <DataGridTextColumn Header="샘플 값" Binding="{Binding SampleValue}" Width="*" IsReadOnly="True">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#888"/>
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <!-- Field Settings Tab (Structure 필드 컬럼/값 매핑) -->
+            <TabItem Header="필드 설정">
+                <Grid Margin="10" Background="#F3E5F5">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                        <TextBlock Text="Structure/CSFC 타입의 필드를 개별 컬럼으로 표시하거나 값을 매핑합니다."
+                                   Foreground="#666" FontSize="11" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="▲" Width="26" Height="26" Click="BtnFieldMoveUp_Click" FontSize="11" ToolTip="위로 이동"/>
+                            <Button Content="▼" Width="26" Height="26" Margin="3,0,0,0" Click="BtnFieldMoveDown_Click" FontSize="11" ToolTip="아래로 이동"/>
+                            <Border Width="1" Background="#CCC" Margin="15,2"/>
+                            <CheckBox x:Name="chkShowOnlyColumnFields" Content="컬럼 표시만" VerticalAlignment="Center"
+                                      Checked="ChkShowOnlyColumnFields_Changed" Unchecked="ChkShowOnlyColumnFields_Changed"
+                                      ToolTip="컬럼 표시 체크된 필드만 표시"/>
+                        </StackPanel>
+                        <Border Background="#E1BEE7" BorderBrush="#9C27B0" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,8,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="체크한 항목 일괄 변경:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                                <ComboBox x:Name="cboFieldBulkChange" Width="100" Height="26" FontSize="11">
+                                    <ComboBoxItem Content="Column"/>
+                                    <ComboBoxItem Content="Hidden"/>
+                                </ComboBox>
+                                <Button Content="적용" Width="60" Height="26" Margin="10,0,0,0" Click="BtnFieldBulkChange_Click" FontSize="11"
+                                        Background="#9C27B0" Foreground="White" FontWeight="Bold"/>
+                                <Border Width="1" Background="#CE93D8" Margin="15,2"/>
+                                <Button Content="재분석" Width="60" Height="26" Click="BtnExtractFields_Click" FontSize="11"
+                                        ToolTip="로드된 로그에서 새 필드 검색" Background="#9C27B0" Foreground="White" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <DataGrid Grid.Row="1"
+                              x:Name="dgFields"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              SelectionMode="Extended"
+                              GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column"
+                              Background="White"
+                              RowHeight="30"
+                              FontSize="12">
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Header="선택"
+                                                     Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
+                                                     Width="50">
+                                <DataGridCheckBoxColumn.ElementStyle>
+                                    <Style TargetType="CheckBox">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridCheckBoxColumn.ElementStyle>
+                            </DataGridCheckBoxColumn>
+                            <DataGridTextColumn Header="#" Binding="{Binding Order, UpdateSourceTrigger=PropertyChanged}" Width="40">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="Foreground" Value="#666"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                                <DataGridTextColumn.EditingElementStyle>
+                                    <Style TargetType="TextBox">
+                                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.EditingElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="필드명" Binding="{Binding FieldName}" Width="200" IsReadOnly="True">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontFamily" Value="Consolas"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="표시명 (컬럼 헤더)" Binding="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" Width="150"/>
+                            <DataGridComboBoxColumn Header="표시타입" 
+                                                     SelectedItemBinding="{Binding DisplayTypeString, UpdateSourceTrigger=PropertyChanged}" 
+                                                     Width="90">
+                                <DataGridComboBoxColumn.ItemsSource>
+                                    <x:Array Type="{x:Type sys:String}">
+                                        <sys:String>Column</sys:String>
+                                        <sys:String>Hidden</sys:String>
+                                    </x:Array>
+                                </DataGridComboBoxColumn.ItemsSource>
+                            </DataGridComboBoxColumn>
+                            <DataGridTemplateColumn Header="값 매핑" Width="150">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding ValueMappingDisplayText}"
+                                                Click="BtnEditValueMapping_Click"
+                                                Tag="{Binding}"
+                                                Background="#F3E5F5"
+                                                BorderBrush="#9C27B0"
+                                                Padding="5,2"
+                                                Cursor="Hand"
+                                                ToolTip="클릭하여 값 매핑 설정"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="샘플 값" Binding="{Binding SampleValue}" Width="*" IsReadOnly="True">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#888"/>
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <!-- Tab Settings Tab -->
+            <TabItem Header="📂 탭 설정">
+                <Grid Margin="10" Background="#F3E5F5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Tab List -->
+                    <Border Grid.Column="0" Background="White" BorderBrush="#DDD" BorderThickness="1" CornerRadius="5" Margin="0,0,10,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Text="탭 목록" FontWeight="Bold" Margin="10" Foreground="#555"/>
+
+                            <ListBox Grid.Row="1"
+                                     x:Name="listBoxTabs"
+                                     Margin="5"
+                                     SelectionChanged="ListBoxTabs_SelectionChanged"
+                                     HorizontalContentAlignment="Stretch">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <CheckBox Grid.Column="0"
+                                                      IsChecked="{Binding IsEnabled}"
+                                                      VerticalAlignment="Center"
+                                                      Margin="0,0,8,0"
+                                                      Checked="TabEnabled_Changed"
+                                                      Unchecked="TabEnabled_Changed"/>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding ConditionSummary}"
+                                                           FontSize="10" Foreground="#888"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10">
+                                <Button Content="+ 추가" Width="60" Height="28" Click="BtnAddTab_Click" Margin="0,0,5,0"/>
+                                <Button Content="삭제" Width="60" Height="28" Click="BtnRemoveTab_Click" Margin="0,0,5,0"/>
+                                <Button Content="▲" Width="30" Height="28" Click="BtnTabMoveUp_Click"/>
+                                <Button Content="▼" Width="30" Height="28" Click="BtnTabMoveDown_Click"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Tab Details -->
+                    <Border Grid.Column="1" Background="White" BorderBrush="#DDD" BorderThickness="1" CornerRadius="5">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="panelTabDetails" Margin="15">
+                                <TextBlock Text="탭 상세" FontWeight="Bold" FontSize="14" Margin="0,0,0,15"/>
+
+                                <TextBlock Text="탭 이름:" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                                <TextBox x:Name="txtTabName"
+                                         Height="30"
+                                         Padding="8,5"
+                                         TextChanged="TxtTabName_TextChanged"/>
+
+                                <CheckBox x:Name="chkIsIntegrated"
+                                          Content="통합 로그 탭 (모든 로그 표시)"
+                                          Margin="0,15,0,0"
+                                          Checked="ChkIsIntegrated_Changed"
+                                          Unchecked="ChkIsIntegrated_Changed"/>
+
+                                <TextBlock Text="표시할 태그 선택:" FontWeight="SemiBold" Margin="0,20,0,5"/>
+                                <TextBlock Text="선택한 태그 중 하나라도 포함된 로그가 이 탭에 표시됩니다. 같은 그룹 내 태그는 독립적인 시퀀스로 순번이 체크됩니다."
+                                           FontSize="11" Foreground="#888" Margin="0,0,0,10" TextWrapping="Wrap"/>
+
+                                <!-- 조건 그룹 (EVENT 스타일) -->
+                                <ItemsControl x:Name="itemsConditionGroups">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#F0F7FF" BorderBrush="#90CAF9" BorderThickness="1" 
+                                                    CornerRadius="5" Padding="10" Margin="0,0,0,10">
+                                                <StackPanel>
+                                                    <Grid Margin="0,0,0,8">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="그룹:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                            <TextBox Text="{Binding GroupName, UpdateSourceTrigger=PropertyChanged}" 
+                                                                     Width="150" Height="26" Padding="5,3"
+                                                                     ToolTip="그룹 내 태그들은 독립적인 시퀀스로 순번 체크"/>
+                                                        </StackPanel>
+                                                        <Button Content="삭제" 
+                                                                HorizontalAlignment="Right"
+                                                                Width="60" Height="26"
+                                                                Background="#FFCDD2"
+                                                                Click="BtnRemoveGroup_Click"
+                                                                Tag="{Binding}"/>
+                                                    </Grid>
+
+                                                     <!-- 그룹 내 태그 목록 -->
+                                                    <ItemsControl ItemsSource="{Binding Tags}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" 
+                                                                        CornerRadius="3" Padding="8" Margin="0,0,0,8"
+                                                                        AllowDrop="True"
+                                                                        PreviewMouseLeftButtonDown="TagItem_PreviewMouseLeftButtonDown"
+                                                                        MouseMove="TagItem_MouseMove"
+                                                                        DragOver="TagItem_DragOver"
+                                                                        Drop="TagItem_Drop">
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="Auto"/>
+                                                                            <ColumnDefinition Width="60"/>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                            <ColumnDefinition Width="100"/>
+                                                                            <ColumnDefinition Width="Auto"/>
+                                                                        </Grid.ColumnDefinitions>
+
+                                                                        <TextBlock Grid.Column="0" Text="≡" FontSize="14" Foreground="#1976D2"
+                                                                                   VerticalAlignment="Center" Margin="0,0,8,0"
+                                                                                   Cursor="Hand"
+                                                                                   ToolTip="드래그하여 순서 변경"/>
+                                                                        <TextBlock Grid.Column="1" Text="태그:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                                        <TextBlock Grid.Column="2" Text="{Binding TagName}" 
+                                                                                   VerticalAlignment="Center" FontFamily="Consolas" FontSize="11"
+                                                                                   TextTrimming="CharacterEllipsis"/>
+                                                                        <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                                                                            <TextBlock Text="값:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                                                            <TextBox Text="{Binding ValueFilter, UpdateSourceTrigger=PropertyChanged}" 
+                                                                                     Width="60" Height="24" Padding="3"
+                                                                                     ToolTip="빈 값 = 모든 값"/>
+                                                                        </StackPanel>
+                                                                        <StackPanel Grid.Column="4" Orientation="Horizontal" Margin="5,0,0,0">
+                                                                            <Button Content="▲" Width="24" Height="24"
+                                                                                    FontSize="10" Margin="0,0,2,0"
+                                                                                    Click="BtnMoveTagUp_Click" Tag="{Binding}"
+                                                                                    ToolTip="위로 이동"/>
+                                                                            <Button Content="▼" Width="24" Height="24"
+                                                                                    FontSize="10" Margin="0,0,2,0"
+                                                                                    Click="BtnMoveTagDown_Click" Tag="{Binding}"
+                                                                                    ToolTip="아래로 이동"/>
+                                                                            <Button Content="📋" Width="24" Height="24"
+                                                                                    FontSize="10" Background="#E1BEE7" Margin="0,0,2,0"
+                                                                                    Click="BtnDuplicateTagInGroup_Click" Tag="{Binding}"
+                                                                                    ToolTip="태그 복제 (같은 태그를 다른 값으로 사용)"/>
+                                                                            <Button Content="✕" Width="24" Height="24"
+                                                                                    FontSize="10" Background="#FFCDD2"
+                                                                                    Click="BtnRemoveTagFromGroup_Click" Tag="{Binding}"
+                                                                                    ToolTip="태그 제거"/>
+                                                                        </StackPanel>
+                                                                    </Grid>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+
+                                                    <!-- 태그 추가 버튼 -->
+                                                    <Button Content="+ 조건 추가 (AND)" Height="28" HorizontalAlignment="Left"
+                                                            Click="BtnAddTagToGroup_Click" Tag="{Binding}"
+                                                            FontSize="11" Background="#E3F2FD" BorderBrush="#90CAF9" BorderThickness="1"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- 그룹 추가 버튼 -->
+                                <Button Content="+ 그룹 추가 (OR)" Height="32" HorizontalAlignment="Left" Width="150"
+                                        Click="BtnAddGroup_Click" FontSize="12"
+                                        Background="#1976D2" Foreground="White" FontWeight="Bold"
+                                        ToolTip="새 조건 그룹 추가"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <!-- Footer Buttons -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+            <Button Content="적용" Width="80" Height="32" Click="BtnApply_Click"
+                    Background="#9C27B0" Foreground="White" FontWeight="Bold" FontSize="13"/>
+            <Button Content="닫기" Width="80" Height="32" Margin="10,0,0,0" Click="BtnClose_Click"
+                    FontSize="13"/>
+        </StackPanel>
+    </Grid>
+</Window>

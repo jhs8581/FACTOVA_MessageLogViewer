@@ -1,0 +1,404 @@
+﻿<UserControl x:Class="FACTOVA_MessageLogViewer.Views.EventLogViewerControl"
+xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+xmlns:local="clr-namespace:FACTOVA_MessageLogViewer.Converters"
+Background="#F5F5F5"
+Loaded="UserControl_Loaded">
+
+    <UserControl.Resources>
+        <local:ReturnCodeColorConverter x:Key="ReturnCodeColorConverter"/>
+        <local:ErrorColorConverter x:Key="ErrorColorConverter"/>
+        
+        <!-- DataGrid 스크롤 최적화 스타일 -->
+        <Style TargetType="DataGrid">
+            <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
+            <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling"/>
+            <Setter Property="VirtualizingPanel.ScrollUnit" Value="Item"/>
+            <Setter Property="VirtualizingPanel.CacheLength" Value="10"/>
+            <Setter Property="VirtualizingPanel.CacheLengthUnit" Value="Item"/>
+            <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
+            <Setter Property="ScrollViewer.IsDeferredScrollingEnabled" Value="False"/>
+        </Style>
+        
+        <!-- 하위 탭 스타일 (부드러운 디자인) -->
+        <Style x:Key="SubTabStyle" TargetType="TabItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Border" 
+                                Background="#F5F5F5" 
+                                BorderThickness="1,1,1,0"
+                                BorderBrush="#DDDDDD"
+                                CornerRadius="4,4,0,0"
+                                Margin="1,0,0,0"
+                                Padding="15,8">
+                            <ContentPresenter x:Name="ContentSite"
+                                              ContentSource="Header"
+                                              HorizontalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="White"/>
+                                <Setter TargetName="Border" Property="BorderBrush" Value="#2196F3"/>
+                                <Setter TargetName="Border" Property="BorderThickness" Value="1,2,1,0"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#EEEEEE"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Foreground" Value="#444444"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="50"/>
+            <RowDefinition Height="40"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+
+        <!-- 헤더 - 제목 및 주요 버튼 -->
+        <Border Grid.Row="0" Background="#2196F3">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
+                    <TextBlock Text="📡 EVENT 로그" 
+                               Foreground="White" 
+                               FontSize="16" 
+                               FontWeight="Bold"
+                               VerticalAlignment="Center"/>
+                    <TextBlock x:Name="txtLogFolder"
+                               Foreground="#E3F2FD" 
+                               FontSize="12"
+                               VerticalAlignment="Center"
+                               Margin="15,0,0,0"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" 
+                            HorizontalAlignment="Right" 
+                            VerticalAlignment="Center"
+                            Margin="15,0">
+
+                    <!-- 폰트 크기 -->
+                    <TextBlock Text="Font:" 
+                               Foreground="White" 
+                               VerticalAlignment="Center" 
+                               Margin="0,0,5,0"
+                               FontSize="11"/>
+                    <TextBox x:Name="txtFontSize" 
+                             Width="32" Height="24"
+                             Text="11"
+                             VerticalContentAlignment="Center"
+                             HorizontalContentAlignment="Center"
+                             FontSize="11"/>
+                    <Button Content="-" Width="22" Height="24" Margin="3,0,0,0" Click="BtnFontMinus_Click" FontWeight="Bold"/>
+                    <Button Content="+" Width="22" Height="24" Margin="3,0,8,0" Click="BtnFontPlus_Click" FontWeight="Bold"/>
+                    
+                    <!-- Auto Fit 버튼 -->
+                    <Button Content="📐 Fit" 
+                            Width="50" Height="24" 
+                            Margin="0,0,15,0"
+                            Click="BtnAutoFit_Click"
+                            Background="#40FFFFFF"
+                            Foreground="White"
+                            BorderBrush="White"
+                            BorderThickness="1"
+                            FontSize="10"
+                            Cursor="Hand"
+                            ToolTip="컬럼을 컨텐츠에 맞게 자동 조정"/>
+
+                    <!-- 구분선 -->
+                    <Border Width="1" Background="#64B5F6" Margin="0,5,15,5"/>
+
+                    <!-- 제어 버튼들 -->
+                    <Button x:Name="btnPause" 
+                            Content="⏸ 일시정지" 
+                            Width="90" Height="28" 
+                            Margin="0,0,8,0"
+                            Click="BtnPause_Click"
+                            Background="#40FFFFFF"
+                            Foreground="White"
+                            BorderBrush="White"
+                            BorderThickness="1"
+                            FontSize="12"
+                            Cursor="Hand"/>
+
+                    <Button Content="Clear" 
+                            Width="60" Height="28" 
+                            Margin="0,0,8,0"
+                            Click="BtnClear_Click"
+                            Background="#40FFFFFF"
+                            Foreground="White"
+                            BorderBrush="White"
+                            BorderThickness="1"
+                            FontSize="12"
+                            Cursor="Hand"/>
+
+                    <Button x:Name="btnAutoScroll"
+                            Content="⬇ 자동스크롤" 
+                            Width="100" Height="28" 
+                            Margin="0,0,8,0"
+                            Click="BtnAutoScroll_Click"
+                            Background="#4CAF50"
+                            Foreground="White"
+                            BorderBrush="White"
+                            BorderThickness="1"
+                            FontSize="11"
+                            Cursor="Hand"
+                            ToolTip="자동 스크롤 ON/OFF"/>
+
+                    <Button Content="📊 Excel" 
+                            Width="70" Height="28" 
+                            Click="BtnExportExcel_Click"
+                            Background="#4CAF50"
+                            Foreground="White"
+                            BorderBrush="White"
+                            BorderThickness="1"
+                            FontSize="12"
+                            Cursor="Hand"
+                            ToolTip="현재 탭의 로그를 엑셀로 다운로드"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 필터 영역 -->
+        <Border Grid.Row="1" Background="#E3F2FD">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
+                <TextBlock Text="🔍 검색:" 
+                           Foreground="#1565C0" 
+                           VerticalAlignment="Center" 
+                           Margin="0,0,8,0"
+                           FontSize="13"
+                           FontWeight="SemiBold"/>
+
+                <Grid Width="350" Height="28">
+                    <TextBox x:Name="txtSearch" 
+                             Height="28"
+                             VerticalAlignment="Center"
+                             VerticalContentAlignment="Center"
+                             Padding="8,0,30,0"
+                             FontSize="12"
+                             TextChanged="TxtSearch_TextChanged"
+                             KeyDown="TxtSearch_KeyDown">
+                        <TextBox.ToolTip>
+                            <ToolTip MaxWidth="450">
+                                <StackPanel>
+                                    <TextBlock Text="🔍 복합 검색" FontWeight="Bold" FontSize="13" Margin="0,0,0,8"/>
+
+                                    <Border Background="#F0F0F0" Padding="8" CornerRadius="3" Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <TextBlock FontWeight="Bold" Margin="0,0,0,3">
+                                                <Run Text="구분자:"/>
+                                            </TextBlock>
+                                            <TextBlock Margin="5,0,0,2">
+                                                <Run Text="쉼표(,)" FontFamily="Consolas" FontWeight="Bold"/>
+                                                <Run Text=" → OR 검색 (또는)"/>
+                                            </TextBlock>
+                                            <TextBlock Margin="5,0,0,0">
+                                                <Run Text="플러스(+)" FontFamily="Consolas" FontWeight="Bold"/>
+                                                <Run Text=" → AND 검색 (그리고)"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <TextBlock Text="📝 예시:" FontWeight="Bold" Margin="0,0,0,5"/>
+
+                                    <TextBlock Margin="5,0,0,3">
+                                        <Run Text="OK+1234" FontFamily="Consolas" FontWeight="Bold" Foreground="#1976D2"/>
+                                        <Run Text=" → OK 그리고 1234 포함" Foreground="#666" FontSize="11"/>
+                                    </TextBlock>
+
+                                    <TextBlock Margin="5,0,0,3">
+                                        <Run Text="OK,NG" FontFamily="Consolas" FontWeight="Bold" Foreground="#1976D2"/>
+                                        <Run Text=" → OK 또는 NG 포함" Foreground="#666" FontSize="11"/>
+                                    </TextBlock>
+
+                                    <TextBlock Margin="5,0,0,0">
+                                        <Run Text="송신+NG,수신+OK" FontFamily="Consolas" FontWeight="Bold" Foreground="#1976D2"/>
+                                        <Run Text=" → (송신 AND NG) OR (수신 AND OK)" Foreground="#666" FontSize="11"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </ToolTip>
+                        </TextBox.ToolTip>
+                    </TextBox>
+                    
+                    <Button x:Name="btnClearSearch" Content="✕" Width="24" Height="24" 
+                            HorizontalAlignment="Right" Margin="0,0,3,0"
+                            Background="Transparent" BorderThickness="0"
+                            Foreground="#999" FontSize="14" Cursor="Hand"
+                            Click="BtnClearSearch_Click"
+                            Visibility="Collapsed"
+                            ToolTip="검색어 지우기"/>
+                </Grid>
+
+                <Button Content="🔍" 
+                        Width="32" Height="28"
+                        Margin="5,0,0,0"
+                        Click="BtnSearch_Click"
+                        Background="#2196F3"
+                        Foreground="White"
+                        FontSize="14"
+                        Cursor="Hand"
+                        ToolTip="검색 (Enter)"/>
+
+                <TextBlock Text="ⓘ" 
+                           Foreground="#1976D2" 
+                           VerticalAlignment="Center" 
+                           Margin="5,0,20,0"
+                           FontSize="14"
+                           FontWeight="Bold"
+                           Cursor="Help"
+                           ToolTip="쉼표(,)=OR, 플러스(+)=AND&#x0a;예: OK+1234,NG"/>
+
+                <!-- 구분선 -->
+                <Border Width="1" Background="#90CAF9" Margin="0,8,20,8"/>
+
+                <!-- 방향 필터 -->
+                <Border Background="White" CornerRadius="4" Padding="10,4" BorderBrush="#90CAF9" BorderThickness="1">
+                    <StackPanel Orientation="Horizontal">
+                        <CheckBox x:Name="chkSendOnly" 
+                                  Content="📤 송신만" 
+                                  Foreground="#1565C0"
+                                  VerticalAlignment="Center" 
+                                  Margin="0,0,15,0"
+                                  FontSize="12"
+                                  Checked="Filter_Changed" 
+                                  Unchecked="Filter_Changed"/>
+
+                        <CheckBox x:Name="chkRecvOnly" 
+                                  Content="📥 수신만" 
+                                  Foreground="#1565C0"
+                                  VerticalAlignment="Center"
+                                  FontSize="12"
+                                  Checked="Filter_Changed" 
+                                  Unchecked="Filter_Changed"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- 구분선 -->
+                <Border Width="1" Background="#90CAF9" Margin="20,8,20,8"/>
+                
+                <!-- OK/NG 필터 -->
+                <Border Background="White" CornerRadius="4" Padding="10,4" BorderBrush="#90CAF9" BorderThickness="1">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="결과:" 
+                                   Foreground="#1565C0" 
+                                   VerticalAlignment="Center" 
+                                   Margin="0,0,8,0"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"/>
+                        <ComboBox x:Name="cboResultFilter" 
+                                  Width="70" Height="24"
+                                  FontSize="11"
+                                  VerticalContentAlignment="Center"
+                                  SelectionChanged="CboResultFilter_SelectionChanged"
+                                  ToolTip="RETURN_CODE 필터">
+                            <ComboBoxItem Content="전체" IsSelected="True"/>
+                            <ComboBoxItem Content="✔ OK"/>
+                            <ComboBoxItem Content="✘ NG"/>
+                        </ComboBox>
+                    </StackPanel>
+                </Border>
+                
+                <!-- 구분선 -->
+                <Border Width="1" Background="#90CAF9" Margin="20,8,20,8"/>
+                
+                <!-- 시간 이동 -->
+                <Border Background="White" CornerRadius="4" Padding="10,4" BorderBrush="#90CAF9" BorderThickness="1">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⏰ 이동:" 
+                                   Foreground="#1565C0" 
+                                   VerticalAlignment="Center" 
+                                   Margin="0,0,8,0"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"/>
+                        <TextBox x:Name="txtJumpTime" 
+                                 Width="55" Height="24"
+                                 VerticalContentAlignment="Center"
+                                 HorizontalContentAlignment="Center"
+                                 FontSize="11"
+                                 FontFamily="Consolas"
+                                 Text=""
+                                 ToolTip="시간 입력 후 Enter (예: 09:30, 14:00)"
+                                 KeyDown="TxtJumpTime_KeyDown"/>
+                        <Button Content="▶" 
+                                Width="28" Height="24" 
+                                Margin="5,0,0,0"
+                                Click="BtnJumpToTime_Click"
+                                Background="#2196F3"
+                                Foreground="White"
+                                BorderThickness="0"
+                                FontSize="10"
+                                FontWeight="Bold"
+                                Cursor="Hand"
+                                ToolTip="해당 시간으로 이동"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Border>
+
+        <!-- TabControl with ListView -->
+        <TabControl Grid.Row="2" 
+                    x:Name="tabControlLogs"
+                    Margin="10"
+                    Background="White"
+                    BorderBrush="#DDDDDD"
+                    BorderThickness="1"
+                    ItemContainerStyle="{StaticResource SubTabStyle}"
+                    SelectionChanged="TabControlLogs_SelectionChanged">
+            
+            <!-- 탭들은 코드에서 동적으로 생성됨 -->
+            
+        </TabControl>
+
+        <!-- 로딩 프로그레스바 (오버레이) -->
+        <Border x:Name="loadingOverlay" 
+                Grid.Row="2" 
+                Background="#CC000000"
+                Visibility="Collapsed">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <TextBlock Text="📂 로그 파일을 읽는 중..."
+                           Foreground="White"
+                           FontSize="18"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,15"/>
+                
+                <ProgressBar x:Name="progressBar"
+                             Width="400"
+                             Height="30"
+                             IsIndeterminate="True"
+                             Foreground="#2196F3"/>
+                
+                <TextBlock x:Name="txtLoadingStatus"
+                           Text=""
+                           Foreground="#E0E0E0"
+                           FontSize="13"
+                           HorizontalAlignment="Center"
+                           Margin="0,10,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- 하단 상태바 -->
+        <Border Grid.Row="3" Background="#EEEEEE" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Padding="15,0">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="txtStatus" Text="준비" Foreground="#333" FontSize="12"/>
+                    <TextBlock x:Name="txtCount" Text=" | 전체: 0건" Foreground="#1976D2" FontSize="12" Margin="10,0,0,0"/>
+                    <TextBlock x:Name="txtTabCount" Text=" | 현재 탭: 0건" Foreground="#666" FontSize="12" Margin="5,0,0,0"/>
+                    <TextBlock x:Name="txtPausedCount" Text="" Foreground="#FFC107" FontSize="11" Margin="10,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock x:Name="txtFile" Foreground="#666" FontSize="11" FontFamily="Consolas"/>
+                    <TextBlock x:Name="txtMode" Text="" Foreground="#999" FontSize="11" Margin="15,0,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
+

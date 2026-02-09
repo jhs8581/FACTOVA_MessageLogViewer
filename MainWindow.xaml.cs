@@ -4,6 +4,7 @@ using System.IO;
 using System.Reflection;
 using System.Windows;
 using FACTOVA_MessageLogViewer.Models;
+using FACTOVA_MessageLogViewer.Presets;
 
 namespace FACTOVA_MessageLogViewer
 {
@@ -260,7 +261,7 @@ namespace FACTOVA_MessageLogViewer
             if (currentTabIndex == 1) // DATA 탭
             {
                 // DATA 로그 프리셋 설정창 (현재 선택된 프리셋 이름 전달)
-                var settingsWindow = new DataColumnSettingsWindow(currentPresetName);
+                var settingsWindow = new DataPresetEditor(currentPresetName);
                 settingsWindow.Owner = this;
                 if (settingsWindow.ShowDialog() == true)
                 {
@@ -278,7 +279,7 @@ namespace FACTOVA_MessageLogViewer
             else if (currentTabIndex == 2) // EXCEPTION 탭
             {
                 // EXCEPTION 로그 프리셋 설정창 (현재 선택된 프리셋 이름 전달)
-                var settingsWindow = new ExceptionColumnSettingsWindow(currentPresetName);
+                var settingsWindow = new ExceptionPresetEditor(currentPresetName);
                 settingsWindow.Owner = this;
                 if (settingsWindow.ShowDialog() == true)
                 {
@@ -296,7 +297,7 @@ namespace FACTOVA_MessageLogViewer
             else if (currentTabIndex == 3) // F/L 탭
             {
                 // F/L 로그 프리셋 설정창
-                var settingsWindow = new FLColumnSettingsWindow(currentPresetName);
+                var settingsWindow = new FLPresetEditor(currentPresetName);
                 settingsWindow.Owner = this;
                 settingsWindow.GetCurrentLogEntries = () => flLogViewer.GetLogEntries();
                 if (settingsWindow.ShowDialog() == true)
@@ -315,7 +316,7 @@ namespace FACTOVA_MessageLogViewer
             else // EVENT 탭 (기본)
             {
                 // EVENT 로그 컬럼 설정창 열기 (현재 선택된 프리셋 이름 전달)
-                var settingsWindow = new EventColumnSettingsWindow("", currentPresetName);
+                var settingsWindow = new EventPresetEditor("", currentPresetName);
                 settingsWindow.Owner = this;
                 if (settingsWindow.ShowDialog() == true)
                 {
