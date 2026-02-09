@@ -232,15 +232,25 @@ namespace FACTOVA_MessageLogViewer.Models
 
 
     /// <summary>
-    /// 컬럼 설정 관리자 (AppSettingsManager 래퍼)
+    /// 컬럼 설정 관리자 (UnifiedPresetManager 연동)
     /// </summary>
     public static class ColumnSettingsManager
     {
         public static ColumnSettings CurrentSettings
         {
-            get => AppSettingsManager.Settings.ColumnSettings ?? AppSettingsManager.CreateDefaultColumnSettings();
+            get
+            {
+                // UnifiedPresetManager에서 현재 프리셋의 EVENT 설정 가져오기
+                var unified = UnifiedPresetManager.CurrentPreset;
+                return unified.EventSettings ?? AppSettingsManager.CreateDefaultColumnSettings();
+            }
             set
             {
+                // UnifiedPresetManager의 현재 프리셋에 설정 저장
+                var unified = UnifiedPresetManager.CurrentPreset;
+                unified.EventSettings = value;
+                
+                // AppSettings에도 동기화 (하위 호환성)
                 AppSettingsManager.Settings.ColumnSettings = value;
                 AppSettingsManager.Settings.CurrentPresetName = value.Name;
                 AppSettingsManager.SaveCurrent();

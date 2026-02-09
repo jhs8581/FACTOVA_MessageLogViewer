@@ -23,7 +23,12 @@ namespace FACTOVA_MessageLogViewer
 
         // 드래그 앤 드롭 관련
         private Point dragStartPoint;
-        private string? draggedTag;
+        private FLTagItem? draggedTagItem;
+        private FLTagGroup? draggedTagGroup;
+
+        // 그룹 관리
+        private ObservableCollection<string> availableGroupNames = new() { "", "기본" };
+        public ObservableCollection<string> AvailableGroupNames => availableGroupNames;
 
         // 현재 로드된 F/L 로그에서 태그 추출을 위한 콜백
         public Func<IEnumerable<FLLogEntry>>? GetCurrentLogEntries { get; set; }
@@ -407,7 +412,194 @@ namespace FACTOVA_MessageLogViewer
             panelTabDetails.IsEnabled = true;
             txtTabName.Text = selectedTab.Name;
             chkIsIntegrated.IsChecked = selectedTab.IsIntegrated;
-            listBoxSelectedTags.ItemsSource = selectedTab.SelectedTagNames;
+            
+            // 그룹 목록 UI 업데이트
+            itemsConditionGroups.ItemsSource = selectedTab.TagGroups;
+        }
+
+        private void BtnAddGroup_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedTab == null) return;
+
+            var newGroup = new FLTagGroup
+            {
+                GroupName = $"그룹 {selectedTab.TagGroups.Count + 1}"
+            };
+
+            selectedTab.TagGroups.Add(newGroup);
+            itemsConditionGroups.ItemsSource = null;
+            itemsConditionGroups.ItemsSource = selectedTab.TagGroups;
+        }
+
+        private void BtnRemoveGroup_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedTab == null) return;
+
+            var button = sender as Button;
+            var group = button?.Tag as FLTagGroup;
+            if (group != null)
+            {
+                if (selectedTab.TagGroups.Count == 1)
+                {
+                    MessageBox.Show("최소 1개의 그룹이 필요합니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var result = MessageBox.Show(
+                    $"그룹 '{group.GroupName}'을(를) 삭제하시겠습니까?",
+                    "그룹 삭제 확인",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    selectedTab.TagGroups.Remove(group);
+                    itemsConditionGroups.ItemsSource = null;
+                    itemsConditionGroups.ItemsSource = selectedTab.TagGroups;
+                }
+            }
+        }
+
+        private void BtnAddTagToGroup_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedTab == null) return;
+
+            var button = sender as Button;
+            var group = button?.Tag as FLTagGroup;
+            if (group == null) return;
+
+            // 태그 선택 다이얼로그
+            var availableTags = tagConfigs.Where(t => t.IsEnabled).Select(t => t.TagName).ToList();
+            var alreadySelected = group.Tags.Select(t => t.TagName).ToList();
+            var selectWindow = new FLTagSelectWindow(availableTags, alreadySelected);
+            selectWindow.Owner = this;
+
+            if (selectWindow.ShowDialog() == true)
+            {
+                // 새로 선택된 태그들을 그룹에 추가
+                var existingTagNames = group.Tags.Select(t => t.TagName).ToHashSet();
+                
+                foreach (var tagName in selectWindow.SelectedTags)
+                {
+                    if (!existingTagNames.Contains(tagName))
+                    {
+                        group.Tags.Add(new FLTagItem 
+                        { 
+                            TagName = tagName,
+                            GroupName = group.GroupName
+                        });
+                    }
+                }
+
+                // UI 갱신
+                itemsConditionGroups.ItemsSource = null;
+                itemsConditionGroups.ItemsSource = selectedTab.TagGroups;
+                listBoxTabs.Items.Refresh();
+            }
+        }
+
+        private void BtnRemoveTagFromGroup_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedTab == null) return;
+
+            var button = sender as Button;
+            var tag = button?.Tag as FLTagItem;
+            if (tag == null) return;
+
+            // 태그가 속한 그룹 찾기
+            var group = selectedTab.TagGroups.FirstOrDefault(g => g.Tags.Contains(tag));
+            if (group != null)
+            {
+                group.Tags.Remove(tag);
+                
+                // UI 갱신
+                itemsConditionGroups.ItemsSource = null;
+                itemsConditionGroups.ItemsSource = selectedTab.TagGroups;
+                listBoxTabs.Items.Refresh();
+            }
+        }
+
+        private void BtnMoveTagUp_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedTab == null) return;
+
+            var button = sender as Button;
+            var tag = button?.Tag as FLTagItem;
+            if (tag == null) return;
+
+            // 태그가 속한 그룹 찾기
+            var group = selectedTab.TagGroups.FirstOrDefault(g => g.Tags.Contains(tag));
+            if (group != null)
+            {
+                int index = group.Tags.IndexOf(tag);
+                if (index > 0)
+                {
+                    group.Tags.RemoveAt(index);
+                    group.Tags.Insert(index - 1, tag);
+                    
+                    // UI 갱신
+                    itemsConditionGroups.ItemsSource = null;
+                    itemsConditionGroups.ItemsSource = selectedTab.TagGroups;
+                    listBoxTabs.Items.Refresh();
+                }
+            }
+        }
+
+        private void BtnMoveTagDown_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedTab == null) return;
+
+            var button = sender as Button;
+            var tag = button?.Tag as FLTagItem;
+            if (tag == null) return;
+
+            // 태그가 속한 그룹 찾기
+            var group = selectedTab.TagGroups.FirstOrDefault(g => g.Tags.Contains(tag));
+            if (group != null)
+            {
+                int index = group.Tags.IndexOf(tag);
+                if (index < group.Tags.Count - 1)
+                {
+                    group.Tags.RemoveAt(index);
+                    group.Tags.Insert(index + 1, tag);
+                    
+                    // UI 갱신
+                    itemsConditionGroups.ItemsSource = null;
+                    itemsConditionGroups.ItemsSource = selectedTab.TagGroups;
+                    listBoxTabs.Items.Refresh();
+                }
+            }
+        }
+
+        private void BtnDuplicateTagInGroup_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedTab == null) return;
+
+            var button = sender as Button;
+            var tag = button?.Tag as FLTagItem;
+            if (tag == null) return;
+
+            // 태그가 속한 그룹 찾기
+            var group = selectedTab.TagGroups.FirstOrDefault(g => g.Tags.Contains(tag));
+            if (group != null)
+            {
+                // 복제본 생성 (같은 태그명, 다른 값 필터 사용 가능)
+                var duplicate = new FLTagItem
+                {
+                    TagName = tag.TagName,
+                    ValueFilter = tag.ValueFilter, // 복제 후 값 필터 변경 가능
+                    GroupName = group.GroupName
+                };
+                
+                // 현재 태그 바로 다음에 삽입
+                int index = group.Tags.IndexOf(tag);
+                group.Tags.Insert(index + 1, duplicate);
+                
+                // UI 갱신
+                itemsConditionGroups.ItemsSource = null;
+                itemsConditionGroups.ItemsSource = selectedTab.TagGroups;
+                listBoxTabs.Items.Refresh();
+            }
         }
 
         private void TxtTabName_TextChanged(object sender, TextChangedEventArgs e)
@@ -440,7 +632,10 @@ namespace FACTOVA_MessageLogViewer
                 Name = $"새 탭 {tabConfigs.Count + 1}",
                 IsEnabled = true,
                 IsIntegrated = false,
-                SelectedTagNames = new List<string>()
+                TagGroups = new List<FLTagGroup>
+                {
+                    new FLTagGroup { GroupName = "기본" }
+                }
             };
             tabConfigs.Add(newTab);
             listBoxTabs.SelectedItem = newTab;
@@ -485,70 +680,26 @@ namespace FACTOVA_MessageLogViewer
             }
         }
 
-        private void BtnAddTag_Click(object sender, RoutedEventArgs e)
-        {
-            if (selectedTab == null) return;
-
-            // 태그 선택 다이얼로그 (이미 선택된 태그 전달)
-            var availableTags = tagConfigs.Where(t => t.IsEnabled).Select(t => t.TagName).ToList();
-            var selectWindow = new FLTagSelectWindow(availableTags, selectedTab.SelectedTagNames);
-            selectWindow.Owner = this;
-
-            if (selectWindow.ShowDialog() == true)
-            {
-                // 기존 목록을 새 선택으로 교체
-                selectedTab.SelectedTagNames.Clear();
-                selectedTab.SelectedTagNames.AddRange(selectWindow.SelectedTags);
-
-                listBoxSelectedTags.ItemsSource = null;
-                listBoxSelectedTags.ItemsSource = selectedTab.SelectedTagNames;
-                listBoxTabs.Items.Refresh();
-            }
-        }
-
-        private void BtnRemoveTag_Click(object sender, RoutedEventArgs e)
-        {
-            if (selectedTab == null) return;
-
-            var button = sender as Button;
-            var tagName = button?.Tag as string;
-            if (tagName != null)
-            {
-                selectedTab.SelectedTagNames.Remove(tagName);
-                listBoxSelectedTags.ItemsSource = null;
-                listBoxSelectedTags.ItemsSource = selectedTab.SelectedTagNames;
-                listBoxTabs.Items.Refresh();
-            }
-        }
-
         #region 드래그 앤 드롭
 
-        private void ListBoxSelectedTags_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void TagItem_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             dragStartPoint = e.GetPosition(null);
             
-            // 클릭한 아이템 찾기
-            var listBox = sender as ListBox;
-            if (listBox == null) return;
-            
-            var element = e.OriginalSource as FrameworkElement;
-            if (element == null) return;
-            
-            // 버튼 클릭이면 드래그 시작하지 않음
-            if (element is Button || element.TemplatedParent is Button)
-                return;
-            
-            // ListBoxItem 찾기
-            var listBoxItem = FindAncestor<ListBoxItem>(element);
-            if (listBoxItem != null)
+            // Border를 통해 FLTagItem 가져오기
+            var border = sender as Border;
+            if (border?.DataContext is FLTagItem tagItem)
             {
-                draggedTag = listBoxItem.Content as string;
+                draggedTagItem = tagItem;
+                
+                // 태그가 속한 그룹 찾기
+                draggedTagGroup = selectedTab?.TagGroups.FirstOrDefault(g => g.Tags.Contains(tagItem));
             }
         }
 
-        private void ListBoxSelectedTags_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        private void TagItem_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed && draggedTag != null)
+            if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed && draggedTagItem != null)
             {
                 Point mousePos = e.GetPosition(null);
                 Vector diff = dragStartPoint - mousePos;
@@ -556,19 +707,19 @@ namespace FACTOVA_MessageLogViewer
                 if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
                     Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
                 {
-                    var listBox = sender as ListBox;
-                    if (listBox != null)
+                    var border = sender as Border;
+                    if (border != null)
                     {
-                        var dragData = new DataObject("tagName", draggedTag);
-                        DragDrop.DoDragDrop(listBox, dragData, DragDropEffects.Move);
+                        var dragData = new DataObject("FLTagItem", draggedTagItem);
+                        DragDrop.DoDragDrop(border, dragData, DragDropEffects.Move);
                     }
                 }
             }
         }
 
-        private void ListBoxSelectedTags_DragOver(object sender, DragEventArgs e)
+        private void TagItem_DragOver(object sender, DragEventArgs e)
         {
-            if (e.Data.GetDataPresent("tagName"))
+            if (e.Data.GetDataPresent("FLTagItem"))
             {
                 e.Effects = DragDropEffects.Move;
             }
@@ -579,71 +730,40 @@ namespace FACTOVA_MessageLogViewer
             e.Handled = true;
         }
 
-        private void ListBoxSelectedTags_Drop(object sender, DragEventArgs e)
+        private void TagItem_Drop(object sender, DragEventArgs e)
         {
-            if (selectedTab == null || !e.Data.GetDataPresent("tagName")) return;
+            if (selectedTab == null || !e.Data.GetDataPresent("FLTagItem")) return;
 
-            var droppedTag = e.Data.GetData("tagName") as string;
-            if (droppedTag == null) return;
+            var droppedTagItem = e.Data.GetData("FLTagItem") as FLTagItem;
+            if (droppedTagItem == null || draggedTagGroup == null) return;
 
-            var listBox = sender as ListBox;
-            if (listBox == null) return;
-
-            // 드롭 위치의 아이템 찾기
-            var element = e.OriginalSource as FrameworkElement;
-            if (element == null) return;
-
-            var targetItem = FindAncestor<ListBoxItem>(element);
-            string? targetTag = null;
-            
-            if (targetItem != null)
+            // 드롭된 위치의 Border 찾기
+            var border = sender as Border;
+            if (border?.DataContext is FLTagItem targetTagItem)
             {
-                targetTag = targetItem.Content as string;
+                // 같은 그룹 내에서만 이동
+                var targetGroup = selectedTab.TagGroups.FirstOrDefault(g => g.Tags.Contains(targetTagItem));
+                if (targetGroup != draggedTagGroup) return;
+
+                int oldIndex = draggedTagGroup.Tags.IndexOf(droppedTagItem);
+                int newIndex = draggedTagGroup.Tags.IndexOf(targetTagItem);
+
+                if (oldIndex >= 0 && newIndex >= 0 && oldIndex != newIndex)
+                {
+                    draggedTagGroup.Tags.RemoveAt(oldIndex);
+                    if (newIndex > oldIndex)
+                        newIndex--;
+                    draggedTagGroup.Tags.Insert(newIndex, droppedTagItem);
+
+                    // UI 갱신
+                    itemsConditionGroups.ItemsSource = null;
+                    itemsConditionGroups.ItemsSource = selectedTab.TagGroups;
+                    listBoxTabs.Items.Refresh();
+                }
             }
 
-            var tags = selectedTab.SelectedTagNames;
-            int oldIndex = tags.IndexOf(droppedTag);
-            
-            if (oldIndex < 0) return;
-
-            // 타겟이 있으면 그 위치로, 없으면 맨 끝으로
-            int newIndex;
-            if (targetTag != null)
-            {
-                newIndex = tags.IndexOf(targetTag);
-                if (newIndex < 0) return;
-            }
-            else
-            {
-                newIndex = tags.Count - 1;
-            }
-
-            if (oldIndex != newIndex)
-            {
-                tags.RemoveAt(oldIndex);
-                if (newIndex > oldIndex)
-                    newIndex--;
-                tags.Insert(newIndex, droppedTag);
-
-                // UI 갱신
-                listBoxSelectedTags.ItemsSource = null;
-                listBoxSelectedTags.ItemsSource = tags;
-                listBoxTabs.Items.Refresh();
-            }
-
-            draggedTag = null;
-        }
-
-        private static T? FindAncestor<T>(DependencyObject current) where T : DependencyObject
-        {
-            do
-            {
-                if (current is T ancestor)
-                    return ancestor;
-                current = VisualTreeHelper.GetParent(current);
-            }
-            while (current != null);
-            return null;
+            draggedTagItem = null;
+            draggedTagGroup = null;
         }
 
         #endregion
@@ -662,17 +782,17 @@ namespace FACTOVA_MessageLogViewer
                 return;
             }
 
-            // Structure 타입 로그에서 필드 추출
-            var structureEntries = entries.Where(e => e.IsStructure && e.Fields.Count > 0).ToList();
-            if (structureEntries.Count == 0)
+            // Structure 또는 CSFC 타입 로그에서 필드 추출
+            var multilineEntries = entries.Where(e => e.HasMultilineData && e.Fields.Count > 0).ToList();
+            if (multilineEntries.Count == 0)
             {
-                MessageBox.Show("Structure 타입의 로그가 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("Structure/CSFC 타입의 로그가 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
             var allFields = new Dictionary<string, string>(); // 필드명 → 샘플값
 
-            foreach (var entry in structureEntries)
+            foreach (var entry in multilineEntries)
             {
                 foreach (var field in entry.Fields)
                 {

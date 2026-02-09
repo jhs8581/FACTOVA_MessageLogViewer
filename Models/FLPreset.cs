@@ -64,6 +64,7 @@ namespace FACTOVA_MessageLogViewer.Models
         private string tagName = "";
         private string displayName = "";
         private bool isEnabled = true;
+        private string valueFilter = ""; // 값 필터 (ON, OFF 등)
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -113,10 +114,120 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
+        /// 값 필터 (빈 문자열이면 모든 값, "ON"/"OFF" 등 특정 값 지정 가능)
+        /// </summary>
+        public string ValueFilter
+        {
+            get => valueFilter;
+            set { valueFilter = value; OnPropertyChanged(nameof(ValueFilter)); OnPropertyChanged(nameof(DisplayNameWithFilter)); }
+        }
+
+        /// <summary>
+        /// 표시명 + 값 필터 표시 (UI용)
+        /// </summary>
+        [JsonIgnore]
+        public string DisplayNameWithFilter
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(ValueFilter))
+                    return DisplayName;
+                return $"{DisplayName} ({ValueFilter})";
+            }
+        }
+
+        /// <summary>
         /// 샘플 값 (UI 표시용)
         /// </summary>
         [JsonIgnore]
         public string SampleValue { get; set; } = "";
+
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+    /// <summary>
+    /// F/L 탭의 태그 아이템 (태그명 + 순번 + 값 필터 + 그룹)
+    /// </summary>
+    public class FLTagItem : INotifyPropertyChanged
+    {
+        private string tagName = "";
+        private int order = 0;
+        private string valueFilter = "";
+        private string groupName = "";
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        /// <summary>
+        /// 태그명
+        /// </summary>
+        public string TagName
+        {
+            get => tagName;
+            set { tagName = value; OnPropertyChanged(nameof(TagName)); OnPropertyChanged(nameof(DisplayText)); }
+        }
+
+        /// <summary>
+        /// 순번 (0 = 순번 없음)
+        /// </summary>
+        public int Order
+        {
+            get => order;
+            set { order = value; OnPropertyChanged(nameof(Order)); OnPropertyChanged(nameof(DisplayText)); }
+        }
+
+        /// <summary>
+        /// 값 필터 (빈 문자열 = 모든 값, "ON"/"OFF" 등 특정 값)
+        /// </summary>
+        public string ValueFilter
+        {
+            get => valueFilter;
+            set { valueFilter = value; OnPropertyChanged(nameof(ValueFilter)); OnPropertyChanged(nameof(DisplayText)); }
+        }
+
+        /// <summary>
+        /// 그룹명 (빈 문자열 = 기본 그룹)
+        /// </summary>
+        public string GroupName
+        {
+            get => groupName;
+            set { groupName = value; OnPropertyChanged(nameof(GroupName)); OnPropertyChanged(nameof(DisplayText)); }
+        }
+
+        /// <summary>
+        /// 표시 텍스트 (UI용)
+        /// 예: "[그룹A #1 ON] I_LB_EVENT_LOT_INFO_REQUEST_01"
+        /// </summary>
+        [JsonIgnore]
+        public string DisplayText
+        {
+            get
+            {
+                var parts = new List<string>();
+                
+                if (!string.IsNullOrEmpty(GroupName))
+                    parts.Add(GroupName);
+                
+                if (Order > 0)
+                {
+                    if (!string.IsNullOrEmpty(ValueFilter))
+                        parts.Add($"#{Order} {ValueFilter}");
+                    else
+                        parts.Add($"#{Order}");
+                }
+                else if (!string.IsNullOrEmpty(ValueFilter))
+                {
+                    parts.Add(ValueFilter);
+                }
+
+                if (parts.Count > 0)
+                    return $"[{string.Join(" ", parts)}] {TagName}";
+                
+                return TagName;
+            }
+        }
 
         protected void OnPropertyChanged(string propertyName)
         {
@@ -298,6 +409,7 @@ namespace FACTOVA_MessageLogViewer.Models
         private string name = "";
         private bool isEnabled = true;
         private bool isIntegrated = false;
+        private List<FLTagGroup> tagGroups = new();
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -329,34 +441,62 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// 선택된 태그명 목록 (이 태그 중 하나라도 포함되면 표시 - OR 조건)
+        /// 태그 그룹 목록 (각 그룹은 독립적인 시퀀스)
         /// </summary>
-        public List<string> SelectedTagNames { get; set; } = new();
+        public List<FLTagGroup> TagGroups
+        {
+            get => tagGroups;
+            set { tagGroups = value; OnPropertyChanged(nameof(TagGroups)); OnPropertyChanged(nameof(ConditionSummary)); }
+        }
 
         /// <summary>
-        /// 조건 그룹 (레거시 호환용 - 저장 시 SelectedTagNames로 변환)
+        /// 태그 아이템 목록 (레거시 호환용 - TagGroups로 자동 변환)
         /// </summary>
         [JsonIgnore]
-        public List<FLConditionGroup> ConditionGroups 
-        { 
+        public List<FLTagItem> TagItems
+        {
             get
             {
-                // SelectedTagNames를 하나의 그룹으로 반환 (하위 호환)
-                if (SelectedTagNames.Count == 0) return new List<FLConditionGroup>();
-                return new List<FLConditionGroup> 
-                { 
-                    new FLConditionGroup { Name = "태그", TagNames = SelectedTagNames.ToList() }
-                };
+                // 모든 그룹의 태그를 하나의 리스트로 반환
+                var items = new List<FLTagItem>();
+                foreach (var group in TagGroups)
+                {
+                    items.AddRange(group.Tags);
+                }
+                return items;
             }
             set
             {
-                // 기존 그룹 데이터를 SelectedTagNames로 변환
-                SelectedTagNames.Clear();
-                foreach (var group in value ?? new List<FLConditionGroup>())
+                // 레거시 데이터를 기본 그룹으로 변환
+                if (TagGroups.Count == 0)
                 {
-                    SelectedTagNames.AddRange(group.TagNames);
+                    TagGroups.Add(new FLTagGroup { GroupName = "기본" });
                 }
-                SelectedTagNames = SelectedTagNames.Distinct().ToList();
+                TagGroups[0].Tags = value ?? new List<FLTagItem>();
+                OnPropertyChanged(nameof(ConditionSummary));
+            }
+        }
+
+        /// <summary>
+        /// 선택된 태그명 목록 (하위 호환용)
+        /// </summary>
+        [JsonIgnore]
+        public List<string> SelectedTagNames
+        {
+            get => TagItems.Select(t => t.TagName).ToList();
+            set
+            {
+                // 기존 string 목록을 TagItem으로 변환하여 기본 그룹에 추가
+                if (TagGroups.Count == 0)
+                {
+                    TagGroups.Add(new FLTagGroup { GroupName = "기본" });
+                }
+                TagGroups[0].Tags.Clear();
+                foreach (var tagName in value ?? new List<string>())
+                {
+                    TagGroups[0].Tags.Add(new FLTagItem { TagName = tagName });
+                }
+                OnPropertyChanged(nameof(ConditionSummary));
             }
         }
 
@@ -369,12 +509,49 @@ namespace FACTOVA_MessageLogViewer.Models
             get
             {
                 if (IsIntegrated) return "모든 로그";
-                if (SelectedTagNames.Count == 0) return "조건 없음";
+                if (TagItems.Count == 0) return "조건 없음";
                 
-                var display = string.Join(", ", SelectedTagNames.Take(3));
-                if (SelectedTagNames.Count > 3) display += $" 외 {SelectedTagNames.Count - 3}개";
-                return display;
+                // 그룹별로 요약
+                var groups = TagItems.GroupBy(t => string.IsNullOrEmpty(t.GroupName) ? "기본" : t.GroupName).ToList();
+                if (groups.Count == 1)
+                {
+                    var display = string.Join(", ", TagItems.Take(3).Select(t => t.DisplayText));
+                    if (TagItems.Count > 3) display += $" 외 {TagItems.Count - 3}개";
+                    return display;
+                }
+                else
+                {
+                    return $"{groups.Count}개 그룹, {TagItems.Count}개 태그";
+                }
             }
+        }
+
+        /// <summary>
+        /// 그룹명 목록 반환
+        /// </summary>
+        [JsonIgnore]
+        public List<string> GroupNames
+        {
+            get
+            {
+                return TagItems
+                    .Select(t => string.IsNullOrEmpty(t.GroupName) ? "기본" : t.GroupName)
+                    .Distinct()
+                    .OrderBy(g => g == "기본" ? "" : g) // 기본 그룹이 먼저
+                    .ToList();
+            }
+        }
+
+        /// <summary>
+        /// 특정 그룹의 태그 아이템 반환
+        /// </summary>
+        public List<FLTagItem> GetGroupItems(string groupName)
+        {
+            var targetGroup = string.IsNullOrEmpty(groupName) ? "" : groupName;
+            return TagItems.Where(t => 
+                (string.IsNullOrEmpty(t.GroupName) && string.IsNullOrEmpty(targetGroup)) ||
+                t.GroupName == targetGroup
+            ).ToList();
         }
 
         protected void OnPropertyChanged(string propertyName)
@@ -384,7 +561,41 @@ namespace FACTOVA_MessageLogViewer.Models
     }
 
     /// <summary>
-    /// F/L 조건 그룹 (그룹 내 AND)
+    /// F/L 태그 그룹 (독립적인 시퀀스)
+    /// </summary>
+    public class FLTagGroup : INotifyPropertyChanged
+    {
+        private string groupName = "";
+        private List<FLTagItem> tags = new();
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        /// <summary>
+        /// 그룹 이름
+        /// </summary>
+        public string GroupName
+        {
+            get => groupName;
+            set { groupName = value; OnPropertyChanged(nameof(GroupName)); }
+        }
+
+        /// <summary>
+        /// 그룹 내 태그 목록
+        /// </summary>
+        public List<FLTagItem> Tags
+        {
+            get => tags;
+            set { tags = value; OnPropertyChanged(nameof(Tags)); }
+        }
+
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+    /// <summary>
+    /// F/L 조건 그룹 (그룹 내 AND) - 레거시
     /// </summary>
     public class FLConditionGroup : INotifyPropertyChanged
     {
@@ -464,6 +675,57 @@ namespace FACTOVA_MessageLogViewer.Models
         {
             var settings = CurrentSettings;
             return settings.FieldConfigs.FirstOrDefault(f => f.FieldName == fieldName);
+        }
+
+        /// <summary>
+        /// 모든 탭의 TagItems를 모아서 순번, 그룹명, 값 필터 매칭 (태그명 + 값)
+        /// </summary>
+        public static (int Order, string GroupName) GetTagOrderAndGroup(string tagName, string value)
+        {
+            var settings = CurrentSettings;
+            var allTagItems = settings.TabSettings?.Tabs
+                .SelectMany(tab => tab.TagItems)
+                .Where(item => item.Order > 0)
+                .ToList() ?? new List<FLTagItem>();
+
+            // 1순위: 태그명 + 값 필터 모두 일치
+            var exactMatch = allTagItems.FirstOrDefault(item =>
+                item.TagName == tagName &&
+                !string.IsNullOrEmpty(item.ValueFilter) &&
+                item.ValueFilter.Equals(value, StringComparison.OrdinalIgnoreCase));
+
+            if (exactMatch != null)
+                return (exactMatch.Order, exactMatch.GroupName ?? "");
+
+            // 2순위: 태그명만 일치하고 값 필터가 없는 것
+            var tagOnlyMatch = allTagItems.FirstOrDefault(item =>
+                item.TagName == tagName &&
+                string.IsNullOrEmpty(item.ValueFilter));
+
+            return tagOnlyMatch != null ? (tagOnlyMatch.Order, tagOnlyMatch.GroupName ?? "") : (0, "");
+        }
+
+        /// <summary>
+        /// 모든 탭의 TagItems를 모아서 순번과 값 필터 매칭 (태그명 + 값) - 레거시 호환용
+        /// </summary>
+        public static int GetTagOrder(string tagName, string value)
+        {
+            var (order, _) = GetTagOrderAndGroup(tagName, value);
+            return order;
+        }
+
+        /// <summary>
+        /// 태그 설명 가져오기 (TagConfig에서)
+        /// </summary>
+        public static string GetTagDescription(string tagName)
+        {
+            var settings = CurrentSettings;
+            var config = settings.TagConfigs.FirstOrDefault(t => 
+                t.IsEnabled && 
+                t.TagName == tagName && 
+                !string.IsNullOrEmpty(t.DisplayName));
+            
+            return config?.DisplayName ?? "";
         }
 
         /// <summary>

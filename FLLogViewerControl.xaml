@@ -377,7 +377,7 @@ Loaded="UserControl_Loaded">
                                     ToolTip="전체 해제"
                                     FontSize="9" FontWeight="Bold"
                                     Background="#FFEBEE" Foreground="#C62828" BorderBrush="#EF9A9A" Cursor="Hand"/>
-                            <ComboBox x:Name="cboTagFilter" Width="350" Height="22" FontSize="11" 
+                            <ComboBox x:Name="cboTagFilter" Width="250" Height="22" FontSize="11" 
                                       IsEditable="True" IsReadOnly="True" Text="전체"
                                       DropDownOpened="CboTagFilter_DropDownOpened">
                                 <ComboBox.ItemTemplate>
@@ -390,6 +390,45 @@ Loaded="UserControl_Loaded">
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
                         </StackPanel>
+                    </Border>
+                    
+                    <!-- 구분선 -->
+                    <Border Width="1" Background="#CE93D8" Margin="20,6,20,6"/>
+                    
+                    <!-- 그룹 필터 -->
+                    <Border Background="White" CornerRadius="4" Padding="8,2" BorderBrush="#1976D2" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📦 그룹:" 
+                                       Foreground="#1976D2" 
+                                       VerticalAlignment="Center" 
+                                       Margin="0,0,8,0"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"/>
+                            <ComboBox x:Name="cboGroupFilter" 
+                                      Width="120" Height="22"
+                                      FontSize="11"
+                                      VerticalContentAlignment="Center"
+                                      SelectionChanged="CboGroupFilter_SelectionChanged"
+                                      ToolTip="그룹별 필터">
+                                <ComboBoxItem Content="전체" IsSelected="True"/>
+                            </ComboBox>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- 구분선 -->
+                    <Border Width="1" Background="#CE93D8" Margin="20,6,20,6"/>
+                    
+                    <!-- 순서 오류 필터 -->
+                    <Border Background="White" CornerRadius="4" Padding="8,4" BorderBrush="#E91E63" BorderThickness="1">
+                        <CheckBox x:Name="chkShowSequenceErrors"
+                                  Content="⚠️ 순서 오류만 보기"
+                                  Foreground="#E91E63"
+                                  FontSize="11"
+                                  FontWeight="SemiBold"
+                                  VerticalAlignment="Center"
+                                  Checked="ChkShowSequenceErrors_Changed"
+                                  Unchecked="ChkShowSequenceErrors_Changed"
+                                  ToolTip="순번이 틀린 로그만 표시"/>
                     </Border>
                 </StackPanel>
             </Grid>

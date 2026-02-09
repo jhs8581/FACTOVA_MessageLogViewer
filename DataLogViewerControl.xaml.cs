@@ -206,6 +206,12 @@ namespace FACTOVA_MessageLogViewer
 
             var settings = ColumnSettingsManager.CurrentSettings;
             var tabs = settings.DataTabSettings?.EnabledTabs?.ToList() ?? new List<TabConfig>();
+            
+            System.Diagnostics.Debug.WriteLine($"📊 DATA InitializeLogViewer - ColumnSettingsManager.CurrentSettings: {settings.Name}");
+            System.Diagnostics.Debug.WriteLine($"📊 DATA DataTabSettings 탭 수: {tabs.Count}");
+            System.Diagnostics.Debug.WriteLine($"📊 DATA UnifiedPreset.CurrentPreset: {UnifiedPresetManager.CurrentPreset.Name}");
+            System.Diagnostics.Debug.WriteLine($"📊 DATA UnifiedPreset.EventSettings: {(UnifiedPresetManager.CurrentPreset.EventSettings != null ? "있음" : "없음")}");
+            System.Diagnostics.Debug.WriteLine($"📊 DATA UnifiedPreset.DataSettings: {(UnifiedPresetManager.CurrentPreset.DataSettings != null ? "있음" : "없음")}");
 
             // 느린 쿼리 탭은 제외 (필터 영역에서 처리)
             tabs = tabs.Where(t => !t.Name.Contains("느린 쿼리")).ToList();

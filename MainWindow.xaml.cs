@@ -91,8 +91,12 @@ namespace FACTOVA_MessageLogViewer
 
             // EVENT 로그 파일 경로 찾기
             var eventFilePath = FindLogFilePath(selectedDate.Date, LogType.EVENT);
+            System.Diagnostics.Debug.WriteLine($"📂 EVENT 파일 검색: {eventFilePath ?? "(찾을 수 없음)"}");
+            System.Diagnostics.Debug.WriteLine($"📂 EVENT 시작 옵션: {logSettings.StartEvent}");
+            
             if (!string.IsNullOrEmpty(eventFilePath) && logSettings.StartEvent)
             {
+                System.Diagnostics.Debug.WriteLine($"✅ EVENT 로그 초기화 시작");
                 var eventSettings = viewerSettings with 
                 { 
                     LogFilePath = eventFilePath, 
@@ -100,6 +104,13 @@ namespace FACTOVA_MessageLogViewer
                     EnableRealTimeWatch = logSettings.WatchEventLog
                 };
                 await eventLogViewer.InitializeAsync(eventSettings);
+            }
+            else
+            {
+                if (string.IsNullOrEmpty(eventFilePath))
+                    System.Diagnostics.Debug.WriteLine($"⚠️ EVENT 로그 파일을 찾을 수 없습니다");
+                if (!logSettings.StartEvent)
+                    System.Diagnostics.Debug.WriteLine($"⚠️ EVENT 로그 시작 옵션이 꺼져있습니다");
             }
 
             // DATA 로그 파일 경로 찾기
@@ -159,6 +170,8 @@ namespace FACTOVA_MessageLogViewer
         {
             var presetName = logSettings.SelectedPresetName;
             
+            System.Diagnostics.Debug.WriteLine($"🎨 ApplySelectedPreset 시작: {presetName}");
+            
             if (presetName == "Default")
             {
                 // 기본 프리셋 사용
@@ -171,10 +184,21 @@ namespace FACTOVA_MessageLogViewer
                 if (preset != null)
                 {
                     UnifiedPresetManager.CurrentPreset = preset;
+                    System.Diagnostics.Debug.WriteLine($"✅ 프리셋 로드 성공: {presetName}");
+                    System.Diagnostics.Debug.WriteLine($"   - EventSettings: {(preset.EventSettings != null ? "있음" : "없음")}");
+                    System.Diagnostics.Debug.WriteLine($"   - DataSettings: {(preset.DataSettings != null ? "있음" : "없음")}");
+                    System.Diagnostics.Debug.WriteLine($"   - FLSettings: {(preset.FLSettings != null ? "있음" : "없음")}");
+                    if (preset.FLSettings != null)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"   - FLSettings 탭: {preset.FLSettings.TabSettings?.Tabs?.Count ?? 0}개");
+                        System.Diagnostics.Debug.WriteLine($"   - FLSettings 태그: {preset.FLSettings.TagConfigs?.Count ?? 0}개");
+                        System.Diagnostics.Debug.WriteLine($"   - FLSettings 필드: {preset.FLSettings.FieldConfigs?.Count ?? 0}개");
+                    }
                 }
                 else
                 {
                     UnifiedPresetManager.CurrentPreset = UnifiedPreset.CreateDefault();
+                    System.Diagnostics.Debug.WriteLine($"⚠️ 프리셋 로드 실패, 기본 프리셋 사용: {presetName}");
                 }
             }
 

@@ -83,15 +83,27 @@ namespace FACTOVA_MessageLogViewer.Models
             }
         }
 
+
         /// <summary>
         /// Structure 여부
         /// </summary>
         public bool IsStructure => DataType.Equals("Structure", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
+        /// CSFC 로그 여부
+        /// </summary>
+        public bool IsCSFC => DataType.Equals("CSFC", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// 멀티라인 데이터 여부 (Structure 또는 CSFC)
+        /// </summary>
+        public bool HasMultilineData => IsStructure || IsCSFC;
+
+        /// <summary>
         /// 원본 로그 라인 (멀티라인 포함)
         /// </summary>
         public string RawLine { get; set; } = "";
+
 
         /// <summary>
         /// 소스 파일명
@@ -108,6 +120,41 @@ namespace FACTOVA_MessageLogViewer.Models
         /// 태그 설명 (프리셋에서 설정한 표시명)
         /// </summary>
         public string TagDescription { get; set; } = "";
+
+        /// <summary>
+        /// 태그 순번 (프리셋에서 설정한 Order)
+        /// </summary>
+        public int TagOrder { get; set; } = 0;
+
+        /// <summary>
+        /// 태그 그룹명 (프리셋에서 설정한 GroupName)
+        /// </summary>
+        public string TagGroupName { get; set; } = "";
+
+        /// <summary>
+        /// 그룹 내 시퀀스 번호 (그룹별 독립적인 순번)
+        /// </summary>
+        public int GroupSequence { get; set; } = 0;
+
+        /// <summary>
+        /// 기대되는 태그 순번 (순서 검증용)
+        /// </summary>
+        public int ExpectedTagOrder { get; set; } = 0;
+
+        /// <summary>
+        /// 태그 순서가 올바른지 여부
+        /// </summary>
+        public bool IsSequenceValid { get; set; } = true;
+
+        /// <summary>
+        /// 이전 엔트리의 태그 순번
+        /// </summary>
+        public int PreviousTagOrder { get; set; } = 0;
+
+        /// <summary>
+        /// 스텝 순번이 올바른지 여부 (1->2->3->4->1 형태)
+        /// </summary>
+        public bool IsStepOrderValid { get; set; } = true;
 
         /// <summary>
         /// 값이 ON인지 여부
@@ -128,9 +175,9 @@ namespace FACTOVA_MessageLogViewer.Models
         }
 
         /// <summary>
-        /// 표시용 값 (Structure면 요약, 아니면 값)
+        /// 표시용 값 (Structure/CSFC면 요약, 아니면 값)
         /// </summary>
-        public string DisplayValue => IsStructure ? FieldsSummary : Value;
+        public string DisplayValue => HasMultilineData ? FieldsSummary : Value;
 
         /// <summary>
         /// 송신 여부 (I_로 시작하는 태그)
@@ -143,7 +190,7 @@ namespace FACTOVA_MessageLogViewer.Models
         public bool IsRecv => TagName.StartsWith("O_", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
-        /// 행 배경색 (I_=송신 연파란색, O_=수신 연녹색, 이벤트뷰어와 동일)
+        /// 행 배경색 (순번 오류 시 빨간색, I_=송신 연파란색, O_=수신 연녹색)
         /// </summary>
         private System.Windows.Media.Brush? _cachedBackgroundBrush = null;
         public System.Windows.Media.Brush BackgroundBrush
@@ -153,7 +200,12 @@ namespace FACTOVA_MessageLogViewer.Models
                 if (_cachedBackgroundBrush != null)
                     return _cachedBackgroundBrush;
 
-                if (IsSend)
+                // 스텝 순번이 잘못된 경우 빨간색 하이라이트
+                if (!IsStepOrderValid)
+                {
+                    _cachedBackgroundBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 200, 200)); // 연빨간색
+                }
+                else if (IsSend)
                     _cachedBackgroundBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(230, 240, 255)); // 송신: 연파란색
                 else if (IsRecv)
                     _cachedBackgroundBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(230, 255, 230)); // 수신: 연녹색

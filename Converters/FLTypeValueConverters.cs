@@ -58,7 +58,7 @@ namespace FACTOVA_MessageLogViewer.Converters
 
     /// <summary>
     /// F/L Structure 값만 표시하는 컨버터
-    /// Structure 타입이 아니면 빈 문자열 반환
+    /// Structure 또는 CSFC 타입이 아니면 빈 문자열 반환
     /// </summary>
     public class FLStructureValueConverter : IValueConverter
     {
@@ -66,8 +66,8 @@ namespace FACTOVA_MessageLogViewer.Converters
         {
             if (value is FLLogEntry entry)
             {
-                // Structure 타입만 표시
-                if (entry.IsStructure)
+                // Structure 또는 CSFC 타입일 때 필드 요약 표시
+                if (entry.HasMultilineData)
                 {
                     return entry.DisplayValue;
                 }

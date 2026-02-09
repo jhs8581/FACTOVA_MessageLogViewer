@@ -25,6 +25,7 @@ namespace FACTOVA_MessageLogViewer
         private Dictionary<string, ICollectionView> tabLogViews = new();
         private ICollectionView? currentLogView = null;
         private DataGrid? currentDataGrid = null;
+        private TabItem? currentSelectedTab = null; // 현재 선택된 탭 추적
         
         private string logDirectory = "";
         private DateTime selectedDate = DateTime.Today;
@@ -50,6 +51,21 @@ namespace FACTOVA_MessageLogViewer
         private static readonly Regex LogLinePattern = new Regex(
             @"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+\[(\w+)\]\s+\[([^\]]+)\]\s+\[([^\]]+)\]\s+\(([^)]+)\)\s*:\s*(.*)$",
             RegexOptions.Compiled | RegexOptions.Multiline);
+
+        // CSFCInterface 로그 파싱 패턴: 2026-02-05 17:30:26.191 [Info] [CSFCInterface] [MES->EQP] DYNAMIC.EVENT.REQUEST : ...
+        private static readonly Regex CSFCLogLinePattern = new Regex(
+            @"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+\[(\w+)\]\s+\[([^\]]+)\]\s+\[([^\]]+)\]\s+(\S+)\s*:\s*(.*)$",
+            RegexOptions.Compiled | RegexOptions.Multiline);
+
+        // MSGID 추출 패턴: <MSGID=1100>
+        private static readonly Regex MsgIdPattern = new Regex(
+            @"<MSGID=([^>]+)>",
+            RegexOptions.Compiled);
+
+        // CSFC 필드 패턴: <NAME=VALUE> 형태
+        private static readonly Regex CSFCFieldPattern = new Regex(
+            @"<([^=]+)=([^>]*)>",
+            RegexOptions.Compiled);
 
         // 파일명에서 날짜/시간 추출 패턴: _MMDDYY.log (MM=월, DD=일, YY=시)
         private static readonly Regex FileNamePattern = new Regex(
@@ -150,6 +166,10 @@ namespace FACTOVA_MessageLogViewer
             var flSettings = FLPresetManager.CurrentSettings;
             var enabledTabs = flSettings.TabSettings?.Tabs?.Where(t => t.IsEnabled).ToList() 
                               ?? new List<FLTabConfig>();
+            
+            System.Diagnostics.Debug.WriteLine($"📊 F/L CreateTabs - FLPresetManager.CurrentSettings 탭 수: {enabledTabs.Count}");
+            System.Diagnostics.Debug.WriteLine($"📊 F/L UnifiedPreset.CurrentPreset: {UnifiedPresetManager.CurrentPreset.Name}");
+            System.Diagnostics.Debug.WriteLine($"📊 F/L UnifiedPreset.FLSettings: {(UnifiedPresetManager.CurrentPreset.FLSettings != null ? $"있음 (탭: {UnifiedPresetManager.CurrentPreset.FLSettings.TabSettings?.Tabs?.Count ?? 0}개)" : "없음")}");
 
             // 탭이 없으면 기본 통합 탭 생성
             if (enabledTabs.Count == 0)
@@ -187,11 +207,48 @@ namespace FACTOVA_MessageLogViewer
             tabLogEntries[tabConfig.Name] = tabEntries;
             tabLogViews[tabConfig.Name] = tabView;
 
-            // 탭에 맞는 로그 필터링
+            // 그룹별 마지막 순번 추적
+            var groupLastTagOrder = new Dictionary<string, int>();
+
+            // 탭에 맞는 로그 필터링 및 순서 검증
             foreach (var entry in logEntries)
             {
                 if (IsEntryMatchesTab(entry, tabConfig))
                 {
+                    // 엔트리가 속한 그룹 및 태그 순번 찾기
+                    var (group, tagOrder) = FindMatchingGroupAndOrder(entry, tabConfig);
+                    if (group != null)
+                    {
+                        entry.TagGroupName = group.GroupName;
+                        entry.TagOrder = tagOrder; // 그룹 내 태그 순번 (1, 2, 3, 4, 5...)
+                        
+                        // 순서 검증: 그룹 내 태그 순서 확인
+                        if (!groupLastTagOrder.ContainsKey(group.GroupName))
+                        {
+                            groupLastTagOrder[group.GroupName] = 0;
+                        }
+
+                        int maxOrder = group.Tags.Count;
+                        int lastOrder = groupLastTagOrder[group.GroupName];
+                        int expectedOrder = (lastOrder % maxOrder) + 1; // 1~maxOrder 순환
+
+                        entry.ExpectedTagOrder = expectedOrder;
+                        entry.PreviousTagOrder = lastOrder;
+
+                        // 첫 번째 엔트리는 항상 유효
+                        if (lastOrder == 0)
+                        {
+                            entry.IsSequenceValid = true;
+                        }
+                        else
+                        {
+                            // 현재 TagOrder가 기대값과 일치하는지 확인
+                            entry.IsSequenceValid = (entry.TagOrder == expectedOrder);
+                        }
+
+                        groupLastTagOrder[group.GroupName] = entry.TagOrder;
+                    }
+                    
                     tabEntries.Add(entry);
                 }
             }
@@ -208,6 +265,36 @@ namespace FACTOVA_MessageLogViewer
             };
 
             return tabItem;
+        }
+
+        /// <summary>
+        /// 로그 엔트리가 속한 그룹 및 태그 순번 찾기
+        /// </summary>
+        private (FLTagGroup? group, int tagOrder) FindMatchingGroupAndOrder(FLLogEntry entry, FLTabConfig tabConfig)
+        {
+            foreach (var group in tabConfig.TagGroups)
+            {
+                for (int i = 0; i < group.Tags.Count; i++)
+                {
+                    var tagItem = group.Tags[i];
+                    
+                    // 태그명 일치 확인
+                    if (entry.TagName.Contains(tagItem.TagName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        // 값 필터가 있으면 값도 확인
+                        if (!string.IsNullOrEmpty(tagItem.ValueFilter))
+                        {
+                            if (entry.Value.Equals(tagItem.ValueFilter, StringComparison.OrdinalIgnoreCase))
+                                return (group, i + 1); // 순번은 1부터 시작
+                        }
+                        else
+                        {
+                            return (group, i + 1); // 순번은 1부터 시작
+                        }
+                    }
+                }
+            }
+            return (null, 0);
         }
 
         /// <summary>
@@ -241,6 +328,8 @@ namespace FACTOVA_MessageLogViewer
             dataGrid.Columns.Add(CreateTextColumn("#", "RowNumber", 60, HorizontalAlignment.Center, "#666666", "Consolas"));
             dataGrid.Columns.Add(CreateTextColumn("시간대", "Hour", 50, HorizontalAlignment.Center, "#FF9800", null, FontWeights.Bold));
             dataGrid.Columns.Add(CreateTextColumn("시간", "TimeString", 100, HorizontalAlignment.Left, null, "Consolas"));
+            dataGrid.Columns.Add(CreateTextColumn("그룹", "TagGroupName", 100, HorizontalAlignment.Center, "#00897B", null, FontWeights.SemiBold)); // 청록색
+            dataGrid.Columns.Add(CreateTextColumn("순번", "TagOrder", 50, HorizontalAlignment.Center, "#9C27B0", "Consolas", FontWeights.Bold));
             dataGrid.Columns.Add(CreateTextColumn("태그명", "TagName", 300, HorizontalAlignment.Left, null, "Consolas"));
             dataGrid.Columns.Add(CreateTextColumn("태그설명", "TagDescription", 120, HorizontalAlignment.Left, "#7B1FA2"));
             dataGrid.Columns.Add(CreateTextColumn("타입", "DataType", 70, HorizontalAlignment.Center, "#666666"));
@@ -267,11 +356,35 @@ namespace FACTOVA_MessageLogViewer
             dataGrid.MouseDoubleClick += DataGrid_MouseDoubleClick;
             dataGrid.PreviewKeyDown += DataGrid_PreviewKeyDown;
 
-            // DataGrid Row 스타일 (배경색)
+            // DataGrid Row 스타일 (배경색 + 순서 오류 강조)
             var rowStyle = new Style(typeof(DataGridRow));
             rowStyle.Setters.Add(new Setter(DataGridRow.BackgroundProperty, new Binding("BackgroundBrush") { Mode = BindingMode.OneTime }));
             rowStyle.Setters.Add(new Setter(DataGridRow.MinHeightProperty, 26.0));
+            
+            // 순서 오류 표시: 배경색 + 좌측 굵은 테두리
+            var sequenceTrigger = new DataTrigger
+            {
+                Binding = new System.Windows.Data.Binding("IsSequenceValid"),
+                Value = false
+            };
+            sequenceTrigger.Setters.Add(new Setter(DataGridRow.BackgroundProperty, new SolidColorBrush(Color.FromRgb(255, 235, 235)))); // 연한 빨강
+            sequenceTrigger.Setters.Add(new Setter(DataGridRow.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(244, 67, 54)))); // 진한 빨강 테두리
+            sequenceTrigger.Setters.Add(new Setter(DataGridRow.BorderThicknessProperty, new Thickness(4, 0, 0, 0))); // 좌측 굵은 테두리
+            rowStyle.Triggers.Add(sequenceTrigger);
+            
             dataGrid.RowStyle = rowStyle;
+
+            // DataGrid Cell 스타일 (선택 시 배경색 더 밝게)
+            var cellStyle = new Style(typeof(DataGridCell));
+            
+            // 선택된 셀 배경색 (더 밝은 하늘색)
+            var selectedTrigger = new Trigger { Property = DataGridCell.IsSelectedProperty, Value = true };
+            selectedTrigger.Setters.Add(new Setter(DataGridCell.BackgroundProperty, new SolidColorBrush(Color.FromRgb(179, 229, 252)))); // 밝은 하늘색
+            selectedTrigger.Setters.Add(new Setter(DataGridCell.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0, 0, 0)))); // 검은색 텍스트
+            selectedTrigger.Setters.Add(new Setter(DataGridCell.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(100, 181, 246)))); // 테두리
+            cellStyle.Triggers.Add(selectedTrigger);
+            
+            dataGrid.CellStyle = cellStyle;
 
             return dataGrid;
         }
@@ -423,21 +536,27 @@ namespace FACTOVA_MessageLogViewer
             // 통합 탭이면 모두 표시
             if (tabConfig.IsIntegrated) return true;
 
-            // 조건 그룹이 없으면 표시 안함
-            if (tabConfig.ConditionGroups == null || tabConfig.ConditionGroups.Count == 0)
+            // TagItems가 없으면 표시 안함
+            if (tabConfig.TagItems == null || tabConfig.TagItems.Count == 0)
                 return false;
 
-            // 그룹 간 OR 조건
-            foreach (var group in tabConfig.ConditionGroups)
+            // TagItems 중 하나라도 매칭되면 표시
+            foreach (var tagItem in tabConfig.TagItems)
             {
-                if (group.TagNames == null || group.TagNames.Count == 0)
-                    continue;
-
-                // 그룹 내 AND 조건 - 태그명이 그룹의 태그 중 하나와 일치하면 됨
-                if (group.TagNames.Any(tagName => 
-                    entry.TagName.Contains(tagName, StringComparison.OrdinalIgnoreCase)))
+                // 태그명 일치 확인
+                if (entry.TagName.Contains(tagItem.TagName, StringComparison.OrdinalIgnoreCase))
                 {
-                    return true;
+                    // 값 필터가 있으면 값도 확인
+                    if (!string.IsNullOrEmpty(tagItem.ValueFilter))
+                    {
+                        if (entry.Value.Equals(tagItem.ValueFilter, StringComparison.OrdinalIgnoreCase))
+                            return true;
+                    }
+                    else
+                    {
+                        // 값 필터가 없으면 태그명만 일치하면 됨
+                        return true;
+                    }
                 }
             }
 
@@ -453,18 +572,77 @@ namespace FACTOVA_MessageLogViewer
 
             if (tabControlLogs.SelectedItem is TabItem tabItem)
             {
+                // 실제로 탭이 변경되었는지 확인
+                bool isTabActuallyChanged = (currentSelectedTab != tabItem);
+                
+                // 탭이 변경되지 않았으면 아무것도 하지 않음 (DataGrid 클릭 등)
+                if (!isTabActuallyChanged)
+                    return;
+
                 currentDataGrid = tabItem.Content as DataGrid;
-                if (tabLogViews.TryGetValue(tabItem.Tag?.ToString() ?? "", out var view))
+                currentSelectedTab = tabItem; // 현재 탭 저장
+                
+                // 현재 탭의 설정 가져오기
+                if (tabItem.Tag is FLTabConfig tabConfig)
                 {
-                    currentLogView = view;
+                    // 그룹 필터 콤보박스 업데이트
+                    UpdateGroupFilterComboBox(tabConfig);
+                    
+                    if (tabLogViews.TryGetValue(tabConfig.Name, out var view))
+                    {
+                        currentLogView = view;
+                    }
                 }
-                else if (tabItem.Tag is FLTabConfig config && tabLogViews.TryGetValue(config.Name, out view))
+                else if (tabLogViews.TryGetValue(tabItem.Tag?.ToString() ?? "", out var view))
                 {
                     currentLogView = view;
                 }
 
                 ApplyFilters();
                 UpdateStatus();
+            }
+        }
+
+        /// <summary>
+        /// 그룹 필터 콤보박스 업데이트
+        /// </summary>
+        private void UpdateGroupFilterComboBox(FLTabConfig tabConfig)
+        {
+            // 현재 선택된 그룹 값 저장
+            var currentSelection = (cboGroupFilter.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "전체";
+            
+            cboGroupFilter.Items.Clear();
+            cboGroupFilter.Items.Add(new ComboBoxItem { Content = "전체" });
+            
+            // 현재 탭의 그룹 목록 추출
+            var groups = tabConfig.TagGroups
+                .Select(g => g.GroupName)
+                .Distinct()
+                .OrderBy(g => g)
+                .ToList();
+            
+            int selectedIndex = 0; // 기본값: "전체"
+            
+            for (int i = 0; i < groups.Count; i++)
+            {
+                var item = new ComboBoxItem { Content = groups[i] };
+                cboGroupFilter.Items.Add(item);
+                
+                // 이전 선택 값과 일치하면 인덱스 저장
+                if (groups[i] == currentSelection)
+                {
+                    selectedIndex = i + 1; // +1은 "전체" 항목 때문
+                }
+            }
+            
+            // 이전 선택 상태 복원
+            if (selectedIndex < cboGroupFilter.Items.Count)
+            {
+                cboGroupFilter.SelectedIndex = selectedIndex;
+            }
+            else
+            {
+                cboGroupFilter.SelectedIndex = 0; // "전체" 선택
             }
         }
 
@@ -556,19 +734,29 @@ namespace FACTOVA_MessageLogViewer
                 allEntries = allEntries.OrderBy(e => e.Timestamp).ToList();
 
 
-                // 프리셋에서 태그 설명 적용
-                var tagDescriptions = FLPresetManager.GetTagDescriptions();
-
-                // 행 번호 부여 및 태그 설명 적용
+                // 행 번호 부여, 태그 설명 적용, 태그 순번/그룹 적용
                 for (int i = 0; i < allEntries.Count; i++)
                 {
                     allEntries[i].RowNumber = i + 1;
                     
-                    if (tagDescriptions.TryGetValue(allEntries[i].TagName, out var description))
+                    // 태그 설명 적용 (태그명만으로 매칭)
+                    var description = FLPresetManager.GetTagDescription(allEntries[i].TagName);
+                    if (!string.IsNullOrEmpty(description))
                     {
                         allEntries[i].TagDescription = description;
                     }
+
+                    // 태그 순번 및 그룹 적용 (태그명 + 값 매칭)
+                    var (order, groupName) = FLPresetManager.GetTagOrderAndGroup(allEntries[i].TagName, allEntries[i].Value);
+                    if (order > 0)
+                    {
+                        allEntries[i].TagOrder = order;
+                        allEntries[i].TagGroupName = groupName;
+                    }
                 }
+
+                // 스텝 순번 검증
+                ValidateStepOrder(allEntries);
 
                 UpdateLoadingStatus($"{allEntries.Count}개 로그 추가 중...");
 
@@ -599,6 +787,9 @@ namespace FACTOVA_MessageLogViewer
             var match = FileNamePattern.Match(fileName);
             string hour = match.Success ? match.Groups[3].Value : "";
 
+            // CSFCInterface 파일인지 확인
+            bool isCSFCFile = fileName.StartsWith("CSFCInterface", StringComparison.OrdinalIgnoreCase);
+
             // Structure 필드 패턴: [필드명] : 값
             var fieldPattern = new Regex(@"^\[([^\]]+)\]\s*:\s*(.*)$", RegexOptions.Compiled);
 
@@ -607,62 +798,156 @@ namespace FACTOVA_MessageLogViewer
                 var lines = File.ReadAllLines(filePath, Encoding.UTF8);
                 FLLogEntry? currentEntry = null;
                 var rawLineBuilder = new StringBuilder();
+                
+                // CSFC NAME-VALUE 쌍 추적용
+                string? pendingFieldName = null;
 
                 for (int i = 0; i < lines.Length; i++)
                 {
                     var line = lines[i];
                     
+                    
                     if (string.IsNullOrWhiteSpace(line)) continue;
 
-                    var logMatch = LogLinePattern.Match(line);
-                    if (logMatch.Success)
+                    // CSFCInterface 파일은 별도 패턴으로 처리
+                    if (isCSFCFile)
                     {
-                        // 이전 엔트리 저장
-                        if (currentEntry != null)
+                        var csfcMatch = CSFCLogLinePattern.Match(line);
+                        if (csfcMatch.Success)
                         {
-                            currentEntry.RawLine = rawLineBuilder.ToString();
-                            entries.Add(currentEntry);
+                            // 이전 엔트리 저장
+                            if (currentEntry != null)
+                            {
+                                currentEntry.RawLine = rawLineBuilder.ToString();
+                                // CSFC 엔트리의 경우 MSGID 추출
+                                ExtractMsgIdFromRawLine(currentEntry);
+                                entries.Add(currentEntry);
+                            }
+
+                            // 새 엔트리 시작 - pendingFieldName 초기화
+                            pendingFieldName = null;
+                            var direction = csfcMatch.Groups[4].Value; // MES->EQP 또는 EQP->MES
+                            var messageType = csfcMatch.Groups[5].Value; // DYNAMIC.EVENT.REQUEST
+                            var value = csfcMatch.Groups[6].Value.Trim();
+
+                            currentEntry = new FLLogEntry
+                            {
+                                SourceFile = fileName,
+                                Hour = hour,
+                                Level = csfcMatch.Groups[2].Value,
+                                ModuleName = csfcMatch.Groups[3].Value,
+                                TagName = $"{direction} {messageType}", // 기본 태그명 (나중에 MSGID 추가)
+                                DataType = "CSFC", // CSFC 타입으로 표시
+                                Value = value
+                            };
+
+                            rawLineBuilder.Clear();
+                            rawLineBuilder.AppendLine(line);
+
+                            // 타임스탬프 파싱
+                            if (DateTime.TryParse(csfcMatch.Groups[1].Value, out DateTime timestamp))
+                            {
+                                currentEntry.Timestamp = timestamp;
+                            }
+                            else
+                            {
+                                currentEntry.Timestamp = DateTime.MinValue;
+                            }
+
+
+                            continue;
                         }
-
-                        // 새 엔트리 시작
-                        currentEntry = new FLLogEntry
+                        else if (currentEntry != null)
                         {
-                            SourceFile = fileName,
-                            Hour = hour,
-                            Level = logMatch.Groups[2].Value,
-                            ModuleName = logMatch.Groups[3].Value,
-                            TagName = logMatch.Groups[4].Value,
-                            DataType = logMatch.Groups[5].Value,
-                            Value = logMatch.Groups[6].Value.Trim()
-                        };
-
-                        rawLineBuilder.Clear();
-                        rawLineBuilder.AppendLine(line);
-
-                        // 타임스탬프 파싱
-                        if (DateTime.TryParse(logMatch.Groups[1].Value, out DateTime timestamp))
-                        {
-                            currentEntry.Timestamp = timestamp;
-                        }
-                        else
-                        {
-                            currentEntry.Timestamp = DateTime.MinValue;
+                            // CSFC 멀티라인 데이터 처리
+                            rawLineBuilder.AppendLine(line);
+                            
+                            // <KEY=VALUE> 형태의 필드 추출
+                            var fieldMatches = CSFCFieldPattern.Matches(line);
+                            foreach (Match fm in fieldMatches)
+                            {
+                                var key = fm.Groups[1].Value.Trim();
+                                var val = fm.Groups[2].Value.Trim();
+                                
+                                if (key == "NAME")
+                                {
+                                    // NAME 발견 - 다음 VALUE를 기다림
+                                    pendingFieldName = val;
+                                }
+                                else if (key == "VALUE" && pendingFieldName != null)
+                                {
+                                    // VALUE 발견 - 이전 NAME과 매칭하여 저장
+                                    if (!currentEntry.Fields.ContainsKey(pendingFieldName))
+                                    {
+                                        currentEntry.Fields[pendingFieldName] = val;
+                                    }
+                                    pendingFieldName = null;
+                                }
+                                else if (key != "NAME" && key != "VALUE")
+                                {
+                                    // ELEMENT 영역의 필드는 직접 저장 (PROCID, MSGID 등)
+                                    if (!currentEntry.Fields.ContainsKey(key))
+                                    {
+                                        currentEntry.Fields[key] = val;
+                                    }
+                                }
+                            }
+                            continue;
                         }
                     }
-                    else if (currentEntry != null && currentEntry.IsStructure)
+                    else
                     {
-                        // Structure의 필드 라인 파싱
-                        rawLineBuilder.AppendLine(line);
-                        
-                        var fieldMatch = fieldPattern.Match(line.Trim());
-                        if (fieldMatch.Success)
+                        // 기존 F/L 로그 패턴 처리
+                        var logMatch = LogLinePattern.Match(line);
+                        if (logMatch.Success)
                         {
-                            var fieldName = fieldMatch.Groups[1].Value.Trim();
-                            var fieldValue = fieldMatch.Groups[2].Value.Trim();
-                            
-                            if (!currentEntry.Fields.ContainsKey(fieldName))
+                            // 이전 엔트리 저장
+                            if (currentEntry != null)
                             {
-                                currentEntry.Fields[fieldName] = fieldValue;
+                                currentEntry.RawLine = rawLineBuilder.ToString();
+                                entries.Add(currentEntry);
+                            }
+
+                            // 새 엔트리 시작
+                            currentEntry = new FLLogEntry
+                            {
+                                SourceFile = fileName,
+                                Hour = hour,
+                                Level = logMatch.Groups[2].Value,
+                                ModuleName = logMatch.Groups[3].Value,
+                                TagName = logMatch.Groups[4].Value,
+                                DataType = logMatch.Groups[5].Value,
+                                Value = logMatch.Groups[6].Value.Trim()
+                            };
+
+                            rawLineBuilder.Clear();
+                            rawLineBuilder.AppendLine(line);
+
+                            // 타임스탬프 파싱
+                            if (DateTime.TryParse(logMatch.Groups[1].Value, out DateTime timestamp))
+                            {
+                                currentEntry.Timestamp = timestamp;
+                            }
+                            else
+                            {
+                                currentEntry.Timestamp = DateTime.MinValue;
+                            }
+                        }
+                        else if (currentEntry != null && currentEntry.IsStructure)
+                        {
+                            // Structure의 필드 라인 파싱
+                            rawLineBuilder.AppendLine(line);
+                            
+                            var fieldMatch = fieldPattern.Match(line.Trim());
+                            if (fieldMatch.Success)
+                            {
+                                var fieldName = fieldMatch.Groups[1].Value.Trim();
+                                var fieldValue = fieldMatch.Groups[2].Value.Trim();
+                                
+                                if (!currentEntry.Fields.ContainsKey(fieldName))
+                                {
+                                    currentEntry.Fields[fieldName] = fieldValue;
+                                }
                             }
                         }
                     }
@@ -672,6 +957,11 @@ namespace FACTOVA_MessageLogViewer
                 if (currentEntry != null)
                 {
                     currentEntry.RawLine = rawLineBuilder.ToString();
+                    // CSFC 엔트리의 경우 MSGID 추출
+                    if (isCSFCFile)
+                    {
+                        ExtractMsgIdFromRawLine(currentEntry);
+                    }
                     entries.Add(currentEntry);
                 }
             }
@@ -681,6 +971,27 @@ namespace FACTOVA_MessageLogViewer
             }
 
             return entries;
+        }
+
+        /// <summary>
+        /// CSFC 로그에서 MSGID를 추출하여 태그명에 추가
+        /// </summary>
+        private void ExtractMsgIdFromRawLine(FLLogEntry entry)
+        {
+            if (string.IsNullOrEmpty(entry.RawLine)) return;
+
+            var msgIdMatch = MsgIdPattern.Match(entry.RawLine);
+            if (msgIdMatch.Success)
+            {
+                var msgId = msgIdMatch.Groups[1].Value;
+                entry.TagName = $"{entry.TagName} MSGID:{msgId}";
+                
+                // MSGID도 Fields에 추가
+                if (!entry.Fields.ContainsKey("MSGID"))
+                {
+                    entry.Fields["MSGID"] = msgId;
+                }
+            }
         }
 
         #region 필터링
@@ -693,6 +1004,8 @@ namespace FACTOVA_MessageLogViewer
             var typeFilter = (cboTypeFilter.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "전체";
             var valueFilter = (cboValueFilter.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "전체";
             var hourFilter = (cboHourFilter.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "전체";
+            var groupFilter = (cboGroupFilter.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "전체";
+            bool showOnlyErrors = chkShowSequenceErrors?.IsChecked == true;
 
             // 태그 필터 - 선택된 것이 없거나 전체 선택이면 필터 미적용
             bool applyTagFilter = selectedTagNames.Count > 0 && selectedTagNames.Count < discoveredTagNames.Count;
@@ -703,6 +1016,17 @@ namespace FACTOVA_MessageLogViewer
 
                 // 태그 필터
                 if (applyTagFilter && !selectedTagNames.Contains(entry.TagName))
+                    return false;
+
+                // 그룹 필터
+                if (!groupFilter.StartsWith("전체"))
+                {
+                    if (string.IsNullOrEmpty(entry.TagGroupName) || entry.TagGroupName != groupFilter)
+                        return false;
+                }
+
+                // 순서 오류 필터
+                if (showOnlyErrors && entry.IsSequenceValid)
                     return false;
 
                 // 타입 필터
@@ -769,6 +1093,60 @@ namespace FACTOVA_MessageLogViewer
             return false;
         }
 
+        /// <summary>
+        /// 스텝 순번 검증 (그룹별로 독립적인 1->2->3->4->1 형태 체크)
+        /// </summary>
+        private void ValidateStepOrder(List<FLLogEntry> entries)
+        {
+            if (entries.Count == 0) return;
+
+            // 태그 순번이 설정된 엔트리만 검증
+            var orderedEntries = entries.Where(e => e.TagOrder > 0).ToList();
+            if (orderedEntries.Count == 0) return;
+
+            // 그룹별로 나눠서 검증
+            var groups = orderedEntries.GroupBy(e => string.IsNullOrEmpty(e.TagGroupName) ? "" : e.TagGroupName).ToList();
+
+            System.Diagnostics.Debug.WriteLine($"🔍 순번 검증 시작: {groups.Count}개 그룹, {orderedEntries.Count}개 엔트리");
+
+            foreach (var group in groups)
+            {
+                var groupName = string.IsNullOrEmpty(group.Key) ? "기본" : group.Key;
+                var groupEntries = group.ToList();
+                
+                System.Diagnostics.Debug.WriteLine($"   그룹 '{groupName}': {groupEntries.Count}개 엔트리");
+
+                // 그룹 내 최대 순번 찾기 (순환 체크를 위해)
+                int maxOrder = groupEntries.Max(e => e.TagOrder);
+
+                for (int i = 0; i < groupEntries.Count; i++)
+                {
+                    var current = groupEntries[i];
+
+                    // 같은 그룹의 이전 엔트리 찾기
+                    if (i > 0)
+                    {
+                        var previous = groupEntries[i - 1];
+                        current.PreviousTagOrder = previous.TagOrder;
+
+                        // 순번 검증
+                        // 정상: current = previous + 1 또는 current = 1 (순환)
+                        int expectedOrder = previous.TagOrder + 1;
+                        if (expectedOrder > maxOrder)
+                        {
+                            expectedOrder = 1; // 순환
+                        }
+
+                        if (current.TagOrder != expectedOrder)
+                        {
+                            current.IsStepOrderValid = false;
+                            System.Diagnostics.Debug.WriteLine($"      ❌ 순번 오류: #{current.RowNumber} [{groupName}] {current.TagName} (기대: {expectedOrder}, 실제: {current.TagOrder})");
+                        }
+                    }
+                }
+            }
+        }
+
         private void TxtSearch_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
@@ -803,6 +1181,18 @@ namespace FACTOVA_MessageLogViewer
 
 
         private void CboHourFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isInitialized)
+                ApplyFilters();
+        }
+
+        private void CboGroupFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isInitialized)
+                ApplyFilters();
+        }
+
+        private void ChkShowSequenceErrors_Changed(object sender, RoutedEventArgs e)
         {
             if (isInitialized)
                 ApplyFilters();
@@ -1636,9 +2026,6 @@ namespace FACTOVA_MessageLogViewer
 
                         var newEntries = await Task.Run(() => ParseFLLogFile(file));
                         
-                        // 프리셋에서 태그 설명 적용
-                        var tagDescriptions = FLPresetManager.GetTagDescriptions();
-                        
                         foreach (var entry in newEntries)
                         {
                             // 중복 체크 (같은 시간, 같은 태그)
@@ -1646,9 +2033,41 @@ namespace FACTOVA_MessageLogViewer
                                 continue;
 
                             entry.RowNumber = logEntries.Count + 1;
-                            if (tagDescriptions.TryGetValue(entry.TagName, out var desc))
+                            
+                            // 태그 설명 적용 (태그명만으로 매칭)
+                            var description = FLPresetManager.GetTagDescription(entry.TagName);
+                            if (!string.IsNullOrEmpty(description))
                             {
-                                entry.TagDescription = desc;
+                                entry.TagDescription = description;
+                            }
+                            
+                            // 태그 순번 적용 (태그명 + 값 매칭)
+                            var order = FLPresetManager.GetTagOrder(entry.TagName, entry.Value);
+                            if (order > 0)
+                            {
+                                entry.TagOrder = order;
+                            }
+
+                            // 이전 엔트리와 순번 검증
+                            var previousOrderedEntry = logEntries.LastOrDefault(e => e.TagOrder > 0);
+                            if (previousOrderedEntry != null && entry.TagOrder > 0)
+                            {
+                                entry.PreviousTagOrder = previousOrderedEntry.TagOrder;
+                                
+                                // 최대 순번 계산
+                                var maxOrder = logEntries.Where(e => e.TagOrder > 0).Max(e => e.TagOrder);
+                                if (entry.TagOrder > maxOrder) maxOrder = entry.TagOrder;
+
+                                int expectedOrder = previousOrderedEntry.TagOrder + 1;
+                                if (expectedOrder > maxOrder)
+                                {
+                                    expectedOrder = 1; // 순환
+                                }
+
+                                if (entry.TagOrder != expectedOrder)
+                                {
+                                    entry.IsStepOrderValid = false;
+                                }
                             }
 
                             logEntries.Add(entry);
