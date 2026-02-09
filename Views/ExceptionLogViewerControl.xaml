@@ -166,21 +166,29 @@
             <Style TargetType="DataGridColumnHeader">
                 <Setter Property="FontSize" Value="13"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
-                <Setter Property="Background" Value="#F0F0F0"/>
-                <Setter Property="Foreground" Value="#3C3C3C"/>
+                <Setter Property="Background" Value="#FFEBEE"/>
+                <Setter Property="Foreground" Value="#C62828"/>
                 <Setter Property="Padding" Value="8"/>
-                <Setter Property="BorderBrush" Value="#DCDCDC"/>
+                <Setter Property="BorderBrush" Value="#FFCDD2"/>
                 <Setter Property="BorderThickness" Value="0,0,1,1"/>
                 <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            </Style>
-            <Style TargetType="DataGridRow">
-                <Setter Property="MinHeight" Value="28"/>
             </Style>
             <Style TargetType="DataGridCell">
                 <Setter Property="Padding" Value="10,4"/>
                 <Setter Property="BorderThickness" Value="0"/>
                 <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
                 <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Style.Triggers>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="#FFCDD2"/>
+                        <Setter Property="Foreground" Value="Black"/>
+                        <Setter Property="BorderBrush" Value="#EF9A9A"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+            <Style TargetType="DataGridRow">
+                <Setter Property="MinHeight" Value="28"/>
+                <Setter Property="Background" Value="{Binding BackgroundBrush, Mode=OneTime}"/>
             </Style>
         </DataGrid.Resources>
         <DataGrid.HorizontalGridLinesBrush>
@@ -190,12 +198,63 @@
             <SolidColorBrush Color="#E6E6E6"/>
         </DataGrid.VerticalGridLinesBrush>
         <DataGrid.Columns>
-            <DataGridTextColumn Header="No" Binding="{Binding RowNumber}" Width="50"/>
-            <DataGridTextColumn Header="시간" Binding="{Binding TimeString}" Width="90"/>
-            <DataGridTextColumn Header="예외 타입" Binding="{Binding ExceptionType}" Width="200"/>
-            <DataGridTextColumn Header="메시지" Binding="{Binding Message}" Width="400"/>
-            <DataGridTextColumn Header="소스" Binding="{Binding Source}" Width="150"/>
-            <DataGridTextColumn Header="상세" Binding="{Binding Summary}" Width="*"/>
+            <DataGridTextColumn Header="#" Binding="{Binding RowNumber, Mode=OneTime}" Width="55">
+                <DataGridTextColumn.ElementStyle>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                        <Setter Property="Foreground" Value="#666666"/>
+                        <Setter Property="FontFamily" Value="Consolas"/>
+                    </Style>
+                </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
+            <DataGridTextColumn Header="시간" Binding="{Binding TimeString, Mode=OneTime}" Width="95">
+                <DataGridTextColumn.ElementStyle>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                        <Setter Property="FontFamily" Value="Consolas"/>
+                    </Style>
+                </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
+            <DataGridTextColumn Header="예외 타입" Binding="{Binding ExceptionType, Mode=OneTime}" Width="80">
+                <DataGridTextColumn.ElementStyle>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                        <Setter Property="Foreground" Value="#D32F2F"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                    </Style>
+                </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
+            <DataGridTextColumn Header="비즈명" Binding="{Binding BizName, Mode=OneTime}" Width="250">
+                <DataGridTextColumn.ElementStyle>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                        <Setter Property="Foreground" Value="#1976D2"/>
+                        <Setter Property="FontFamily" Value="Consolas"/>
+                    </Style>
+                </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
+            <DataGridTextColumn Header="파라미터" Binding="{Binding ParameterString, Mode=OneTime}" Width="400">
+                <DataGridTextColumn.ElementStyle>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                        <Setter Property="Foreground" Value="#00796B"/>
+                        <Setter Property="FontFamily" Value="Consolas"/>
+                        <Setter Property="FontSize" Value="10"/>
+                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                    </Style>
+                </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
+            <DataGridTextColumn Header="메시지" Binding="{Binding Message, Mode=OneTime}" Width="*">
+                <DataGridTextColumn.ElementStyle>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                        <Setter Property="Foreground" Value="#C62828"/>
+                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                    </Style>
+                </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
         </DataGrid.Columns>
     </DataGrid>
 

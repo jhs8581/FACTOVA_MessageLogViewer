@@ -172,6 +172,16 @@ namespace FACTOVA_MessageLogViewer.Views
             return entries;
         }
 
+        // 비즈명 추출 패턴: [BR_SFC_xxx] 또는 ExecuteServiceSync():[BR_SFC_xxx]
+        private static readonly Regex BizNamePattern = new Regex(
+            @"\[?(BR_[A-Za-z0-9_]+)\]?",
+            RegexOptions.Compiled);
+
+        // XML 태그 값 추출 패턴: <TAG>VALUE</TAG>
+        private static readonly Regex XmlTagPattern = new Regex(
+            @"<([A-Za-z_][A-Za-z0-9_]*)>([^<]*)</\1>",
+            RegexOptions.Compiled);
+
         private ExceptionLogEntry? ParseSingleExceptionEntry(string entryText, Match headerMatch)
         {
             try
@@ -185,52 +195,97 @@ namespace FACTOVA_MessageLogViewer.Views
                     System.Globalization.CultureInfo.InvariantCulture, 
                     System.Globalization.DateTimeStyles.None, out var timestamp);
 
-                // 예외 타입 추출 (예: System.NullReferenceException:)
-                var exceptionTypeMatch = Regex.Match(entryText, @"([A-Za-z\.]+Exception):");
-                string exceptionType = exceptionTypeMatch.Success ? exceptionTypeMatch.Groups[1].Value : "Exception";
-
-                // 메시지 추출 (예외 타입 다음 줄)
-                string message = "";
-                var lines = entryText.Split('\n');
-                if (lines.Length > 0)
+                // 예외 타입 추출 - 간단하게 "Exception"으로 표시
+                string exceptionType = "Exception";
+                
+                // 비즈명 추출 (BR_SFC_xxx 패턴)
+                string bizName = "";
+                var bizMatch = BizNamePattern.Match(entryText);
+                if (bizMatch.Success)
                 {
-                    // 첫 줄에서 예외 타입 이후의 메시지 추출
-                    var firstLine = lines[0];
-                    var colonIndex = firstLine.IndexOf(':');
-                    if (colonIndex > 0 && colonIndex < firstLine.Length - 1)
+                    bizName = bizMatch.Groups[1].Value;
+                }
+
+                // XML 데이터 파싱 (<NewDataSet> ~ </NewDataSet>)
+                var fields = new Dictionary<string, string>();
+                string message = "";
+                
+                int newDataSetStart = entryText.IndexOf("<NewDataSet>", StringComparison.OrdinalIgnoreCase);
+                int newDataSetEnd = entryText.IndexOf("</NewDataSet>", StringComparison.OrdinalIgnoreCase);
+                
+                if (newDataSetStart >= 0 && newDataSetEnd > newDataSetStart)
+                {
+                    // XML 영역 추출
+                    string xmlSection = entryText.Substring(newDataSetStart, newDataSetEnd - newDataSetStart + "</NewDataSet>".Length);
+                    
+                    // XML 태그에서 필드 추출
+                    var tagMatches = XmlTagPattern.Matches(xmlSection);
+                    foreach (Match tm in tagMatches)
                     {
-                        // 두 번째 콜론 이후가 메시지
-                        var afterType = firstLine.Substring(colonIndex + 1);
-                        var secondColon = afterType.IndexOf(':');
-                        if (secondColon > 0)
+                        string tagName = tm.Groups[1].Value;
+                        string tagValue = tm.Groups[2].Value.Trim();
+                        
+                        // 컨테이너 태그 제외 (IN_DATA, OUT_DATA 등)
+                        if (!string.IsNullOrEmpty(tagValue) && 
+                            !tagName.EndsWith("_DATA") && 
+                            !tagName.Equals("NewDataSet", StringComparison.OrdinalIgnoreCase))
                         {
-                            message = afterType.Substring(secondColon + 1).Trim();
+                            if (!fields.ContainsKey(tagName))
+                            {
+                                fields[tagName] = tagValue;
+                            }
                         }
-                        else
-                        {
-                            message = afterType.Trim();
-                        }
+                    }
+                    
+                    // 메시지: </NewDataSet> 이후 내용에서 에러 메시지 추출
+                    string afterXml = entryText.Substring(newDataSetEnd + "</NewDataSet>".Length).Trim();
+                    
+                    // 첫 줄에서 에러 메시지 추출 (: 이후, 위치: 이전)
+                    var errorLines = afterXml.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (errorLines.Length > 0)
+                    {
+                        message = errorLines[0].Trim();
+                        // 앞의 콜론 제거
+                        if (message.StartsWith(":"))
+                            message = message.Substring(1).Trim();
+                    }
+                }
+                else
+                {
+                    // XML이 없는 경우 - 첫 줄에서 타임스탬프 이후 전체
+                    var lines = entryText.Split('\n');
+                    if (lines.Length > 0)
+                    {
+                        var firstLine = lines[0].Trim();
+                        var afterTimestamp = ExceptionLogStartPattern.Replace(firstLine, "").Trim();
+                        message = afterTimestamp;
                     }
                 }
 
-                // 소스 추출 (at 이후의 첫 번째 줄)
+                // 소스 추출 (위치: 이후의 첫 번째 줄)
                 string source = "";
-                var atMatch = Regex.Match(entryText, @"at\s+([^\r\n]+)");
+                var atMatch = Regex.Match(entryText, @"위치:\s*([^\r\n]+)");
+                if (!atMatch.Success)
+                {
+                    atMatch = Regex.Match(entryText, @"at\s+([^\r\n]+)");
+                }
                 if (atMatch.Success)
                 {
                     source = atMatch.Groups[1].Value.Trim();
-                    if (source.Length > 50)
-                        source = "..." + source.Substring(source.Length - 50);
+                    if (source.Length > 80)
+                        source = "..." + source.Substring(source.Length - 80);
                 }
 
                 return new ExceptionLogEntry
                 {
                     Timestamp = timestamp,
                     ExceptionType = exceptionType,
+                    BizName = bizName,
                     Message = message,
                     Source = source,
                     StackTrace = entryText,
-                    RawData = entryText.Trim()
+                    RawData = entryText.Trim(),
+                    Fields = fields
                 };
             }
             catch { return null; }

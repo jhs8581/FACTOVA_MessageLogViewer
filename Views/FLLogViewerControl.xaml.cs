@@ -508,7 +508,7 @@ namespace FACTOVA_MessageLogViewer.Views
         {
             var column = new DataGridTextColumn
             {
-                Header = header,
+                Header = header.Replace("_", "__"), // WPF AccessKey 문제 해결
                 Binding = new Binding(binding) { Mode = BindingMode.OneTime },
                 Width = width > 0 ? new DataGridLength(width) : DataGridLength.Auto
             };
