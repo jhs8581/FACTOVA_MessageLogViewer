@@ -1,4 +1,5 @@
-﻿using FACTOVA_MessageLogViewer.Models;
+﻿using FACTOVA_MessageLogViewer.Helpers;
+using FACTOVA_MessageLogViewer.Models;
 using FACTOVA_MessageLogViewer.Popup;
 using System;
 using System.Collections.ObjectModel;
@@ -490,28 +491,7 @@ namespace FACTOVA_MessageLogViewer.Views
         private bool MatchesComplexSearch(ExceptionLogEntry entry, string searchText)
         {
             string searchTarget = $"{entry.ExceptionType} {entry.Message} {entry.Source} {entry.StackTrace}";
-
-            var orConditions = searchText.Split(',', StringSplitOptions.RemoveEmptyEntries);
-
-            foreach (var orCondition in orConditions)
-            {
-                var andConditions = orCondition.Trim().Split('+', StringSplitOptions.RemoveEmptyEntries);
-
-                bool allMatch = true;
-                foreach (var andCondition in andConditions)
-                {
-                    if (!searchTarget.Contains(andCondition.Trim(), StringComparison.OrdinalIgnoreCase))
-                    {
-                        allMatch = false;
-                        break;
-                    }
-                }
-
-                if (allMatch)
-                    return true;
-            }
-
-            return false;
+            return SearchHelper.MatchesComplexSearch(searchText, searchTarget);
         }
 
         private void DataGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)

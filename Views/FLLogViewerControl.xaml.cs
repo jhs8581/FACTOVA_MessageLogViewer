@@ -1078,8 +1078,7 @@ namespace FACTOVA_MessageLogViewer.Views
                                  entry.ModuleName.Contains(t, StringComparison.OrdinalIgnoreCase) ||
                                  entry.Level.Contains(t, StringComparison.OrdinalIgnoreCase) ||
                                  entry.DataType.Contains(t, StringComparison.OrdinalIgnoreCase) ||
-                                 entry.Fields.Any(f => f.Key.Contains(t, StringComparison.OrdinalIgnoreCase) ||
-                                                       f.Value.Contains(t, StringComparison.OrdinalIgnoreCase));
+                                 Helpers.SearchHelper.MatchesSingleTermInFields(t, entry.Fields, FLPresetManager.GetFieldConfig);
 
                     if (!match)
                     {

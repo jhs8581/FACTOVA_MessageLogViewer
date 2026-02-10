@@ -1,4 +1,5 @@
 ﻿using FACTOVA_MessageLogViewer.Converters;
+using FACTOVA_MessageLogViewer.Helpers;
 using FACTOVA_MessageLogViewer.Models;
 using FACTOVA_MessageLogViewer.Popup;
 using System;
@@ -1381,73 +1382,50 @@ namespace FACTOVA_MessageLogViewer.Views
         /// </summary>
         private bool MatchesComplexSearch(DataLogEntry entry, string searchText)
         {
-            // 전체 검색 대상 텍스트 생성 (기본 필드)
-            var searchTargetBuilder = new StringBuilder();
-            searchTargetBuilder.Append($"{entry.BizName} {entry.TxnId} {entry.ParameterXml} {entry.ExecTime}");
+            // 검색 대상 문자열 생성 (SearchHelper 사용)
+            var searchTarget = SearchHelper.BuildSearchTargetWithMapping(
+                entry,
+                e => $"{e.BizName} {e.TxnId} {e.ParameterXml} {e.ExecTime}",
+                e => GetFieldMappingsForSearch(e));
 
-            // ValueMapping이 적용된 필드들의 변환된 값도 검색 대상에 추가
+            return SearchHelper.MatchesComplexSearch(searchText, searchTarget);
+        }
+
+        /// <summary>
+        /// 검색용 필드 매핑 정보 추출
+        /// </summary>
+        private IEnumerable<(string fieldName, string? value, string? valueMapping)> GetFieldMappingsForSearch(DataLogEntry entry)
+        {
             var dataSettings = UnifiedPresetManager.CurrentPreset?.DataSettings;
-            if (dataSettings?.ColumnFields != null)
+            if (dataSettings?.ColumnFields == null)
+                yield break;
+
+            foreach (var field in dataSettings.ColumnFields.Where(f => f.IsEnabled && !string.IsNullOrEmpty(f.ValueMapping)))
             {
-                foreach (var field in dataSettings.ColumnFields.Where(f => f.IsEnabled && !string.IsNullOrEmpty(f.ValueMapping)))
+                string? originalValue = null;
+                
+                if (field.IsParameter && entry.Fields.TryGetValue(field.FieldName, out var paramValue))
                 {
-                    string? originalValue = null;
-                    
-                    if (field.IsParameter && entry.Fields.TryGetValue(field.FieldName, out var paramValue))
+                    originalValue = paramValue;
+                }
+                else if (!field.IsParameter)
+                {
+                    originalValue = field.FieldName switch
                     {
-                        originalValue = paramValue;
-                    }
-                    else if (!field.IsParameter)
-                    {
-                        // 기본 필드의 경우
-                        originalValue = field.FieldName switch
-                        {
-                            "BizName" => entry.BizName,
-                            "TxnId" => entry.TxnId,
-                            "ExecTime" => entry.ExecTime,
-                            "ClientId" => entry.ClientId,
-                            "ClientIp" => entry.ClientIp,
-                            _ => null
-                        };
-                    }
-                    
-                    if (!string.IsNullOrEmpty(originalValue))
-                    {
-                        var displayValue = ValueMappingConverter.ConvertValue(originalValue, field.ValueMapping);
-                        if (displayValue != originalValue)
-                        {
-                            searchTargetBuilder.Append($" {displayValue}");
-                        }
-                    }
+                        "BizName" => entry.BizName,
+                        "TxnId" => entry.TxnId,
+                        "ExecTime" => entry.ExecTime,
+                        "ClientId" => entry.ClientId,
+                        "ClientIp" => entry.ClientIp,
+                        _ => null
+                    };
+                }
+                
+                if (!string.IsNullOrEmpty(originalValue))
+                {
+                    yield return (field.FieldName, originalValue, field.ValueMapping);
                 }
             }
-
-            string searchTarget = searchTargetBuilder.ToString();
-
-            // 쉼표로 분리 (OR 조건)
-            var orConditions = searchText.Split(',', StringSplitOptions.RemoveEmptyEntries);
-
-            foreach (var orCondition in orConditions)
-            {
-                // 플러스로 분리 (AND 조건)
-                var andConditions = orCondition.Trim().Split('+', StringSplitOptions.RemoveEmptyEntries);
-
-                bool allMatch = true;
-                foreach (var andCondition in andConditions)
-                {
-                    if (!searchTarget.Contains(andCondition.Trim(), StringComparison.OrdinalIgnoreCase))
-                    {
-                        allMatch = false;
-                        break;
-                    }
-                }
-
-                // 하나의 OR 조건이라도 만족하면 true
-                if (allMatch)
-                    return true;
-            }
-
-            return false;
         }
 
         #endregion
