@@ -287,22 +287,29 @@ Icon="pack://application:,,,/Icons/free-icon-search-10725247.ico">
                                                       Margin="0,0,8,0"
                                                       Checked="TabEnabled_Changed"
                                                       Unchecked="TabEnabled_Changed"/>
-                                            <StackPanel Grid.Column="1">
-                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                            <StackPanel Grid.Column="1" HorizontalAlignment="Left">
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" HorizontalAlignment="Left"/>
                                                 <TextBlock Text="{Binding ConditionSummary}"
                                                            FontSize="10" Foreground="#888"
-                                                           TextTrimming="CharacterEllipsis"/>
+                                                           TextTrimming="CharacterEllipsis"
+                                                           HorizontalAlignment="Left"/>
                                             </StackPanel>
                                         </Grid>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
 
-                            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10">
-                                <Button Content="+ 추가" Width="60" Height="28" Click="BtnAddTab_Click" Margin="0,0,5,0"/>
-                                <Button Content="삭제" Width="60" Height="28" Click="BtnRemoveTab_Click" Margin="0,0,5,0"/>
-                                <Button Content="▲" Width="30" Height="28" Click="BtnTabMoveUp_Click"/>
-                                <Button Content="▼" Width="30" Height="28" Click="BtnTabMoveDown_Click"/>
+                            <StackPanel Grid.Row="2" Margin="10">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <Button Content="+ 추가" Width="60" Height="28" Click="BtnAddTab_Click" Margin="0,0,5,0"/>
+                                    <Button Content="삭제" Width="60" Height="28" Click="BtnRemoveTab_Click" Margin="0,0,5,0"/>
+                                    <Button Content="▲" Width="30" Height="28" Click="BtnTabMoveUp_Click"/>
+                                    <Button Content="▼" Width="30" Height="28" Click="BtnTabMoveDown_Click"/>
+                                </StackPanel>
+                                <Button Content="🔍 패턴 자동 분석" Height="30" 
+                                        Click="BtnAutoAnalyzePattern_Click"
+                                        Background="#4CAF50" Foreground="White" FontWeight="Bold"
+                                        ToolTip="현재 로드된 로그에서 태그 패턴을 분석하여 자동으로 탭/그룹을 설정합니다"/>
                             </StackPanel>
                         </Grid>
                     </Border>

@@ -192,28 +192,27 @@ namespace FACTOVA_MessageLogViewer.Models
         /// <summary>
         /// 행 배경색 (순번 오류 시 빨간색, I_=송신 연파란색, O_=수신 연녹색)
         /// </summary>
-        private System.Windows.Media.Brush? _cachedBackgroundBrush = null;
         public System.Windows.Media.Brush BackgroundBrush
         {
             get
             {
-                if (_cachedBackgroundBrush != null)
-                    return _cachedBackgroundBrush;
+                System.Windows.Media.Brush brush;
 
                 // 스텝 순번이 잘못된 경우 빨간색 하이라이트
+                // 주의: IsSequenceValid는 탭 간에 공유되므로 사용하지 않음
                 if (!IsStepOrderValid)
                 {
-                    _cachedBackgroundBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 200, 200)); // 연빨간색
+                    brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 200, 200)); // 연빨간색
                 }
                 else if (IsSend)
-                    _cachedBackgroundBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(230, 240, 255)); // 송신: 연파란색
+                    brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(230, 240, 255)); // 송신: 연파란색
                 else if (IsRecv)
-                    _cachedBackgroundBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(230, 255, 230)); // 수신: 연녹색
+                    brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(230, 255, 230)); // 수신: 연녹색
                 else
-                    _cachedBackgroundBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 255, 255)); // 기타: 흰색
+                    brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 255, 255)); // 기타: 흰색
 
-                _cachedBackgroundBrush.Freeze();
-                return _cachedBackgroundBrush;
+                brush.Freeze();
+                return brush;
             }
         }
 

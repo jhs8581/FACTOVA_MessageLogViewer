@@ -173,34 +173,27 @@ namespace FACTOVA_MessageLogViewer
             
             System.Diagnostics.Debug.WriteLine($"🎨 ApplySelectedPreset 시작: {presetName}");
             
-            if (presetName == "Default")
+            // 모든 프리셋을 파일에서 로드 (Default 포함)
+            var preset = UnifiedPresetManager.LoadPreset(presetName);
+            if (preset != null)
             {
-                // 기본 프리셋 사용
-                UnifiedPresetManager.CurrentPreset = UnifiedPreset.CreateDefault();
+                UnifiedPresetManager.CurrentPreset = preset;
+                System.Diagnostics.Debug.WriteLine($"✅ 프리셋 로드 성공: {presetName}");
+                System.Diagnostics.Debug.WriteLine($"   - EventSettings: {(preset.EventSettings != null ? "있음" : "없음")}");
+                System.Diagnostics.Debug.WriteLine($"   - DataSettings: {(preset.DataSettings != null ? "있음" : "없음")}");
+                System.Diagnostics.Debug.WriteLine($"   - FLSettings: {(preset.FLSettings != null ? "있음" : "없음")}");
+                if (preset.FLSettings != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"   - FLSettings 탭: {preset.FLSettings.TabSettings?.Tabs?.Count ?? 0}개");
+                    System.Diagnostics.Debug.WriteLine($"   - FLSettings 태그: {preset.FLSettings.TagConfigs?.Count ?? 0}개");
+                    System.Diagnostics.Debug.WriteLine($"   - FLSettings 필드: {preset.FLSettings.FieldConfigs?.Count ?? 0}개");
+                }
             }
             else
             {
-                // 저장된 프리셋 로드
-                var preset = UnifiedPresetManager.LoadPreset(presetName);
-                if (preset != null)
-                {
-                    UnifiedPresetManager.CurrentPreset = preset;
-                    System.Diagnostics.Debug.WriteLine($"✅ 프리셋 로드 성공: {presetName}");
-                    System.Diagnostics.Debug.WriteLine($"   - EventSettings: {(preset.EventSettings != null ? "있음" : "없음")}");
-                    System.Diagnostics.Debug.WriteLine($"   - DataSettings: {(preset.DataSettings != null ? "있음" : "없음")}");
-                    System.Diagnostics.Debug.WriteLine($"   - FLSettings: {(preset.FLSettings != null ? "있음" : "없음")}");
-                    if (preset.FLSettings != null)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"   - FLSettings 탭: {preset.FLSettings.TabSettings?.Tabs?.Count ?? 0}개");
-                        System.Diagnostics.Debug.WriteLine($"   - FLSettings 태그: {preset.FLSettings.TagConfigs?.Count ?? 0}개");
-                        System.Diagnostics.Debug.WriteLine($"   - FLSettings 필드: {preset.FLSettings.FieldConfigs?.Count ?? 0}개");
-                    }
-                }
-                else
-                {
-                    UnifiedPresetManager.CurrentPreset = UnifiedPreset.CreateDefault();
-                    System.Diagnostics.Debug.WriteLine($"⚠️ 프리셋 로드 실패, 기본 프리셋 사용: {presetName}");
-                }
+                // 프리셋 파일이 없으면 기본 프리셋 생성
+                UnifiedPresetManager.CurrentPreset = UnifiedPreset.CreateDefault();
+                System.Diagnostics.Debug.WriteLine($"⚠️ 프리셋 로드 실패, 기본 프리셋 사용: {presetName}");
             }
 
             System.Diagnostics.Debug.WriteLine($"🎨 프리셋 적용: {presetName}");
@@ -302,15 +295,11 @@ namespace FACTOVA_MessageLogViewer
                 settingsWindow.GetCurrentLogEntries = () => flLogViewer.GetLogEntries();
                 if (settingsWindow.ShowDialog() == true)
                 {
-                    // 프리셋 목록 갱신
-                    logSettings.LoadPresetList();
+                    // F/L 뷰어 탭 재생성 (프리셋 적용 반영)
+                    // 주의: LoadPresetList()나 SelectPreset() 호출하면 F/L 로그가 다시 로드되면서 탭이 리셋됨
+                    flLogViewer.RefreshTabs();
                     
-                    // 적용된 프리셋 선택
-                    var appliedPresetName = AppSettingsManager.Settings.CurrentPresetName;
-                    if (!string.IsNullOrEmpty(appliedPresetName))
-                    {
-                        logSettings.SelectPreset(appliedPresetName);
-                    }
+                    System.Diagnostics.Debug.WriteLine($"✅ F/L 프리셋 설정 완료, 탭 재생성됨 (프리셋 목록 갱신 생략)");
                 }
             }
             else // EVENT 탭 (기본)

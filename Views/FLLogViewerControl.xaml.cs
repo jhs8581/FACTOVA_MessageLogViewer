@@ -93,6 +93,29 @@ namespace FACTOVA_MessageLogViewer.Views
         }
 
         /// <summary>
+        /// 프리셋 변경 후 탭 재생성 (MainWindow에서 호출)
+        /// </summary>
+        public void RefreshTabs()
+        {
+            if (!isInitialized || logEntries.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine("⚠️ RefreshTabs: 초기화되지 않았거나 로그가 없음");
+                return;
+            }
+
+            System.Diagnostics.Debug.WriteLine("🔄 RefreshTabs: 프리셋 변경으로 탭 재생성");
+            
+            // 탭 재생성
+            CreateTabs();
+            
+            // 상태 업데이트
+            UpdateStatus();
+            
+            // Auto Fit 적용
+            Dispatcher.BeginInvoke(new Action(ApplyAutoFit), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        /// <summary>
         /// 설정으로 초기화 (MainWindow에서 호출) - 실시간 감지 없음
         /// </summary>
         public async Task InitializeAsync(string directory, DateTime date)
@@ -172,9 +195,20 @@ namespace FACTOVA_MessageLogViewer.Views
             System.Diagnostics.Debug.WriteLine($"📊 F/L UnifiedPreset.CurrentPreset: {UnifiedPresetManager.CurrentPreset.Name}");
             System.Diagnostics.Debug.WriteLine($"📊 F/L UnifiedPreset.FLSettings: {(UnifiedPresetManager.CurrentPreset.FLSettings != null ? $"있음 (탭: {UnifiedPresetManager.CurrentPreset.FLSettings.TabSettings?.Tabs?.Count ?? 0}개)" : "없음")}");
 
+            // 각 탭 정보 상세 출력
+            foreach (var tab in enabledTabs)
+            {
+                System.Diagnostics.Debug.WriteLine($"   📁 탭: {tab.Name}, IsIntegrated={tab.IsIntegrated}, TagGroups={tab.TagGroups.Count}개, TagItems={tab.TagItems.Count}개");
+                foreach (var group in tab.TagGroups)
+                {
+                    System.Diagnostics.Debug.WriteLine($"      📂 그룹: {group.GroupName}, Tags={group.Tags.Count}개");
+                }
+            }
+
             // 탭이 없으면 기본 통합 탭 생성
             if (enabledTabs.Count == 0)
             {
+                System.Diagnostics.Debug.WriteLine($"⚠️ 탭이 없어서 기본 통합 탭 생성");
                 enabledTabs.Add(new FLTabConfig
                 {
                     Name = "📊 전체 로그",
@@ -211,11 +245,23 @@ namespace FACTOVA_MessageLogViewer.Views
             // 그룹별 마지막 순번 추적
             var groupLastTagOrder = new Dictionary<string, int>();
 
+            System.Diagnostics.Debug.WriteLine($"🔍 CreateTabItem: {tabConfig.Name}, logEntries={logEntries.Count}개, TagItems={tabConfig.TagItems.Count}개");
+
             // 탭에 맞는 로그 필터링 및 순서 검증
+            int matchCount = 0;
             foreach (var entry in logEntries)
             {
                 if (IsEntryMatchesTab(entry, tabConfig))
                 {
+                    matchCount++;
+                    
+                    // 통합 탭이면 검증 없이 추가
+                    if (tabConfig.IsIntegrated)
+                    {
+                        tabEntries.Add(entry);
+                        continue;
+                    }
+                    
                     // 엔트리가 속한 그룹 및 태그 순번 찾기
                     var (group, tagOrder) = FindMatchingGroupAndOrder(entry, tabConfig);
                     if (group != null)
@@ -231,20 +277,23 @@ namespace FACTOVA_MessageLogViewer.Views
 
                         int maxOrder = group.Tags.Count;
                         int lastOrder = groupLastTagOrder[group.GroupName];
-                        int expectedOrder = (lastOrder % maxOrder) + 1; // 1~maxOrder 순환
 
-                        entry.ExpectedTagOrder = expectedOrder;
                         entry.PreviousTagOrder = lastOrder;
 
-                        // 첫 번째 엔트리는 항상 유효
+                        // 첫 번째 엔트리는 항상 유효 (어떤 순번이든 시작점으로 간주)
                         if (lastOrder == 0)
                         {
-                            entry.IsSequenceValid = true;
+                            entry.IsStepOrderValid = true;
+                            entry.ExpectedTagOrder = entry.TagOrder;
                         }
                         else
                         {
+                            // 다음 기대 순번 계산: lastOrder 다음 순번 (순환)
+                            int expectedOrder = (lastOrder % maxOrder) + 1;
+                            entry.ExpectedTagOrder = expectedOrder;
+                            
                             // 현재 TagOrder가 기대값과 일치하는지 확인
-                            entry.IsSequenceValid = (entry.TagOrder == expectedOrder);
+                            entry.IsStepOrderValid = (entry.TagOrder == expectedOrder);
                         }
 
                         groupLastTagOrder[group.GroupName] = entry.TagOrder;
@@ -253,6 +302,8 @@ namespace FACTOVA_MessageLogViewer.Views
                     tabEntries.Add(entry);
                 }
             }
+
+            System.Diagnostics.Debug.WriteLine($"   ✅ {tabConfig.Name}: {matchCount}개 매칭, {tabEntries.Count}개 추가됨");
 
             // DataGrid 생성
             var dataGrid = CreateDataGrid();
@@ -329,7 +380,7 @@ namespace FACTOVA_MessageLogViewer.Views
             dataGrid.Columns.Add(CreateTextColumn("#", "RowNumber", 60, HorizontalAlignment.Center, "#666666", "Consolas"));
             dataGrid.Columns.Add(CreateTextColumn("시간대", "Hour", 50, HorizontalAlignment.Center, "#FF9800", null, FontWeights.Bold));
             dataGrid.Columns.Add(CreateTextColumn("시간", "TimeString", 100, HorizontalAlignment.Left, null, "Consolas"));
-            dataGrid.Columns.Add(CreateTextColumn("그룹", "TagGroupName", 100, HorizontalAlignment.Center, "#00897B", null, FontWeights.SemiBold)); // 청록색
+            dataGrid.Columns.Add(CreateTextColumn("그룹", "TagGroupName", 150, HorizontalAlignment.Left, "#00897B", null, FontWeights.SemiBold)); // 청록색, 좌측정렬
             dataGrid.Columns.Add(CreateTextColumn("순번", "TagOrder", 50, HorizontalAlignment.Center, "#9C27B0", "Consolas", FontWeights.Bold));
             dataGrid.Columns.Add(CreateTextColumn("태그명", "TagName", 300, HorizontalAlignment.Left, null, "Consolas"));
             dataGrid.Columns.Add(CreateTextColumn("태그설명", "TagDescription", 120, HorizontalAlignment.Left, "#7B1FA2"));
@@ -544,8 +595,11 @@ namespace FACTOVA_MessageLogViewer.Views
             // TagItems 중 하나라도 매칭되면 표시
             foreach (var tagItem in tabConfig.TagItems)
             {
-                // 태그명 일치 확인
-                if (entry.TagName.Contains(tagItem.TagName, StringComparison.OrdinalIgnoreCase))
+                // 태그명 일치 확인 (정확히 일치하거나 포함)
+                bool tagNameMatch = entry.TagName.Equals(tagItem.TagName, StringComparison.OrdinalIgnoreCase) ||
+                                   entry.TagName.Contains(tagItem.TagName, StringComparison.OrdinalIgnoreCase);
+                
+                if (tagNameMatch)
                 {
                     // 값 필터가 있으면 값도 확인
                     if (!string.IsNullOrEmpty(tagItem.ValueFilter))
@@ -756,8 +810,8 @@ namespace FACTOVA_MessageLogViewer.Views
                     }
                 }
 
-                // 스텝 순번 검증
-                ValidateStepOrder(allEntries);
+                // 스텝 순번 검증은 CreateTabItem에서 탭별로 수행 (여기서는 제거)
+                // ValidateStepOrder는 탭 구분 없이 전체 로그를 검증하므로 잘못된 결과 발생
 
                 UpdateLoadingStatus($"{allEntries.Count}개 로그 추가 중...");
 
@@ -1026,8 +1080,8 @@ namespace FACTOVA_MessageLogViewer.Views
                         return false;
                 }
 
-                // 순서 오류 필터
-                if (showOnlyErrors && entry.IsSequenceValid)
+                // 순서 오류 필터 (IsStepOrderValid 사용)
+                if (showOnlyErrors && entry.IsStepOrderValid)
                     return false;
 
                 // 타입 필터
@@ -1107,14 +1161,10 @@ namespace FACTOVA_MessageLogViewer.Views
             // 그룹별로 나눠서 검증
             var groups = orderedEntries.GroupBy(e => string.IsNullOrEmpty(e.TagGroupName) ? "" : e.TagGroupName).ToList();
 
-            System.Diagnostics.Debug.WriteLine($"🔍 순번 검증 시작: {groups.Count}개 그룹, {orderedEntries.Count}개 엔트리");
-
             foreach (var group in groups)
             {
                 var groupName = string.IsNullOrEmpty(group.Key) ? "기본" : group.Key;
                 var groupEntries = group.ToList();
-                
-                System.Diagnostics.Debug.WriteLine($"   그룹 '{groupName}': {groupEntries.Count}개 엔트리");
 
                 // 그룹 내 최대 순번 찾기 (순환 체크를 위해)
                 int maxOrder = groupEntries.Max(e => e.TagOrder);
@@ -1140,7 +1190,6 @@ namespace FACTOVA_MessageLogViewer.Views
                         if (current.TagOrder != expectedOrder)
                         {
                             current.IsStepOrderValid = false;
-                            System.Diagnostics.Debug.WriteLine($"      ❌ 순번 오류: #{current.RowNumber} [{groupName}] {current.TagName} (기대: {expectedOrder}, 실제: {current.TagOrder})");
                         }
                     }
                 }

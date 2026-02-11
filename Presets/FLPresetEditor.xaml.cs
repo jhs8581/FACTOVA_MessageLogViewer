@@ -1,5 +1,6 @@
 ﻿using FACTOVA_MessageLogViewer.Models;
 using FACTOVA_MessageLogViewer.Popup;
+using FACTOVA_MessageLogViewer.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -416,6 +417,84 @@ namespace FACTOVA_MessageLogViewer.Presets
             
             // 그룹 목록 UI 업데이트
             itemsConditionGroups.ItemsSource = selectedTab.TagGroups;
+        }
+
+        /// <summary>
+        /// 패턴 자동 분석 버튼 클릭
+        /// </summary>
+        private void BtnAutoAnalyzePattern_Click(object sender, RoutedEventArgs e)
+        {
+            if (GetCurrentLogEntries == null)
+            {
+                MessageBox.Show("현재 로드된 F/L 로그가 없습니다.\n먼저 F/L 뷰어에서 로그를 로드해주세요.", 
+                    "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var entries = GetCurrentLogEntries().ToList();
+            if (entries.Count == 0)
+            {
+                MessageBox.Show("분석할 로그가 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // 패턴 분석 수행
+            var analysisResult = TagPatternAnalyzer.AnalyzeEntries(entries);
+
+            if (analysisResult.Tabs.Count == 0)
+            {
+                MessageBox.Show("분석 가능한 패턴을 찾지 못했습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // 미리보기 팝업 표시 (사용자가 선택/해제 가능)
+            var previewPopup = new PatternAnalysisPreviewPopup(analysisResult);
+            previewPopup.Owner = this;
+
+            if (previewPopup.ShowDialog() != true)
+                return;
+
+            // 팝업에서 필터링된 결과 사용
+            var filteredResult = previewPopup.Result;
+
+            // 탭 설정 적용
+            tabConfigs.Clear();
+            foreach (var tab in filteredResult.Tabs)
+            {
+                tabConfigs.Add(tab);
+            }
+
+            // 태그 설명도 업데이트 (기존 유지, 새로 추가)
+            var existingTags = tagConfigs.ToDictionary(t => t.TagName, t => t);
+            int order = tagConfigs.Count;
+
+            foreach (var tagConfig in filteredResult.TagConfigs)
+            {
+                if (!existingTags.ContainsKey(tagConfig.TagName))
+                {
+                    tagConfig.Order = ++order;
+                    tagConfigs.Add(tagConfig);
+                }
+                else
+                {
+                    // 기존 태그에 설명이 없으면 자동 생성된 설명 적용
+                    var existing = existingTags[tagConfig.TagName];
+                    if (string.IsNullOrEmpty(existing.DisplayName) && !string.IsNullOrEmpty(tagConfig.DisplayName))
+                    {
+                        existing.DisplayName = tagConfig.DisplayName;
+                    }
+                }
+            }
+
+            // UI 갱신
+            listBoxTabs.ItemsSource = null;
+            listBoxTabs.ItemsSource = tabConfigs;
+            if (tabConfigs.Count > 0)
+                listBoxTabs.SelectedIndex = 0;
+
+            dgTags.Items.Refresh();
+
+            MessageBox.Show(filteredResult.Summary, "자동 분석 완료", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void BtnAddGroup_Click(object sender, RoutedEventArgs e)
