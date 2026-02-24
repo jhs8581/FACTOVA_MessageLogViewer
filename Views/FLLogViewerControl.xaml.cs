@@ -58,6 +58,12 @@ namespace FACTOVA_MessageLogViewer.Views
             @"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+\[(\w+)\]\s+\[([^\]]+)\]\s+\[([^\]]+)\]\s+(\S+)\s*:\s*(.*)$",
             RegexOptions.Compiled | RegexOptions.Multiline);
 
+        // 범용 로그 파싱 패턴: 2026-02-24 14:00:01.603 [Info] [CallBizMES] Biz Name - ...
+        // CallBizMES, PCCore 등 [Module] 뒤에 직접 메시지가 오는 형식
+        private static readonly Regex GenericLogLinePattern = new Regex(
+            @"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+\[(\w+)\]\s+\[([^\]]+)\]\s+(.*)$",
+            RegexOptions.Compiled | RegexOptions.Multiline);
+
         // MSGID 추출 패턴: <MSGID=1100>
         private static readonly Regex MsgIdPattern = new Regex(
             @"<MSGID=([^>]+)>",
@@ -988,21 +994,78 @@ namespace FACTOVA_MessageLogViewer.Views
                                 currentEntry.Timestamp = DateTime.MinValue;
                             }
                         }
-                        else if (currentEntry != null && currentEntry.IsStructure)
+                        else
                         {
-                            // Structure의 필드 라인 파싱
-                            rawLineBuilder.AppendLine(line);
-                            
-                            var fieldMatch = fieldPattern.Match(line.Trim());
-                            if (fieldMatch.Success)
+                            // 범용 패턴 시도: [Timestamp] [Level] [Module] Message
+                            var genericMatch = GenericLogLinePattern.Match(line);
+                            if (genericMatch.Success)
                             {
-                                var fieldName = fieldMatch.Groups[1].Value.Trim();
-                                var fieldValue = fieldMatch.Groups[2].Value.Trim();
-                                
-                                if (!currentEntry.Fields.ContainsKey(fieldName))
+                                // 이전 엔트리 저장
+                                if (currentEntry != null)
                                 {
-                                    currentEntry.Fields[fieldName] = fieldValue;
+                                    currentEntry.RawLine = rawLineBuilder.ToString();
+                                    entries.Add(currentEntry);
                                 }
+
+                                // 메시지에서 태그명 추출 시도 (첫 단어 또는 전체 메시지)
+                                var message = genericMatch.Groups[4].Value.Trim();
+                                var tagName = message;
+                                var value = "";
+
+                                // "키워드 - 값" 또는 "키워드 : 값" 형태 파싱
+                                var separatorIndex = message.IndexOfAny(new[] { ':', '-' });
+                                if (separatorIndex > 0)
+                                {
+                                    tagName = message.Substring(0, separatorIndex).Trim();
+                                    value = message.Substring(separatorIndex + 1).Trim();
+                                }
+
+                                // 새 엔트리 시작
+                                currentEntry = new FLLogEntry
+                                {
+                                    SourceFile = fileName,
+                                    Hour = hour,
+                                    Level = genericMatch.Groups[2].Value,
+                                    ModuleName = genericMatch.Groups[3].Value,
+                                    TagName = tagName,
+                                    DataType = "Generic", // 범용 타입
+                                    Value = value
+                                };
+
+                                rawLineBuilder.Clear();
+                                rawLineBuilder.AppendLine(line);
+
+                                // 타임스탬프 파싱
+                                if (DateTime.TryParse(genericMatch.Groups[1].Value, out DateTime timestamp))
+                                {
+                                    currentEntry.Timestamp = timestamp;
+                                }
+                                else
+                                {
+                                    currentEntry.Timestamp = DateTime.MinValue;
+                                }
+                            }
+                            else if (currentEntry != null && currentEntry.IsStructure)
+                            {
+                                // Structure의 필드 라인 파싱
+                                rawLineBuilder.AppendLine(line);
+
+                                var fieldMatch = fieldPattern.Match(line.Trim());
+                                if (fieldMatch.Success)
+                                {
+                                    var fieldName = fieldMatch.Groups[1].Value.Trim();
+                                    var fieldValue = fieldMatch.Groups[2].Value.Trim();
+
+                                    if (!currentEntry.Fields.ContainsKey(fieldName))
+                                    {
+                                        currentEntry.Fields[fieldName] = fieldValue;
+                                    }
+                                }
+                            }
+                            else if (currentEntry != null)
+                            {
+                                // 범용 로그의 멀티라인 데이터 (JSON, XML 등)
+                                rawLineBuilder.AppendLine(line);
                             }
                         }
                     }
