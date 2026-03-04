@@ -295,11 +295,13 @@ namespace FACTOVA_MessageLogViewer
                 settingsWindow.GetCurrentLogEntries = () => flLogViewer.GetLogEntries();
                 if (settingsWindow.ShowDialog() == true)
                 {
+                    // 프리셋 목록 갱신
+                    logSettings.LoadPresetList();
+
                     // F/L 뷰어 탭 재생성 (프리셋 적용 반영)
-                    // 주의: LoadPresetList()나 SelectPreset() 호출하면 F/L 로그가 다시 로드되면서 탭이 리셋됨
                     flLogViewer.RefreshTabs();
-                    
-                    System.Diagnostics.Debug.WriteLine($"✅ F/L 프리셋 설정 완료, 탭 재생성됨 (프리셋 목록 갱신 생략)");
+
+                    System.Diagnostics.Debug.WriteLine($"✅ F/L 프리셋 설정 완료, 프리셋 목록 갱신 및 탭 재생성됨");
                 }
             }
             else // EVENT 탭 (기본)
