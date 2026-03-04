@@ -328,12 +328,18 @@ namespace FACTOVA_MessageLogViewer
         {
             // 표시 옵션 저장 (실시간 감지 체크박스 등)
             logSettings.SaveDisplaySettings();
-            
+
             // UserControl들의 리소스 정리
             eventLogViewer?.Cleanup();
             dataLogViewer?.Cleanup();
             exceptionLogViewer?.Cleanup();
-            
+
+            // 현재 로그 디렉토리 저장 (폴더만 선택하고 시작 버튼을 안 눌러도 저장)
+            if (!string.IsNullOrEmpty(logSettings.CurrentLogDirectory))
+            {
+                AppSettingsManager.Settings.LastUsedFolder = logSettings.CurrentLogDirectory;
+            }
+
             // 설정 저장
             AppSettingsManager.SaveCurrent();
         }
