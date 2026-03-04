@@ -827,10 +827,11 @@ namespace FACTOVA_MessageLogViewer.Controls
 
             try
             {
-                foreach (var file in Directory.GetFiles(folder, "*.log", SearchOption.TopDirectoryOnly))
+                // AllDirectories로 변경하여 하위 폴더도 검색
+                foreach (var file in Directory.GetFiles(folder, "*.log", SearchOption.AllDirectories))
                 {
                     var fileName = Path.GetFileName(file);
-                    
+
                     // LGE로 시작하는 파일은 제외 (DATA/EVENT 로그)
                     if (fileName.StartsWith("LGE", StringComparison.OrdinalIgnoreCase))
                         continue;
@@ -842,7 +843,7 @@ namespace FACTOVA_MessageLogViewer.Controls
                         {
                             int month = int.Parse(match.Groups[1].Value);
                             int day = int.Parse(match.Groups[2].Value);
-                            
+
                             if (month < 1 || month > 12 || day < 1 || day > 31)
                                 continue;
 
@@ -851,7 +852,9 @@ namespace FACTOVA_MessageLogViewer.Controls
                             int year = fileInfo.LastWriteTime.Year;
 
                             var date = new DateTime(year, month, day);
-                            
+
+                            System.Diagnostics.Debug.WriteLine($"📅 F/L 파일 발견: {fileName} → {date:yyyy-MM-dd} (년도: {year}, 경로: {Path.GetDirectoryName(file)})");
+
                             // 중복 날짜 제거 (같은 날짜의 여러 시간대 파일이 있으므로)
                             if (!dateSet.Contains(date))
                             {
@@ -859,11 +862,19 @@ namespace FACTOVA_MessageLogViewer.Controls
                                 result.Add(new AvailableDate { Date = date, FilePath = file });
                             }
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"❌ F/L 파일 파싱 실패: {fileName} - {ex.Message}");
+                        }
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ F/L 폴더 검색 실패: {ex.Message}");
+            }
+
+            System.Diagnostics.Debug.WriteLine($"📊 F/L 날짜 검색 결과: {result.Count}개");
             return result;
         }
 
